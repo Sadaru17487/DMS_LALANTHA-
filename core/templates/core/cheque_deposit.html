@@ -1,0 +1,159 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Deposit Cheque - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .confirmation-box {
+        background: #cce5ff;
+        border: 2px solid #b8daff;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    .confirmation-box .icon {
+        font-size: 48px;
+        display: block;
+        margin-bottom: 10px;
+    }
+    .confirmation-box h3 {
+        color: #004085;
+    }
+    .confirmation-box p {
+        color: #004085;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .form-group input, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea { min-height: 60px; resize: vertical; }
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+    .btn-confirm {
+        background: #007bff;
+        color: white;
+        padding: 12px 40px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-confirm:hover { background: #0056b3; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .info-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+    }
+    .info-grid .item .value {
+        font-weight: 600;
+        color: #1a2634;
+    }
+</style>
+
+<div class="container" style="max-width: 600px;">
+    <div class="page-title">
+        <div>
+            <h2>🏦 Deposit Cheque</h2>
+            <span class="subtitle">Mark cheque as deposited to bank</span>
+        </div>
+    </div>
+
+    <div class="confirmation-box">
+        <span class="icon">🏦</span>
+        <h3>Confirm Deposit</h3>
+        <p>You are about to mark this cheque as <strong>Deposited</strong></p>
+    </div>
+
+    <div class="card">
+        <div class="info-grid">
+            <div class="item">
+                <div class="label">Cheque No</div>
+                <div class="value">{{ cheque.cheque_no }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Amount</div>
+                <div class="value" style="color:#28a745;">Rs {{ cheque.amount|floatformat:2 }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Bank</div>
+                <div class="value">{{ cheque.bank.name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Customer</div>
+                <div class="value">{{ cheque.customer_name }}</div>
+            </div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Deposit Date <span class="required">*</span></label>
+                <input type="date" name="deposit_date" value="{{ today|date:'Y-m-d' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Notes (Optional)</label>
+                <textarea name="notes" placeholder="Additional notes..."></textarea>
+            </div>
+
+            <div class="btn-group">
+                <a href="/cheque/detail/{{ cheque.id }}/" class="btn-cancel">← Cancel</a>
+                <button type="submit" class="btn-confirm">✅ Confirm Deposit</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

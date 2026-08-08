@@ -1,0 +1,94 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Discount History - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-grid .card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
+    .summary-grid .card .value.bill { color: #007bff; }
+    .summary-grid .card .value.product { color: #fd7e14; }
+    .summary-grid .card .value.total { color: #dc3545; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📊 Discount History</h2>
+            <span class="subtitle">Track all discounts given</span>
+        </div>
+    </div>
+
+    <form method="GET" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end; background:white; padding:15px; border-radius:12px; margin-bottom:20px;">
+        <div>
+            <label style="font-weight:600; font-size:13px; color:#555;">From:</label>
+            <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <div>
+            <label style="font-weight:600; font-size:13px; color:#555;">To:</label>
+            <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
+        <a href="/reports/discount-history/" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+    </form>
+
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Bill Discounts</div>
+            <div class="value bill">Rs {{ total_bill_discounts|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Product Discounts</div>
+            <div class="value product">Rs {{ total_product_discounts|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Discounts</div>
+            <div class="value total">Rs {{ total_discounts|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="table-container" style="background:white; border-radius:12px; padding:20px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th style="text-align:right;">Bill Discount</th>
+                    <th style="text-align:right;">Product Discounts</th>
+                    <th style="text-align:right;">Total Discount</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in discount_data %}
+                <tr>
+                    <td><strong>{{ item.bill.invoice_no }}</strong></td>
+                    <td>{{ item.bill.shop_name|default:"-" }}</td>
+                    <td style="text-align:right; color:#007bff;">Rs {{ item.bill_discount|floatformat:2 }}</td>
+                    <td style="text-align:right; color:#fd7e14;">Rs {{ item.product_discounts|floatformat:2 }}</td>
+                    <td style="text-align:right; font-weight:700; color:#dc3545;">Rs {{ item.bill_discount|add:item.product_discounts|floatformat:2 }}</td>
+                    <td>{{ item.bill.date|date:"Y-m-d" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No discounts found for this period.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Delete Product - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container" style="max-width: 500px; margin: 0 auto;">
+    <div class="card" style="text-align:center; padding: 40px;">
+        <div style="font-size: 60px; margin-bottom: 20px;">⚠️</div>
+        <h2>Delete Product?</h2>
+        <p style="color: #dc3545; font-size: 18px; margin: 20px 0;">
+            <strong>{{ product.name }}</strong> ({{ product.code }})
+        </p>
+        <p style="color: #666; margin-bottom: 25px;">
+            This action is <strong>permanent</strong> and cannot be undone.
+        </p>
+        
+        <form method="POST">
+            {% csrf_token %}
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <a href="/products/" class="btn" style="background: #6c757d; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none;">Cancel</a>
+                <button type="submit" style="background: #dc3545; color: white; padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">🗑️ Confirm Delete</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

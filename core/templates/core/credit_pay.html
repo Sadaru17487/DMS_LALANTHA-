@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Pay Credit - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .pay-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .info-box {
+        background: #f8f9fc;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    .info-box .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e8ecf2;
+    }
+    .info-box .row:last-child { border-bottom: none; }
+    .info-box .label { color: #666; }
+    .info-box .value { font-weight: 600; color: #1a2634; }
+    .btn-group { display: flex; gap: 15px; margin-top: 25px; }
+    .btn { padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; flex: 1; }
+    .btn-confirm { background: #28a745; color: white; }
+    .btn-confirm:hover { background: #218838; }
+    .btn-cancel { background: #6c757d; color: white; }
+    .btn-cancel:hover { background: #5a6268; }
+</style>
+
+<div class="container pay-container">
+    <div class="page-title">
+        <div>
+            <h2>💰 Confirm Payment</h2>
+            <span class="subtitle">Mark this credit as fully paid</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <p style="color:#777; margin-bottom: 20px;">You are about to mark this credit as fully paid.</p>
+
+        <div class="info-box">
+            <div class="row">
+                <span class="label">Invoice No</span>
+                <span class="value">{{ bill.invoice_no }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Customer</span>
+                <span class="value">{{ customer }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Total Amount</span>
+                <span class="value">Rs {{ bill.net_total|floatformat:2 }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Already Paid</span>
+                <span class="value" style="color:#28a745;">Rs {{ paid_amount|floatformat:2 }}</span>
+            </div>
+            <div class="row" style="font-size:18px; background:#fff3cd; padding:10px; border-radius:6px; margin-top:5px;">
+                <span class="label"><strong>Outstanding</strong></span>
+                <span class="value" style="color:#dc3545;"><strong>Rs {{ outstanding|floatformat:2 }}</strong></span>
+            </div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="btn-group">
+                <a href="/credit-list/" class="btn btn-cancel">Cancel</a>
+                <button type="submit" class="btn btn-confirm">✅ Confirm Payment</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

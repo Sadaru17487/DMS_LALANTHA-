@@ -1,0 +1,224 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Expenses - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.pending { color: #fd7e14; }
+    .summary-grid .card .value.approved { color: #007bff; }
+    .summary-grid .card .value.paid { color: #28a745; }
+    .summary-grid .card .value.rejected { color: #dc3545; }
+    
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.approved { background: #cce5ff; color: #004085; }
+    .badge-status.paid { background: #d4edda; color: #155724; }
+    .badge-status.rejected { background: #f8d7da; color: #721c24; }
+    
+    @media (max-width: 768px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>💰 Expenses</h2>
+            <span class="subtitle">Manage your expenses</span>
+        </div>
+        <a href="/expense/add/" class="btn">+ Add Expense</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Expenses</div>
+            <div class="value total">Rs {{ total_expenses|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Pending</div>
+            <div class="value pending">
+                {% for s in status_breakdown %}
+                    {% if s.status == 'PENDING' %}Rs {{ s.total|floatformat:2 }}{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Approved</div>
+            <div class="value approved">
+                {% for s in status_breakdown %}
+                    {% if s.status == 'APPROVED' %}Rs {{ s.total|floatformat:2 }}{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Paid</div>
+            <div class="value paid">
+                {% for s in status_breakdown %}
+                    {% if s.status == 'PAID' %}Rs {{ s.total|floatformat:2 }}{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Category, Note..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for key, value in categories %}
+                    <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Employee</label>
+            <select name="employee">
+                <option value="">All Employees</option>
+                {% for e in employees %}
+                    <option value="{{ e.id }}" {% if selected_employee == e.id|stringformat:"s" %}selected{% endif %}>
+                        {{ e.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All Status</option>
+                {% for key, value in status_choices %}
+                    <option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/expenses/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ expenses|length }}</strong> expense{{ expenses|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Vehicle</th>
+                    <th>Employee</th>
+                    <th style="text-align:right;">Amount</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ expense.date|date:"Y-m-d" }}</td>
+                    <td><strong>{{ expense.get_category_display }}</strong></td>
+                    <td>{{ expense.note|default:"-"|truncatechars:30 }}</td>
+                    <td>{{ expense.vehicle.vehicle_number|default:"-" }}</td>
+                    <td>{{ expense.employee.name|default:"-" }}</td>
+                    <td style="text-align:right; font-weight:600;">Rs {{ expense.amount|floatformat:2 }}</td>
+                    <td>{{ expense.get_payment_method_display }}</td>
+                    <td>
+                        <span class="badge-status {{ expense.status|lower }}">
+                            {{ expense.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/expense/detail/{{ expense.id }}/" class="view" title="View">👁️</a>
+                            <a href="/expense/edit/{{ expense.id }}/" class="edit" title="Edit">✏️</a>
+                            {% if expense.status == 'PENDING' %}
+                                <a href="/expense/approve/{{ expense.id }}/" class="pay" title="Approve" onclick="return confirm('Approve this expense?')">✅</a>
+                                <a href="/expense/reject/{{ expense.id }}/" class="delete" title="Reject">❌</a>
+                            {% elif expense.status == 'APPROVED' %}
+                                <a href="/expense/pay/{{ expense.id }}/" class="pay" title="Mark Paid" onclick="return confirm('Mark this expense as paid?')">💰</a>
+                            {% endif %}
+                            <a href="/expense/delete/{{ expense.id }}/" class="delete" title="Delete" onclick="return confirm('Delete this expense?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="empty-state"> 
+                        <span class="icon">📭</span>
+                        No expenses found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add your first expense using the "Add Expense" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

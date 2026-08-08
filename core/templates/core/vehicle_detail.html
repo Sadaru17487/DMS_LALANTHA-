@@ -1,0 +1,289 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Vehicle Details - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+    }
+    .detail-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .detail-grid .item .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1a2634;
+        margin-top: 3px;
+    }
+    .detail-grid .item .value .badge-status {
+        font-size: 13px;
+    }
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.complete { background: #d4edda; color: #155724; }
+    .badge-status.warning { background: #fff3cd; color: #856404; }
+    .badge-status.pending { background: #e2e3e5; color: #383d41; }
+    .badge-status.danger { background: #f8d7da; color: #721c24; }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .summary-grid .card {
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 20px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.green { color: #28a745; }
+    .summary-grid .card .value.blue { color: #007bff; }
+    .summary-grid .card .value.red { color: #dc3545; }
+    .summary-grid .card .value.orange { color: #fd7e14; }
+    
+    .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border-left: 4px solid #ffc107;
+    }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🚛 Vehicle Details</h2>
+            <span class="subtitle">{{ vehicle.vehicle_number }} - {{ vehicle.driver_name }}</span>
+        </div>
+        <div>
+            <a href="/vehicle/edit/{{ vehicle.id }}/" class="btn" style="background:#fd7e14;">✏️ Edit</a>
+            <a href="/vehicles/" class="btn" style="background:#6c757d;">← Back</a>
+        </div>
+    </div>
+
+    <!-- Expiry Alerts -->
+    {% if vehicle.is_insurance_expiring_soon %}
+    <div class="alert-warning">
+        ⚠️ <strong>Insurance Expiring Soon!</strong> Insurance expires on {{ vehicle.insurance_expiry|date:"Y-m-d" }} ({{ vehicle.insurance_expiry|timeuntil }})
+    </div>
+    {% endif %}
+    {% if vehicle.is_registration_expiring_soon %}
+    <div class="alert-warning">
+        ⚠️ <strong>Registration Expiring Soon!</strong> Registration expires on {{ vehicle.registration_expiry|date:"Y-m-d" }} ({{ vehicle.registration_expiry|timeuntil }})
+    </div>
+    {% endif %}
+
+    <!-- Vehicle Info -->
+    <div class="card">
+        <div class="detail-grid">
+            <div class="item">
+                <div class="label">Vehicle Number</div>
+                <div class="value">{{ vehicle.vehicle_number }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Type</div>
+                <div class="value">{{ vehicle.get_vehicle_type_display }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Driver</div>
+                <div class="value">{{ vehicle.driver_name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Status</div>
+                <div class="value">
+                    <span class="badge-status {{ vehicle.get_status_badge }}">
+                        {{ vehicle.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="item">
+                <div class="label">Registration No</div>
+                <div class="value">{{ vehicle.registration_number|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Registration Expiry</div>
+                <div class="value">{{ vehicle.registration_expiry|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Insurance Expiry</div>
+                <div class="value">{{ vehicle.insurance_expiry|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Last Service</div>
+                <div class="value">{{ vehicle.last_service_date|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Mileage</div>
+                <div class="value">{{ vehicle.mileage|default:"-" }} km</div>
+            </div>
+            <div class="item">
+                <div class="label">Fuel Type</div>
+                <div class="value">{{ vehicle.get_fuel_type_display }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Capacity</div>
+                <div class="value">{{ vehicle.capacity|default:"-" }} {% if vehicle.capacity %}tons/liters{% endif %}</div>
+            </div>
+            <div class="item">
+                <div class="label">Purchase Date</div>
+                <div class="value">{{ vehicle.purchase_date|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Purchase Price</div>
+                <div class="value">{% if vehicle.purchase_price %}Rs {{ vehicle.purchase_price|floatformat:2 }}{% else %}-{% endif %}</div>
+            </div>
+            <div class="item">
+                <div class="label">Current Value</div>
+                <div class="value">{% if vehicle.current_value %}Rs {{ vehicle.current_value|floatformat:2 }}{% else %}-{% endif %}</div>
+            </div>
+        </div>
+        {% if vehicle.notes %}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e8ecf2;">
+            <div class="label" style="font-size:12px; color:#888; font-weight:600; text-transform:uppercase;">Notes</div>
+            <div style="margin-top:5px; color:#555;">{{ vehicle.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Expenses</div>
+            <div class="value red">Rs {{ total_expenses|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Sales</div>
+            <div class="value green">Rs {{ total_sales|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Net Performance</div>
+            <div class="value {% if net_performance >= 0 %}green{% else %}red{% endif %}">
+                Rs {{ net_performance|floatformat:2 }}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Active Status</div>
+            <div class="value blue">
+                {% if vehicle.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="card">
+        <h3>💸 Expense History</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in expenses %}
+                    <tr>
+                        <td>{{ exp.date|date:"Y-m-d" }}</td>
+                        <td>{{ exp.get_category_display }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ exp.amount|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge-status {{ exp.status|lower }}">
+                                {{ exp.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align:center;color:#999;">No expenses recorded for this vehicle.</td></tr>
+                    {% endfor %}
+                    {% if expenses %}
+                    <tr class="total-row" style="background:#f8f9fc; font-weight:700;">
+                        <td colspan="2"></td>
+                        <td style="text-align:right;">Total:</td>
+                        <td style="text-align:right; color:#dc3545;">Rs {{ total_expenses|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sales -->
+    <div class="card">
+        <h3>🧾 Sales History</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr>
+                        <td><a href="/sales-detail/{{ sale.id }}/" style="color:#007bff; text-decoration:none;">{{ sale.invoice_no }}</a></td>
+                        <td>{{ sale.date|date:"Y-m-d" }}</td>
+                        <td>{{ sale.shop_name|default:"N/A" }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ sale.net_total|floatformat:2 }}</td>
+                        <td>
+                            <span class="badge-status {{ sale.status|lower }}">
+                                {{ sale.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" style="text-align:center;color:#999;">No sales from this vehicle.</td></tr>
+                    {% endfor %}
+                    {% if sales %}
+                    <tr class="total-row" style="background:#f8f9fc; font-weight:700;">
+                        <td colspan="3"></td>
+                        <td style="text-align:right;">Total:</td>
+                        <td style="text-align:right; color:#28a745;">Rs {{ total_sales|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Expense - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .form-group label .required {
+        color: #dc3545;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .form-group .help-text {
+        font-size: 12px;
+        color: #888;
+    }
+    .full-width { grid-column: 1 / -1; }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .btn-save {
+        background: #28a745;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-save:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container" style="max-width: 800px;">
+    <div class="page-title">
+        <div>
+            <h2>{{ action }} Expense</h2>
+            <span class="subtitle">{% if expense %}Update{% else %}Create a new{% endif %} expense entry</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-grid">
+                <!-- Date -->
+                <div class="form-group">
+                    <label>Date <span class="required">*</span></label>
+                    <input type="date" name="date" value="{{ expense.date|date:'Y-m-d'|default:today|date:'Y-m-d' }}" required>
+                </div>
+                <!-- Category -->
+                <div class="form-group">
+                    <label>Category <span class="required">*</span></label>
+                    <select name="category" required>
+                        <option value="">-- Select Category --</option>
+                        {% for key, value in categories %}
+                            <option value="{{ key }}" {% if expense.category == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Vehicle -->
+                <div class="form-group">
+                    <label>Vehicle</label>
+                    <select name="vehicle">
+                        <option value="">-- None --</option>
+                        {% for v in vehicles %}
+                            <option value="{{ v.id }}" {% if expense.vehicle.id == v.id %}selected{% endif %}>
+                                {{ v.vehicle_number }} - {{ v.driver_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <span class="help-text">Select vehicle if expense is vehicle-related</span>
+                </div>
+                <!-- Employee -->
+                <div class="form-group">
+                    <label>Employee</label>
+                    <select name="employee">
+                        <option value="">-- None --</option>
+                        {% for e in employees %}
+                            <option value="{{ e.id }}" {% if expense.employee.id == e.id %}selected{% endif %}>
+                                {{ e.name }} ({{ e.get_position_display }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <span class="help-text">Select employee if expense is employee-related</span>
+                </div>
+                <!-- Amount -->
+                <div class="form-group">
+                    <label>Amount (Rs) <span class="required">*</span></label>
+                    <input type="number" step="0.01" name="amount" value="{{ expense.amount|default:'' }}" placeholder="0.00" required>
+                </div>
+                <!-- Payment Method -->
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select name="payment_method">
+                        {% for key, value in payment_methods %}
+                            <option value="{{ key }}" {% if expense.payment_method == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Invoice No -->
+                <div class="form-group">
+                    <label>Invoice / Reference No</label>
+                    <input type="text" name="invoice_no" value="{{ expense.invoice_no|default:'' }}" placeholder="Optional">
+                </div>
+                <!-- Status -->
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status">
+                        {% for key, value in status_choices %}
+                            <option value="{{ key }}" {% if expense.status == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Notes -->
+                <div class="form-group full-width">
+                    <label>Notes</label>
+                    <textarea name="note" rows="3" placeholder="Additional details...">{{ expense.note|default:'' }}</textarea>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn-save">✅ Save Expense</button>
+                <a href="/expenses/" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

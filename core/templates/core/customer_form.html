@@ -1,0 +1,188 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Customer - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .form-group label .required {
+        color: #dc3545;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .form-group .help-text {
+        font-size: 12px;
+        color: #888;
+    }
+    .full-width { grid-column: 1 / -1; }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #007bff;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .btn-save {
+        background: #28a745;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-save:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container" style="max-width: 800px;">
+    <div class="page-title">
+        <div>
+            <h2>{{ action }} Customer</h2>
+            <span class="subtitle">{% if customer %}Update{% else %}Create a new{% endif %} customer</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-grid">
+                <!-- Name -->
+                <div class="form-group">
+                    <label>Customer Name <span class="required">*</span></label>
+                    <input type="text" name="name" value="{{ customer.name|default:'' }}" required>
+                </div>
+                <!-- Code -->
+                <div class="form-group">
+                    <label>Customer Code</label>
+                    <input type="text" name="code" value="{{ customer.code|default:'' }}" placeholder="Leave blank for auto-generate">
+                    <span class="help-text">Leave blank to auto-generate (CUST-XXXX)</span>
+                </div>
+                <!-- Type -->
+                <div class="form-group">
+                    <label>Customer Type <span class="required">*</span></label>
+                    <select name="customer_type" required>
+                        {% for key, value in customer_types %}
+                            <option value="{{ key }}" {% if customer.customer_type == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Phone -->
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" name="phone" value="{{ customer.phone|default:'' }}">
+                </div>
+                <!-- Email -->
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" value="{{ customer.email|default:'' }}">
+                </div>
+                <!-- City -->
+                <div class="form-group">
+                    <label>City</label>
+                    <input type="text" name="city" value="{{ customer.city|default:'' }}">
+                </div>
+                <!-- Address -->
+                <div class="form-group full-width">
+                    <label>Address</label>
+                    <textarea name="address" rows="2">{{ customer.address|default:'' }}</textarea>
+                </div>
+                <!-- Tax Number -->
+                <div class="form-group">
+                    <label>Tax / VAT Number</label>
+                    <input type="text" name="tax_number" value="{{ customer.tax_number|default:'' }}">
+                    <span class="help-text">Customer's tax registration number</span>
+                </div>
+                <!-- Credit Limit -->
+                <div class="form-group">
+                    <label>Credit Limit (Rs)</label>
+                    <input type="number" step="0.01" name="credit_limit" value="{{ customer.credit_limit|default:'0' }}">
+                    <span class="help-text">0 = Unlimited credit</span>
+                </div>
+                <!-- Notes -->
+                <div class="form-group full-width">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="3">{{ customer.notes|default:'' }}</textarea>
+                </div>
+                <!-- Active Status -->
+                <div class="form-group full-width">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="is_active" {% if customer.is_active or customer is None %}checked{% endif %}>
+                        <label style="font-weight:600; cursor:pointer;">Active</label>
+                    </div>
+                    <span class="help-text">Inactive customers won't appear in sales dropdown</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn-save">✅ Save Customer</button>
+                <a href="/customers/" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

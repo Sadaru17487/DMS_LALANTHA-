@@ -1,0 +1,100 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Bounced Cheque Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-grid .card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.charges { color: #fd7e14; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📊 Bounced Cheque Report</h2>
+            <span class="subtitle">List of all bounced cheques</span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end; background:white; padding:15px; border-radius:12px; margin-bottom:20px;">
+        <div>
+            <label style="font-weight:600; font-size:13px; color:#555;">From:</label>
+            <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <div>
+            <label style="font-weight:600; font-size:13px; color:#555;">To:</label>
+            <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
+        <a href="/reports/bounced-cheques/" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+    </form>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Bounced Cheques</div>
+            <div class="value total">{{ count }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Amount</div>
+            <div class="value total">Rs {{ total_bounced_amount|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Bank Charges</div>
+            <div class="value charges">Rs {{ total_bank_charges|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container" style="background:white; border-radius:12px; padding:20px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th>Cheque No</th>
+                    <th>Customer</th>
+                    <th>Bank</th>
+                    <th style="text-align:right;">Amount</th>
+                    <th>Bounce Date</th>
+                    <th>Reason</th>
+                    <th style="text-align:right;">Bank Charge</th>
+                    <th>Bounced By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cheque in cheques %}
+                <tr>
+                    <td><strong>{{ cheque.cheque_no }}</strong></td>
+                    <td>{{ cheque.customer_name }}</td>
+                    <td>{{ cheque.bank.name }}</td>
+                    <td style="text-align:right; font-weight:600;">Rs {{ cheque.amount|floatformat:2 }}</td>
+                    <td>{{ cheque.bounced_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ cheque.get_bounce_reason_display|default:cheque.bounce_reason }}</td>
+                    <td style="text-align:right;">{% if cheque.bank_charge_amount > 0 %}Rs {{ cheque.bank_charge_amount|floatformat:2 }}{% else %}-{% endif %}</td>
+                    <td>{{ cheque.bounced_by.username|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No bounced cheques found for this period.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

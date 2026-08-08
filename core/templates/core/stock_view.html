@@ -1,0 +1,182 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Stock View - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .stock-summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .stock-summary .summary-card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .stock-summary .summary-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .stock-summary .summary-card .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .stock-summary .summary-card .value.green { color: #28a745; }
+    .stock-summary .summary-card .value.blue { color: #007bff; }
+    .stock-summary .summary-card .value.purple { color: #6f42c1; }
+    .stock-summary .summary-card .value.orange { color: #fd7e14; }
+    
+    .stock-badge {
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .stock-badge.high { background: #d4edda; color: #155724; }
+    .stock-badge.medium { background: #fff3cd; color: #856404; }
+    .stock-badge.low { background: #f8d7da; color: #721c24; }
+    
+    .vehicle-tag {
+        display: inline-block;
+        background: #e8ecf2;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        margin: 2px 3px;
+    }
+    .vehicle-tag .qty {
+        font-weight: 600;
+        color: #007bff;
+    }
+    
+    @media (max-width: 768px) {
+        .stock-summary { grid-template-columns: 1fr 1fr; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📊 Stock View</h2>
+            <span class="subtitle">Warehouse and vehicle stock overview</span>
+        </div>
+        <a href="/products/" class="btn" style="background:#6c757d;">← Back to Products</a>
+    </div>
+
+    <!-- Stock Summary -->
+    <div class="stock-summary">
+        <div class="summary-card">
+            <div class="label">Total Products</div>
+            <div class="value blue">{{ total_products }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Warehouse Stock</div>
+            <div class="value green">{{ total_warehouse|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Vehicle Stock</div>
+            <div class="value purple">{{ total_vehicle|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Total Stock (All)</div>
+            <div class="value orange">{{ total_stock_all|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Name or Code..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/stock/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product</th>
+                    <th>Code</th>
+                    <th style="text-align:center;">Warehouse</th>
+                    <th style="text-align:center;">Vehicle</th>
+                    <th style="text-align:center;">Total</th>
+                    <th>Status</th>
+                    <th>Vehicles</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in stock_data %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ item.product.name }}</strong></td>
+                    <td>{{ item.product.code }}</td>
+                    <td style="text-align:center; font-weight:600;">{{ item.warehouse_stock|floatformat:2 }}</td>
+                    <td style="text-align:center; font-weight:600; color:#6f42c1;">{{ item.vehicle_stock|floatformat:2 }}</td>
+                    <td style="text-align:center; font-weight:700; 
+                        {% if item.total_stock > 50 %}color:#28a745;
+                        {% elif item.total_stock > 10 %}color:#fd7e14;
+                        {% else %}color:#dc3545;{% endif %}">
+                        {{ item.total_stock|floatformat:2 }}
+                    </td>
+                    <td>
+                        {% if item.total_stock > 50 %}
+                            <span class="stock-badge high">High</span>
+                        {% elif item.total_stock > 10 %}
+                            <span class="stock-badge medium">Medium</span>
+                        {% else %}
+                            <span class="stock-badge low">Low</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for v in item.vehicle_details %}
+                            <span class="vehicle-tag">
+                                {{ v.vehicle }} <span class="qty">({{ v.quantity|floatformat:2 }})</span>
+                            </span>
+                        {% empty %}
+                            <span style="color:#999; font-size:12px;">No vehicle stock</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">📭</span>
+                        No products found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add products to see stock information.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}
+

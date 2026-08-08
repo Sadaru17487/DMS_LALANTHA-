@@ -1,0 +1,77 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}User Management - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>👥 User Management</h2>
+            <span class="subtitle">Manage system users and permissions</span>
+        </div>
+        <a href="/register/" class="btn">+ Add New User</a>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>{{ user.username }}</strong></td>
+                    <td>
+                        <span class="badge-status" style="background:#cce5ff; color:#004085;">
+                            {{ user.profile.role }}
+                        </span>
+                    </td>
+                    <td>{{ user.profile.phone|default:"-" }}</td>
+                    <td>
+                        <span class="badge-status {% if user.is_active %}complete{% else %}pending{% endif %}">
+                            {% if user.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ user.profile.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        {% if user != request.user %}
+                            {% if user.is_active %}
+                                <a href="{% url 'core:toggle_user' user.id %}" class="action-icons">
+                                    <span class="delete" title="Disable">🔴</span>
+                                </a>
+                            {% else %}
+                                <a href="{% url 'core:toggle_user' user.id %}" class="action-icons">
+                                    <span class="pay" title="Enable">🟢</span>
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <span style="color:#999; font-size:12px;">You</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <span class="icon">👤</span>
+                        No users found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

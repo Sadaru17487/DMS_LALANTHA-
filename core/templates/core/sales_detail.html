@@ -1,0 +1,169 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sale Details - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .info-grid .item .label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; }
+    .info-grid .item .value { font-size: 16px; font-weight: 600; color: #1a2634; margin-top: 3px; }
+    .total-row { background: #f8f9fc; font-weight: 700; }
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+    .btn-print {
+        background: #17a2b8;
+        color: white;
+        padding: 10px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-print:hover { background: #138496; }
+    
+    @media print {
+        .sidebar, .sidebar-toggle, .sidebar-overlay, .btn-group, .no-print { display: none !important; }
+        .main-content { margin-left: 0 !important; padding: 10px !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd; }
+        body { background: white !important; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🧾 Sale Details</h2>
+            <span class="subtitle">Invoice: {{ bill.invoice_no }}</span>
+        </div>
+        <a href="/sales-list/" class="btn" style="background:#6c757d;">← Back to List</a>
+    </div>
+
+    <!-- Bill Info -->
+    <div class="card">
+        <div class="info-grid">
+            <div class="item">
+                <div class="label">Invoice No</div>
+                <div class="value">{{ bill.invoice_no }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Customer</div>
+                <div class="value">{{ bill.shop_name }}{% if bill.shop_code %} ({{ bill.shop_code }}){% endif %}</div>
+            </div>
+            <div class="item">
+                <div class="label">Vehicle</div>
+                <div class="value">{{ bill.vehicle.vehicle_number }} - {{ bill.vehicle.driver_name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Date</div>
+                <div class="value">{{ bill.date|date:"Y-m-d" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Time</div>
+                <div class="value">{{ bill.created_at|date:"H:i:s" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Status</div>
+                <div class="value">
+                    <span class="badge-status {{ status|lower }}">
+                        {{ status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items -->
+    <div class="card">
+        <h3>🛒 Items</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th style="text-align:right;">Quantity</th>
+                        <th style="text-align:right;">Rate</th>
+                        <th style="text-align:right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td style="text-align:right;">{{ item.quantity|floatformat:2 }}</td>
+                        <td style="text-align:right;">Rs {{ item.rate|floatformat:2 }}</td>
+                        <td style="text-align:right;">Rs {{ item.total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="3"></td>
+                        <td style="text-align:right;">Subtotal:</td>
+                        <td style="text-align:right;">Rs {{ bill.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="3"></td>
+                        <td style="text-align:right;color:red;">Discount:</td>
+                        <td style="text-align:right;color:red;">- Rs {{ bill.discount_total|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="total-row" style="background:#e8ecf2;">
+                        <td colspan="3"></td>
+                        <td style="text-align:right;font-size:16px;">Net Total:</td>
+                        <td style="text-align:right;font-size:16px;color:#28a745;">Rs {{ bill.net_total|floatformat:2 }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Payments -->
+    <div class="card">
+        <h3>💳 Payments</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Payment Type</th>
+                        <th style="text-align:right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ payment.type }}</strong></td>
+                        <td style="text-align:right;">Rs {{ payment.amount|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" style="text-align:center;color:#999;">No payments recorded.</td></tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="2" style="text-align:right;">Total Paid:</td>
+                        <td style="text-align:right;font-size:16px;color:#28a745;">
+                            Rs {% for payment in payments %}{% if forloop.first %}{{ payment.amount|floatformat:2 }}{% endif %}{% endfor %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-group no-print">
+        <a href="/sales-list/" class="btn" style="background:#6c757d;">← Back to List</a>
+        <button onclick="window.print()" class="btn-print">🖨️ Print</button>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

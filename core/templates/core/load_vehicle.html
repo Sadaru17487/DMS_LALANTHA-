@@ -1,0 +1,73 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Load Vehicle - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-group { margin-bottom: 20px; }
+    select, input[type="number"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 300px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { background: #007bff; color: white; padding: 10px; text-align: left; }
+    td { padding: 10px; border-bottom: 1px solid #ddd; }
+    .stock-badge { background: #28a745; color: white; padding: 3px 10px; border-radius: 12px; font-size: 14px; }
+    .btn { background: #007bff; color: white; padding: 12px 30px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+    .btn:hover { background: #0056b3; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🚚 Load Vehicle</h2>
+            <span class="subtitle">Load stock from warehouse to vehicle</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                {{ form.vehicle.label_tag }}<br>
+                {{ form.vehicle }}
+            </div>
+
+            <h3>📦 Products & Current Warehouse Stock</h3>
+            <div class="table-container">
+                <table>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Unit</th>
+                        <th>Warehouse Stock</th>
+                        <th>Quantity to Load</th>
+                    </tr>
+                    {% for item in product_list %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.product.unit }}</td>
+                        <td><span class="stock-badge">{{ item.current_stock }}</span></td>
+                        <td>
+                            <input type="number" 
+                                   name="qty_{{ item.product.id }}" 
+                                   min="0" 
+                                   step="0.01" 
+                                   value="0"
+                                   style="width: 100px;">
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">No products found. Please add products in the Admin panel first.</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <button type="submit" class="btn">✅ Load Vehicle</button>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

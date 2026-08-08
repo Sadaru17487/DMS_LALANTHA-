@@ -1,0 +1,294 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Discount Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-container { max-width: 1200px; margin: 0 auto; }
+    .header-box {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .header-box h1 { font-size: 28px; font-weight: 400; margin: 0; }
+    .header-box .sub { color: #8aa3c9; font-size: 14px; }
+    .header-box .date-badge {
+        background: rgba(255,255,255,0.1);
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 14px;
+        color: #a0c4ff;
+    }
+    .filter-box {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: end;
+    }
+    .filter-box .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filter-box .filter-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .filter-box .filter-group input {
+        padding: 8px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        min-width: 150px;
+        background: #fafbfc;
+    }
+    .filter-box .filter-group input:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+    .filter-box .btn-filter {
+        background: #007bff;
+        color: white;
+        padding: 8px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        height: 42px;
+    }
+    .filter-box .btn-filter:hover { background: #0056b3; }
+    .filter-box .btn-clear {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .filter-box .btn-clear:hover { background: #5a6268; }
+    .filter-box .btn-excel {
+        background: #28a745;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        margin-left: auto;
+    }
+    .filter-box .btn-excel:hover { background: #218838; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .summary-card {
+        background: white;
+        padding: 18px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .summary-card .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .summary-card .value.red { color: #dc3545; }
+    .summary-card .value.blue { color: #007bff; }
+    .summary-card .value.green { color: #28a745; }
+
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-bottom: 25px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    table th {
+        background: #f8f9fc;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf1f7;
+        color: #333;
+    }
+    table td:last-child, table th:last-child { text-align: right; }
+
+    .footer {
+        text-align: center;
+        margin-top: 25px;
+        padding: 15px;
+        color: #999;
+        font-size: 13px;
+        border-top: 1px solid #e0e4eb;
+    }
+
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+        .filter-box { flex-direction: column; align-items: stretch; }
+        .filter-box .filter-group input { min-width: 100%; }
+        .filter-box .btn-excel { margin-left: 0; }
+    }
+</style>
+
+<div class="report-container">
+    <!-- Header -->
+    <div class="header-box">
+        <div>
+            <h1>💰 Discount Report</h1>
+            <div class="sub">Track all bill-level discounts given</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/discount-report/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-excel">📥 Excel</a>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Discount Given</div>
+            <div class="value red">Rs {{ total_discount_amount|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Bills with Discount</div>
+            <div class="value blue">{{ total_bills }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Original Total Value</div>
+            <div class="value green">Rs {{ total_original_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Net After Discount</div>
+            <div class="value blue">Rs {{ total_value_after_discount|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Discount Type Breakdown -->
+    <div class="card">
+        <h3>📊 Discount Type Breakdown</h3>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px;">
+            <div style="background:#f8f9fc; padding:15px; border-radius:8px; text-align:center;">
+                <span style="font-size:14px; color:#888;">Percentage Discounts</span>
+                <div style="font-size:24px; font-weight:700; color:#fd7e14;">{{ percent_count }}</div>
+                <div style="font-size:16px; color:#dc3545;">Rs {{ percent_total|floatformat:2 }}</div>
+            </div>
+            <div style="background:#f8f9fc; padding:15px; border-radius:8px; text-align:center;">
+                <span style="font-size:14px; color:#888;">Fixed Amount Discounts</span>
+                <div style="font-size:24px; font-weight:700; color:#007bff;">{{ fixed_count }}</div>
+                <div style="font-size:16px; color:#dc3545;">Rs {{ fixed_total|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Transactions -->
+    <div class="card">
+        <h3>📋 Discount Transaction Details</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Date</th>
+                        <th>Discount Type</th>
+                        <th>Discount Value</th>
+                        <th style="text-align:right;">Discount Amount</th>
+                        <th style="text-align:right;">Net Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in bills %}
+                    <tr>
+                        <td><strong>{{ bill.invoice_no }}</strong></td>
+                        <td>{{ bill.shop_name|default:"-" }}</td>
+                        <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
+                        <td>{{ bill.date|date:"Y-m-d" }}</td>
+                        <td>{{ bill.get_bill_discount_type_display|default:"-" }}</td>
+                        <td>
+                            {% if bill.bill_discount_type == 'PERCENTAGE' %}
+                                {{ bill.bill_discount_value }}%
+                            {% elif bill.bill_discount_type == 'FIXED' %}
+                                Rs {{ bill.bill_discount_value|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td style="text-align:right; font-weight:600; color:#dc3545;">Rs {{ bill.bill_discount_amount|floatformat:2 }}</td>
+                        <td style="text-align:right; font-weight:600; color:#28a745;">Rs {{ bill.net_total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No discounts found in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

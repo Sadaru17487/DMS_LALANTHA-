@@ -1,0 +1,160 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Transfer History - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+        color: #1a2634;
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📋 Transfer History</h2>
+            <span class="subtitle">Track all stock transfers between vehicles</span>
+        </div>
+        <a href="/transfer/add/" class="btn">+ New Transfer</a>
+    </div>
+
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Transfers</div>
+            <div class="value">{{ total_transfers }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Today</div>
+            <div class="value">{{ transfers|length }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Items Transferred</div>
+            <div class="value">
+                {% with total=0 %}
+                    {% for t in transfers %}{% with total=total|add:t.quantity %}{% endwith %}{% endfor %}
+                    {{ total|floatformat:0 }}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Vehicle, Product..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Source</label>
+            <select name="source_vehicle">
+                <option value="">All</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_source == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Destination</label>
+            <select name="destination_vehicle">
+                <option value="">All</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_dest == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/transfers/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ transfers|length }}</strong> transfer{{ transfers|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>From</th>
+                    <th>→</th>
+                    <th>To</th>
+                    <th>Product</th>
+                    <th style="text-align:right;">Qty</th>
+                    <th>Reason</th>
+                    <th>By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transfers %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ t.transfer_date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ t.source_vehicle.vehicle_number }}</td>
+                    <td>➜</td>
+                    <td>{{ t.destination_vehicle.vehicle_number }}</td>
+                    <td>{{ t.product.name }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ t.quantity|floatformat:2 }}</td>
+                    <td>{{ t.get_reason_display }}</td>
+                    <td>{{ t.transferred_by.username|default:"-" }}</td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/transfer/{{ t.id }}/" class="view" title="View">👁️</a>
+                            <a href="/transfer/delete/{{ t.id }}/" class="delete" title="Delete" onclick="return confirm('Delete this transfer record?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="empty-state">
+                        <span class="icon">📭</span>
+                        No transfers found.<br>
+                        <span style="font-size:12px;color:#bbb;">Create a transfer using the "New Transfer" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Suppliers - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .supplier-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .supplier-stats .stat-card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .supplier-stats .stat-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .supplier-stats .stat-card .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .supplier-stats .stat-card .value.blue { color: #007bff; }
+    .supplier-stats .stat-card .value.green { color: #28a745; }
+    .supplier-stats .stat-card .value.purple { color: #6f42c1; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🏢 Suppliers</h2>
+            <span class="subtitle">Manage your suppliers</span>
+        </div>
+        <a href="/supplier/add/" class="btn">+ Add Supplier</a>
+    </div>
+
+    <!-- Stats -->
+    <div class="supplier-stats">
+        <div class="stat-card">
+            <div class="label">Total Suppliers</div>
+            <div class="value blue">{{ total_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Active</div>
+            <div class="value green">{{ suppliers|length }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Inactive</div>
+            <div class="value purple">{{ suppliers|length }}</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group" style="flex:2;">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Name, Contact, Phone..." value="{{ search }}">
+        </div>
+        <button type="submit" class="btn-filter">🔍 Search</button>
+        <a href="/suppliers/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ total_count }}</strong> supplier{{ total_count|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Contact Person</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Tax Number</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for supplier in suppliers %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ supplier.name }}</strong></td>
+                    <td>{{ supplier.contact_person|default:"-" }}</td>
+                    <td>{{ supplier.phone|default:"-" }}</td>
+                    <td>{{ supplier.email|default:"-" }}</td>
+                    <td>{{ supplier.tax_number|default:"-" }}</td>
+                    <td>
+                        <span class="badge-status {% if supplier.is_active %}complete{% else %}pending{% endif %}">
+                            {% if supplier.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/supplier/edit/{{ supplier.id }}/" class="edit" title="Edit">✏️</a>
+                            <a href="/supplier/delete/{{ supplier.id }}/" class="delete" title="Delete" onclick="return confirm('Delete supplier {{ supplier.name }}?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">🏢</span>
+                        No suppliers found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add your first supplier using the "Add Supplier" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

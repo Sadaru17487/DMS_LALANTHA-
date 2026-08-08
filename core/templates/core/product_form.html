@@ -1,0 +1,185 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Product - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .form-group label .required {
+        color: #dc3545;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .form-group .help-text {
+        font-size: 12px;
+        color: #888;
+    }
+    .full-width { grid-column: 1 / -1; }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #007bff;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .btn-save {
+        background: #28a745;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-save:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>{{ action }} Product</h2>
+            <span class="subtitle">{% if product %}Update{% else %}Create a new{% endif %} product</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-grid">
+                <!-- Name -->
+                <div class="form-group">
+                    <label>Product Name <span class="required">*</span></label>
+                    <input type="text" name="name" value="{{ product.name|default:'' }}" required>
+                </div>
+                <!-- Code -->
+                <div class="form-group">
+                    <label>Product Code <span class="required">*</span></label>
+                    <input type="text" name="code" value="{{ product.code|default:'' }}" required>
+                    <span class="help-text">Unique identifier (SKU)</span>
+                </div>
+                <!-- Category -->
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category">
+                        <option value="">-- Select Category --</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if product.category.id == cat.id %}selected{% endif %}>
+                                {{ cat.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Unit -->
+                <div class="form-group">
+                    <label>Unit <span class="required">*</span></label>
+                    <select name="unit" required>
+                        <option value="Pcs" {% if product.unit == 'Pcs' %}selected{% endif %}>Pieces (Pcs)</option>
+                        <option value="Kg" {% if product.unit == 'Kg' %}selected{% endif %}>Kilogram (Kg)</option>
+                        <option value="Ltr" {% if product.unit == 'Ltr' %}selected{% endif %}>Liter (Ltr)</option>
+                        <option value="Ml" {% if product.unit == 'Ml' %}selected{% endif %}>Milliliter (Ml)</option>
+                        <option value="Box" {% if product.unit == 'Box' %}selected{% endif %}>Box</option>
+                        <option value="Carton" {% if product.unit == 'Carton' %}selected{% endif %}>Carton</option>
+                        <option value="Pack" {% if product.unit == 'Pack' %}selected{% endif %}>Pack</option>
+                        <option value="Bag" {% if product.unit == 'Bag' %}selected{% endif %}>Bag</option>
+                        <option value="Bottle" {% if product.unit == 'Bottle' %}selected{% endif %}>Bottle</option>
+                        <option value="Can" {% if product.unit == 'Can' %}selected{% endif %}>Can</option>
+                        <option value="Other" {% if product.unit == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                <!-- Selling Price -->
+                <div class="form-group">
+                    <label>Selling Price (Rs) <span class="required">*</span></label>
+                    <input type="number" step="0.01" name="selling_price" value="{{ product.selling_price|default:'' }}" required>
+                </div>
+                <!-- Cost Price -->
+                <div class="form-group">
+                    <label>Cost Price (Rs)</label>
+                    <input type="number" step="0.01" name="cost_price" value="{{ product.cost_price|default:'' }}" placeholder="Optional">
+                    <span class="help-text">For profit calculation</span>
+                </div>
+                <!-- Notes -->
+                <div class="form-group full-width">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="3">{{ product.notes|default:'' }}</textarea>
+                </div>
+                <!-- Active Status -->
+                <div class="form-group full-width">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="is_active" {% if product.is_active or product is None %}checked{% endif %}>
+                        <label style="font-weight:600; cursor:pointer;">Active</label>
+                    </div>
+                    <span class="help-text">Inactive products won't appear in sales screens</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn-save">✅ Save Product</button>
+                <a href="/products/" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

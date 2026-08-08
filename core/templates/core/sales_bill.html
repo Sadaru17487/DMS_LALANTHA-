@@ -1,0 +1,1217 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}New Sale - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    /* ===== BASE STYLES ===== */
+    .top-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: end; }
+    .top-row .field-group { flex: 1; min-width: 150px; }
+    .top-row .field-group label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .top-row .field-group input, .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; transition: 0.2s; background: #fafbfc; }
+    .top-row .field-group input:focus, .top-row .field-group select:focus { border-color: #007bff; outline: none; background: white; }
+    
+    /* ===== CUSTOMER SEARCH ===== */
+    #customerSearchInput:focus { border-color: #007bff; outline: none; background: white; }
+    #customerSearchResults .search-result-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: 0.15s; display: flex; justify-content: space-between; align-items: center; }
+    #customerSearchResults .search-result-item:hover { background: #e3f0ff; }
+    #customerSearchResults .search-result-item:last-child { border-bottom: none; }
+    #customerSearchResults .search-result-item .name { font-weight: 600; color: #1a2634; }
+    #customerSearchResults .search-result-item .code { font-size: 12px; color: #888; }
+    #customerSearchResults .search-result-item .phone { font-size: 12px; color: #666; }
+    #customerSearchResults .no-results { padding: 12px 14px; color: #999; text-align: center; }
+    
+    /* ===== SEARCH BAR ===== */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+    .search-bar input { flex: 1; padding: 12px 18px; border: 2px solid #e0e4eb; border-radius: 30px; font-size: 15px; background: #f8f9fc; transition: 0.2s; }
+    .search-bar input:focus { border-color: #007bff; outline: none; background: white; }
+    .search-bar .icon { font-size: 20px; color: #888; }
+    
+    /* ===== PRODUCT GRID ===== */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 25px; }
+    .product-card { background: white; border: 2px solid #e8ecf2; border-radius: 12px; padding: 12px 14px; text-align: center; transition: 0.15s; }
+    .product-card:hover { border-color: #007bff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .product-name { display: block; font-weight: 600; color: #1a2634; font-size: 14px; line-height: 1.3; }
+    .product-price { display: block; color: #28a745; font-weight: 700; font-size: 14px; margin-top: 3px; }
+    .product-stock { display: inline-block; background: #007bff; color: white; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 12px; margin-top: 4px; }
+    .product-stock.low { background: #dc3545; }
+    .product-stock.medium { background: #fd7e14; }
+    .product-stock.high { background: #28a745; }
+    .product-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .product-actions .btn-sale { flex: 1; padding: 6px 8px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .product-actions .btn-sale:hover { background: #218838; }
+    .product-actions .btn-foc { flex: 1; padding: 6px 8px; background: #fd7e14; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .product-actions .btn-foc:hover { background: #e06b0f; }
+    
+    /* ===== CART SECTION ===== */
+    .cart-section { margin: 20px 0; }
+    .cart-section .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+    .cart-section .section-title h3 { font-size: 16px; color: #333; margin: 0; }
+    .cart-section .section-title .section-badge { font-size: 14px; font-weight: 600; color: #28a745; }
+    .cart-section .section-title .section-badge.foc { color: #fd7e14; }
+    .cart-section .return-toggle { display: flex; align-items: center; gap: 10px; }
+    .cart-section .return-toggle label { font-weight: 600; font-size: 14px; color: #333; }
+    .cart-section .return-toggle input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #dc3545; }
+    .cart-section .return-toggle select { display: none; padding: 5px 10px; border-radius: 6px; border: 1px solid #d0d5dd; }
+
+    table.cart { width: 100%; border-collapse: collapse; }
+    table.cart th { background: #f0f4f9; padding: 10px 10px; text-align: left; font-size: 13px; font-weight: 600; color: #444; border-bottom: 2px solid #dde3ec; }
+    table.cart td { padding: 8px 10px; border-bottom: 1px solid #edf1f7; vertical-align: middle; }
+    table.cart td input { width: 100%; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; text-align: center; }
+    table.cart td input:focus { border-color: #007bff; outline: none; }
+    table.cart .remove-btn { background: #fee; border: none; color: #dc3545; font-size: 18px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
+    table.cart .remove-btn:hover { background: #fcc; }
+    .empty-cart { text-align: center; padding: 20px; color: #999; font-size: 14px; }
+    .foc-section { border-top: 2px dashed #fd7e14; padding-top: 15px; margin-top: 10px; }
+
+    .totals-row { display: flex; flex-wrap: wrap; gap: 20px; justify-content: flex-end; padding: 15px 0; border-top: 2px solid #e8ecf2; margin-top: 10px; }
+    .totals-row .total-item { text-align: right; }
+    .totals-row .total-item .label { font-size: 13px; color: #666; font-weight: 500; }
+    .totals-row .total-item .value { font-size: 22px; font-weight: 700; color: #1a2634; }
+    .totals-row .total-item .value.green { color: #28a745; }
+    .totals-row .total-item .value.orange { color: #fd7e14; }
+    .totals-row .total-item .value.red { color: #dc3545; }
+
+    .bill-discount-row {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 10px 0;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .bill-discount-row .discount-group {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: #f8f9fc;
+        padding: 8px 15px;
+        border-radius: 8px;
+        border: 1px solid #e0e4eb;
+    }
+    .bill-discount-row .discount-group label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+    }
+    .bill-discount-row .discount-group input,
+    .bill-discount-row .discount-group select {
+        padding: 6px 10px;
+        border: 2px solid #e0e4eb;
+        border-radius: 6px;
+        font-size: 13px;
+        background: white;
+        width: 100px;
+    }
+    .bill-discount-row .discount-group select { width: 80px; }
+
+    /* ===== PAYMENT SECTION ===== */
+    .payment-section { margin: 20px 0 10px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e0e4eb; }
+    .payment-section .pay-label { font-weight: 600; color: #333; font-size: 14px; display: block; margin-bottom: 12px; }
+    .payment-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+    .payment-buttons .pay-btn { padding: 10px 25px; border: 2px solid #d0d5dd; border-radius: 8px; background: white; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    .payment-buttons .pay-btn:hover { border-color: #007bff; background: #e3f0ff; }
+    .payment-buttons .pay-btn.active { border-color: #007bff; background: #007bff; color: white; }
+    .payment-buttons .pay-btn.cash { border-color: #28a745; color: #28a745; }
+    .payment-buttons .pay-btn.cash:hover { background: #28a745; color: white; }
+    .payment-buttons .pay-btn.credit { border-color: #fd7e14; color: #fd7e14; }
+    .payment-buttons .pay-btn.credit:hover { background: #fd7e14; color: white; }
+    .payment-buttons .pay-btn.cheque { border-color: #6f42c1; color: #6f42c1; }
+    .payment-buttons .pay-btn.cheque:hover { background: #6f42c1; color: white; }
+    .payment-buttons .pay-btn.online { border-color: #17a2b8; color: #17a2b8; }
+    .payment-buttons .pay-btn.online:hover { background: #17a2b8; color: white; }
+    .payment-buttons .pay-btn.multi { border-color: #e83e8c; color: #e83e8c; }
+    .payment-buttons .pay-btn.multi:hover { background: #e83e8c; color: white; }
+
+    .payment-details { display: none; margin-top: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e0e4eb; }
+    .payment-details.show { display: block; }
+    .payment-details .form-row { display: flex; flex-wrap: wrap; gap: 15px; align-items: end; }
+    .payment-details .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
+    .payment-details .form-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.3px; }
+    .payment-details .form-group input, .payment-details .form-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; width: 100%; }
+    .payment-details .form-group input:focus, .payment-details .form-group select:focus { border-color: #007bff; outline: none; }
+
+    .multi-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .multi-options .option-group { padding: 10px; border: 1px solid #e0e4eb; border-radius: 8px; }
+    .multi-options .option-group label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 5px; }
+
+    .action-buttons { display: flex; gap: 12px; margin-top: 15px; flex-wrap: wrap; }
+    .action-buttons .btn { padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+    .action-buttons .btn-save { background: #28a745; color: white; }
+    .action-buttons .btn-save:hover { background: #218838; }
+    .action-buttons .btn-clear { background: #6c757d; color: white; }
+    .action-buttons .btn-clear:hover { background: #5a6268; }
+    .action-buttons .btn-back { background: #e8ecf2; color: #333; }
+    .action-buttons .btn-back:hover { background: #d0d5dd; }
+
+    /* ===== MODALS ===== */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+    .modal-content h3 { margin-bottom: 20px; color: #1a2634; }
+    .modal-content .form-group { margin-bottom: 15px; }
+    .modal-content .form-group label { display: block; font-weight: 600; color: #555; margin-bottom: 4px; font-size: 13px; }
+    .modal-content .form-group input, .modal-content .form-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
+    .modal-content .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+    .modal-content .btn-group .btn-modal { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; flex: 1; }
+    .modal-content .btn-group .btn-modal.confirm { background: #28a745; color: white; }
+    .modal-content .btn-group .btn-modal.confirm:hover { background: #218838; }
+    .modal-content .btn-group .btn-modal.cancel { background: #6c757d; color: white; }
+    .modal-content .btn-group .btn-modal.cancel:hover { background: #5a6268; }
+    .modal-content .add-row { display: flex; gap: 10px; align-items: end; }
+    .modal-content .add-row .form-group { flex: 1; margin-bottom: 0; }
+    .modal-content .add-row .btn-add { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .modal-content .add-row .btn-add:hover { background: #0056b3; }
+
+    .errorlist {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid #f5c6cb;
+        margin-bottom: 15px;
+        list-style: none;
+    }
+    .errorlist li { margin: 3px 0; }
+    .errorlist strong { color: #dc3545; }
+
+    @media (max-width: 768px) {
+        .top-row .field-group { flex: 1 1 100%; }
+        .product-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        .multi-options { grid-template-columns: 1fr; }
+        .payment-details .form-row { flex-direction: column; }
+        .bill-discount-row { justify-content: center; }
+    }
+</style>
+
+<div class="container">
+    <div class="card">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="msg {% if message.tags == 'error' %}error{% elif message.tags == 'info' %}info{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if form.errors %}
+            <div class="msg error">
+                <strong>⚠️ Please correct the following errors:</strong>
+                <ul style="margin-top: 8px; padding-left: 20px;">
+                    {% for field, errors in form.errors.items %}
+                        <li><strong>{{ field }}:</strong> {{ errors|join:", " }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="POST" id="salesForm" action="/sales/" novalidate>
+            {% csrf_token %}
+
+            <!-- ===== TOP ROW ===== -->
+            <div class="top-row">
+                <div class="field-group" style="flex: 1.5;">
+                    <label>🚛 Delivery Vehicle *</label>
+                    <select name="vehicle" id="vehicleSelect" required>
+                        <option value="">-- Select Vehicle --</option>
+                        {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {% if selected_vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
+                                {{ vehicle.vehicle_number }} - {{ vehicle.driver_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field-group" style="flex: 1.5;">
+                    <label>👤 Sales Rep</label>
+                    <select name="rep" id="repSelect">
+                        <option value="">-- Select Rep --</option>
+                        {% for rep in reps %}
+                            <option value="{{ rep.id }}" data-rep-code="{{ rep.rep_code|default:'' }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                                {{ rep.name }} ({{ rep.get_position_display }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field-group" style="position:relative; flex: 2; min-width:250px;">
+                    <label>Search Customer <span class="required" style="color:#dc3545;">*</span></label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="flex: 1; position: relative;">
+                            <input type="text" id="customerSearchInput" placeholder="Type to search customer..." autocomplete="off" style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px; background:#fafbfc; transition:0.2s;">
+                            <div id="customerSearchResults" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:2px solid #e0e4eb; border-radius:8px; max-height:220px; overflow-y:auto; z-index:1000; margin-top:2px; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                        </div>
+                        <button type="button" class="btn-add-row" onclick="openAddCustomer()" style="padding:8px 18px; font-size:14px; background:#28a745; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap; height:45px;">+ New</button>
+                    </div>
+                    <input type="hidden" name="customer" id="selectedCustomerId" value="">
+                    <input type="hidden" name="shop_name" id="shopNameHidden">
+                    <input type="hidden" name="shop_code" id="shopCodeHidden">
+                    <div id="customerDetails" style="display:none; margin-top:8px; padding:10px; background:#f8f9fc; border-radius:8px; font-size:13px; color:#555;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                            <div><strong>Code:</strong> <span id="selectedCustomerCode">-</span></div>
+                            <div><strong>Phone:</strong> <span id="selectedCustomerPhone">-</span></div>
+                            <div style="grid-column:1/-1;"><strong>Address:</strong> <span id="selectedCustomerAddress">-</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>Invoice No <span class="required" style="color:#dc3545;">*</span></label>
+                    <input type="text" name="invoice_no" id="invoiceNoInput" placeholder="Rep Code or custom number" value="{{ random_invoice }}" required>
+                    <span class="help-text" style="font-size:11px; color:#888;">Auto-fills with Rep Code when selected; can be edited.</span>
+                </div>
+
+                <div class="field-group">
+                    <label>Date</label>
+                    <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}">
+                </div>
+
+                <div class="field-group" style="flex: 0.5; min-width: 80px;">
+                    <label>TAX</label>
+                    <input type="text" value="0%" readonly style="background:#f0f0f0; text-align:center;">
+                </div>
+            </div>
+
+            <!-- ===== PRODUCT SEARCH ===== -->
+            <div class="search-bar">
+                <span class="icon">📦</span>
+                <input type="text" id="productSearch" placeholder="Search products..." onkeyup="filterProducts()">
+            </div>
+
+            <!-- ===== PRODUCT GRID ===== -->
+            <div class="product-grid" id="productGrid">
+                {% for product in products %}
+                    <div class="product-card" data-name="{{ product.name|lower }}">
+                        <span class="product-name">{{ product.name }}</span>
+                        <span class="product-price">Rs {{ product.selling_price }}</span>
+                        <span class="product-stock" id="stock-{{ product.id }}">{{ product.vehicle_stock|floatformat:0 }}</span>
+                        <div class="product-actions">
+                            <button type="button" class="btn-sale" onclick="addToCart({{ product.id }}, '{{ product.name|escapejs }}', {{ product.selling_price }}, false)">🛒 Sale</button>
+                            <button type="button" class="btn-foc" onclick="addToCart({{ product.id }}, '{{ product.name|escapejs }}', 0, true)">🎁 FOC</button>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p>No products found. Please add products in Admin.</p>
+                {% endfor %}
+            </div>
+
+            <!-- ===== CART SECTION ===== -->
+            <div class="cart-section">
+                <!-- Regular Items -->
+                <div class="section-title">
+                    <h3>🛒 Regular Items (Charged)</h3>
+                    <span class="section-badge">Total: Rs <span id="regularTotalDisplay">0.00</span></span>
+                </div>
+                <table class="cart" id="regularCart">
+                    <thead>
+                        <tr>
+                            <th style="width:40%;">Product</th>
+                            <th style="width:18%;">Qty</th>
+                            <th style="width:18%;">Rate (Rs)</th>
+                            <th style="width:18%;">Total (Rs)</th>
+                            <th style="width:6%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="regularCartBody">
+                        <tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>
+                    </tbody>
+                </table>
+
+                <!-- FOC Items -->
+                <div class="foc-section">
+                    <div class="section-title">
+                        <h3>🎁 FOC Items (Free)</h3>
+                        <span class="section-badge foc">Total: Rs <span id="focTotalDisplay">0.00</span></span>
+                    </div>
+                    <table class="cart" id="focCart">
+                        <thead>
+                            <tr>
+                                <th style="width:40%;">Product</th>
+                                <th style="width:18%;">Qty</th>
+                                <th style="width:18%;">Rate (Rs)</th>
+                                <th style="width:18%;">Total (Rs)</th>
+                                <th style="width:6%;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="focCartBody">
+                            <tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ===== TOTALS & BILL DISCOUNT ===== -->
+                <div class="totals-row" style="flex-direction:column; align-items:flex-end; width:100%;">
+                    <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:flex-end; width:100%;">
+                        <div class="total-item">
+                            <div class="label">Subtotal (Regular)</div>
+                            <div class="value" id="subtotalDisplay">Rs 0.00</div>
+                        </div>
+                        <div class="total-item">
+                            <div class="label">FOC Value</div>
+                            <div class="value orange" id="focValueDisplay">Rs 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Bill Discount Section -->
+                    <div class="bill-discount-row">
+                        <div class="discount-group">
+                            <label>Bill Discount:</label>
+                            <select id="billDiscountType" onchange="updateBillDiscount()">
+                                <option value="">None</option>
+                                <option value="PERCENTAGE">%</option>
+                                <option value="FIXED">Rs</option>
+                            </select>
+                            <input type="number" step="0.01" id="billDiscountValue" placeholder="0" value="0" oninput="updateBillDiscount()" style="width:80px;">
+                            <span style="font-size:12px; color:#888;">(applied after product discounts)</span>
+                        </div>
+                        <div class="total-item">
+                            <div class="label">Discount Amount</div>
+                            <div class="value red" id="discountDisplay">Rs 0.00</div>
+                        </div>
+                        <div class="total-item">
+                            <div class="label">Net Total</div>
+                            <div class="value green" id="netTotalDisplay">Rs 0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PAYMENT SECTION ===== -->
+            <div class="payment-section">
+                <span class="pay-label">💰 Select Payment Method:</span>
+                <div class="payment-buttons">
+                    <button type="button" class="pay-btn cash" onclick="selectPayment('cash')">💵 CASH</button>
+                    <button type="button" class="pay-btn credit" onclick="selectPayment('credit')">📋 CREDIT</button>
+                    <button type="button" class="pay-btn cheque" onclick="openChequeModal()">🏦 CHEQUE</button>
+                    <button type="button" class="pay-btn online" onclick="selectPayment('online')">🌐 ONLINE</button>
+                    <button type="button" class="pay-btn multi" onclick="openMultiPayModal()">🔀 MULTI PAY</button>
+                </div>
+                <div id="paymentDetails" class="payment-details"></div>
+            </div>
+
+            <!-- ===== ACTION BUTTONS ===== -->
+            <div class="action-buttons">
+                <button type="button" class="btn btn-clear" onclick="clearCart()">🗑️ CLEAR</button>
+                <button type="button" class="btn btn-back" onclick="window.location.href='/sales-list/'">← Back</button>
+                <button type="submit" class="btn btn-save" id="saveBtn">💾 SAVE</button>
+            </div>
+
+            <!-- ===== HIDDEN FIELDS ===== -->
+            <!-- Payment method -->
+            <input type="hidden" name="payment_method" id="paymentMethod" value="">
+            <!-- Return fields -->
+            <input type="hidden" name="is_return" id="isReturn" value="false">
+            <input type="hidden" name="return_reason" id="returnReasonVal" value="">
+            <!-- Bill status (set to COMPLETED) -->
+            <input type="hidden" name="bill_status" id="billStatus" value="COMPLETED">
+
+            <!-- Cart items (pre-rendered for 20 items) -->
+            <div id="hiddenFieldsContainer">
+                {% for i in "1234567891011121314151617181920"|make_list %}
+                    <input type="hidden" name="product_{{ forloop.counter }}" id="hidden_product_{{ forloop.counter }}" value="">
+                    <input type="hidden" name="qty_{{ forloop.counter }}" id="hidden_qty_{{ forloop.counter }}" value="0">
+                    <input type="hidden" name="rate_{{ forloop.counter }}" id="hidden_rate_{{ forloop.counter }}" value="0">
+                    <input type="hidden" name="is_foc_{{ forloop.counter }}" id="hidden_is_foc_{{ forloop.counter }}" value="false">
+                {% endfor %}
+            </div>
+
+            <!-- Bill discount hidden fields -->
+            <input type="hidden" name="bill_discount_type" id="hidden_bill_discount_type" value="">
+            <input type="hidden" name="bill_discount_value" id="hidden_bill_discount_value" value="0">
+
+        </form>
+    </div>
+    <div class="footer">&copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System</div>
+</div>
+
+<!-- ===== MODALS ===== -->
+<!-- Cheque Modal -->
+<div class="modal-overlay" id="chequeModal">
+    <div class="modal-content">
+        <h3>🏦 Cheque Payment</h3>
+        <div class="form-group">
+            <label>Cheque Number *</label>
+            <input type="text" id="chequeNo" placeholder="Enter cheque number">
+        </div>
+        <div class="form-group">
+            <label>Cheque Date *</label>
+            <input type="date" id="chequeDate">
+        </div>
+        <div class="form-group">
+            <label>Bank *</label>
+            <div class="add-row">
+                <select id="bankSelect" style="flex:1; padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+                    <option value="">-- Select Bank --</option>
+                    {% for bank in banks %}
+                        <option value="{{ bank.id }}">{{ bank.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="btn-add" onclick="openAddBankModal()">+</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Amount *</label>
+            <input type="number" step="0.01" id="chequeAmount" placeholder="0.00">
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn-modal cancel" onclick="closeChequeModal()">Cancel</button>
+            <button type="button" class="btn-modal confirm" onclick="confirmCheque()">✅ Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Bank Modal -->
+<div class="modal-overlay" id="addBankModal">
+    <div class="modal-content">
+        <h3>➕ Add New Bank</h3>
+        <div class="form-group">
+            <label>Bank Name *</label>
+            <input type="text" id="newBankName" placeholder="Enter bank name">
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn-modal cancel" onclick="closeAddBankModal()">Cancel</button>
+            <button type="button" class="btn-modal confirm" onclick="confirmAddBank()">✅ Add Bank</button>
+        </div>
+    </div>
+</div>
+
+<!-- Multi Pay Modal -->
+<div class="modal-overlay" id="multiPayModal">
+    <div class="modal-content">
+        <h3>🔀 Multi Payment</h3>
+        <p style="color:#777; margin-bottom:15px;">Select two payment methods and enter amounts.</p>
+        <div class="multi-options">
+            <div class="option-group">
+                <label>Payment Type 1</label>
+                <select id="multiType1" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                    <option value="Cash">Cash</option>
+                    <option value="Credit">Credit</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online</option>
+                </select>
+                <input type="number" step="0.01" id="multiAmount1" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+            </div>
+            <div class="option-group">
+                <label>Payment Type 2</label>
+                <select id="multiType2" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                    <option value="Cash">Cash</option>
+                    <option value="Credit">Credit</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Online">Online</option>
+                </select>
+                <input type="number" step="0.01" id="multiAmount2" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+            </div>
+        </div>
+        <div style="margin-top:15px; padding:10px; background:#f8f9fc; border-radius:8px; text-align:center;">
+            Total: <strong id="multiTotalDisplay">Rs 0.00</strong>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn-modal cancel" onclick="closeMultiPayModal()">Cancel</button>
+            <button type="button" class="btn-modal confirm" onclick="confirmMultiPay()">✅ Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // GLOBAL VARIABLES
+    // ============================================================
+    let cart = [];
+    let returnMode = false;
+    let selectedPayment = null;
+    let chequeData = null;
+    let multiPayData = null;
+    let manualInvoice = false;
+    let billDiscountType = '';
+    let billDiscountValue = 0;
+
+    // ============================================================
+    // ADD TO CART
+    // ============================================================
+    function addToCart(productId, productName, rate, isFoc) {
+        cart.push({
+            id: productId,
+            name: productName,
+            qty: 1,
+            rate: isFoc ? 0 : rate,
+            total: isFoc ? 0 : rate,
+            is_foc: isFoc
+        });
+        renderCart();
+    }
+
+    // ============================================================
+    // REMOVE FROM CART
+    // ============================================================
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+
+    // ============================================================
+    // UPDATE CART ITEM
+    // ============================================================
+    function updateCartItem(index, field, value) {
+        const val = parseFloat(value) || 0;
+        if (field === 'qty') {
+            cart[index].qty = val;
+        } else if (field === 'rate') {
+            cart[index].rate = val;
+        }
+        renderCart();
+    }
+
+    // ============================================================
+    // RENDER CART
+    // ============================================================
+    function renderCart() {
+        const regularItems = cart.filter(item => !item.is_foc);
+        const focItems = cart.filter(item => item.is_foc);
+
+        const regularBody = document.getElementById('regularCartBody');
+        const focBody = document.getElementById('focCartBody');
+        const regularTotalDisplay = document.getElementById('regularTotalDisplay');
+        const focTotalDisplay = document.getElementById('focTotalDisplay');
+        const subtotalDisplay = document.getElementById('subtotalDisplay');
+        const focValueDisplay = document.getElementById('focValueDisplay');
+        const netTotalDisplay = document.getElementById('netTotalDisplay');
+
+        // Regular items
+        if (regularItems.length === 0) {
+            regularBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>`;
+            regularTotalDisplay.textContent = '0.00';
+        } else {
+            let html = '';
+            let regularTotal = 0;
+            regularItems.forEach((item, idx) => {
+                const index = cart.indexOf(item);
+                const total = item.qty * item.rate;
+                regularTotal += total;
+                html += `
+                    <tr>
+                        <td><strong>${item.name}</strong></td>
+                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                        <td><input type="number" step="0.01" value="${item.rate}" style="width:80px;" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
+                        <td>Rs ${total.toFixed(2)}</td>
+                        <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
+                    </tr>
+                `;
+            });
+            regularBody.innerHTML = html;
+            regularTotalDisplay.textContent = regularTotal.toFixed(2);
+        }
+
+        // FOC items
+        if (focItems.length === 0) {
+            focBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>`;
+            focTotalDisplay.textContent = '0.00';
+        } else {
+            let html = '';
+            let focTotal = 0;
+            focItems.forEach((item, idx) => {
+                const index = cart.indexOf(item);
+                const total = item.qty * item.rate;
+                focTotal += total;
+                html += `
+                    <tr>
+                        <td><strong>${item.name}</strong></td>
+                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                        <td>${item.rate.toFixed(2)}</td>
+                        <td>Rs ${total.toFixed(2)}</td>
+                        <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
+                    </tr>
+                `;
+            });
+            focBody.innerHTML = html;
+            focTotalDisplay.textContent = focTotal.toFixed(2);
+        }
+
+        // Totals
+        const regularTotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const focTotal = focItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        subtotalDisplay.textContent = `Rs ${regularTotal.toFixed(2)}`;
+        focValueDisplay.textContent = `Rs ${focTotal.toFixed(2)}`;
+        updateBillDiscount();
+    }
+
+    // ============================================================
+    // BILL DISCOUNT
+    // ============================================================
+    function updateBillDiscount() {
+        const discountType = document.getElementById('billDiscountType').value;
+        const discountValue = parseFloat(document.getElementById('billDiscountValue').value) || 0;
+
+        const regularItems = cart.filter(item => !item.is_foc);
+        const subtotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+
+        let discountAmount = 0;
+        if (discountType === 'PERCENTAGE' && discountValue > 0) {
+            discountAmount = (subtotal * discountValue) / 100;
+        } else if (discountType === 'FIXED' && discountValue > 0) {
+            discountAmount = Math.min(discountValue, subtotal);
+        }
+
+        const netTotal = subtotal - discountAmount;
+
+        document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
+        document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
+
+        billDiscountType = discountType;
+        billDiscountValue = discountValue;
+    }
+
+    // ============================================================
+    // FILTER PRODUCTS
+    // ============================================================
+    function filterProducts() {
+        const search = document.getElementById('productSearch').value.toLowerCase();
+        const cards = document.querySelectorAll('.product-card');
+        cards.forEach(card => {
+            const name = card.getAttribute('data-name');
+            card.style.display = name.includes(search) ? 'block' : 'none';
+        });
+    }
+
+    // ============================================================
+    // CLEAR CART
+    // ============================================================
+    function clearCart() {
+        if (cart.length === 0) return;
+        if (confirm('Clear all items from this bill?')) {
+            cart = [];
+            renderCart();
+            resetPayment();
+            document.getElementById('billDiscountType').value = '';
+            document.getElementById('billDiscountValue').value = '0';
+            updateBillDiscount();
+        }
+    }
+
+    // ============================================================
+    // VEHICLE STOCK UPDATE
+    // ============================================================
+    function updateVehicleStock() {
+        const vehicleSelect = document.getElementById('vehicleSelect');
+        const vehicleId = vehicleSelect ? vehicleSelect.value : '';
+        if (!vehicleId) {
+            document.querySelectorAll('.product-stock').forEach(badge => {
+                badge.textContent = '0';
+                badge.className = 'product-stock';
+            });
+            return;
+        }
+        fetch(`/api/vehicle-stock/?vehicle=${vehicleId}`)
+            .then(response => response.json())
+            .then(data => {
+                const stocks = data.stocks || {};
+                document.querySelectorAll('.product-card').forEach(card => {
+                    const saleBtn = card.querySelector('.btn-sale');
+                    if (saleBtn) {
+                        const match = saleBtn.getAttribute('onclick').match(/\d+/);
+                        if (match) {
+                            const productId = match[0];
+                            const quantity = stocks[productId] || 0;
+                            const badge = card.querySelector('.product-stock');
+                            if (badge) {
+                                badge.textContent = quantity.toFixed(0);
+                                badge.className = 'product-stock';
+                                if (quantity <= 0) badge.classList.add('low');
+                                else if (quantity < 10) badge.classList.add('medium');
+                                else badge.classList.add('high');
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Error fetching vehicle stock:', error));
+    }
+
+    // ============================================================
+    // REP CODE INVOICE GENERATION (ONLY THE REP CODE)
+    // ============================================================
+    function updateInvoiceFromRep() {
+        const repSelect = document.getElementById('repSelect');
+        const invoiceInput = document.getElementById('invoiceNoInput');
+        if (!repSelect || !invoiceInput) return;
+        if (manualInvoice) return;
+        const selectedOption = repSelect.options[repSelect.selectedIndex];
+        const repCode = selectedOption ? selectedOption.getAttribute('data-rep-code') : '';
+        if (repCode) {
+            invoiceInput.value = repCode;
+        } else {
+            invoiceInput.value = '';
+        }
+    }
+
+    // ============================================================
+    // PAYMENT METHODS
+    // ============================================================
+    function selectPayment(method) {
+        resetPayment();
+        selectedPayment = method;
+        document.getElementById('paymentMethod').value = method;
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pay-btn').forEach(b => {
+            if (b.textContent.trim().toLowerCase().includes(method)) b.classList.add('active');
+        });
+        const details = document.getElementById('paymentDetails');
+        details.classList.add('show');
+        if (method === 'cash') {
+            details.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label>Cash Amount *</label>
+                        <input type="number" step="0.01" id="cashAmount" name="cash_amount" placeholder="Enter amount" oninput="updateCashTotal()">
+                    </div>
+                    <div style="padding:5px 0; font-weight:600; color:#28a745;">Total: <span id="cashTotalDisplay">Rs 0.00</span></div>
+                </div>
+            `;
+            updatePaymentInputs();
+        } else if (method === 'credit') {
+            details.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label>Credit Amount *</label>
+                        <input type="number" step="0.01" id="creditAmount" name="credit_amount" placeholder="Enter amount" oninput="updateCreditTotal()">
+                    </div>
+                    <div style="padding:5px 0; font-weight:600; color:#fd7e14;">Total: <span id="creditTotalDisplay">Rs 0.00</span></div>
+                </div>
+            `;
+            updatePaymentInputs();
+        } else if (method === 'online') {
+            details.innerHTML = `
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Payment Method *</label>
+                        <select id="onlineMethod" name="online_method" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Mobile Wallet">Mobile Wallet</option>
+                            <option value="Card">Card</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Reference No</label>
+                        <input type="text" id="onlineRef" name="online_ref" placeholder="Optional reference">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount *</label>
+                        <input type="number" step="0.01" id="onlineAmount" name="online_amount" placeholder="Enter amount" oninput="updateOnlineTotal()">
+                    </div>
+                    <div style="padding:5px 0; font-weight:600; color:#17a2b8;">Total: <span id="onlineTotalDisplay">Rs 0.00</span></div>
+                </div>
+            `;
+        }
+    }
+
+    function resetPayment() {
+        selectedPayment = null;
+        document.getElementById('paymentMethod').value = '';
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('paymentDetails').classList.remove('show');
+        chequeData = null;
+        multiPayData = null;
+    }
+
+    function updateCashTotal() {
+        const val = parseFloat(document.getElementById('cashAmount').value) || 0;
+        document.getElementById('cashTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+    }
+    function updateCreditTotal() {
+        const val = parseFloat(document.getElementById('creditAmount').value) || 0;
+        document.getElementById('creditTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+    }
+    function updateOnlineTotal() {
+        const val = parseFloat(document.getElementById('onlineAmount').value) || 0;
+        document.getElementById('onlineTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+    }
+
+    function updatePaymentInputs() {
+    const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
+    const netTotal = parseFloat(netText) || 0;
+
+    if (selectedPayment === 'cash') {
+        const cashInput = document.getElementById('cashAmount');
+        if (cashInput) {
+            cashInput.value = netTotal.toFixed(2);
+            updateCashTotal();
+        }
+    } else if (selectedPayment === 'credit') {
+        const creditInput = document.getElementById('creditAmount');
+        if (creditInput) {
+            creditInput.value = netTotal.toFixed(2);
+            updateCreditTotal();
+        }
+    } else if (selectedPayment === 'online') {   // ✅ NEW
+        const onlineInput = document.getElementById('onlineAmount');
+        if (onlineInput) {
+            onlineInput.value = netTotal.toFixed(2);
+            updateOnlineTotal();
+        }
+    }
+}
+
+    // ============================================================
+    // CHEQUE MODAL
+    // ============================================================
+    function openChequeModal() {
+        document.getElementById('chequeModal').classList.add('show');
+        document.getElementById('chequeDate').value = new Date().toISOString().split('T')[0];
+
+            // ✅ Auto‑fill cheque amount with Net Total
+        const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
+        const netTotal = parseFloat(netText) || 0;
+        document.getElementById('chequeAmount').value = netTotal.toFixed(2);
+
+    }
+    function closeChequeModal() { document.getElementById('chequeModal').classList.remove('show'); }
+    function confirmCheque() {
+        const chequeNo = document.getElementById('chequeNo').value;
+        const chequeDate = document.getElementById('chequeDate').value;
+        const bank = document.getElementById('bankSelect').value;
+        const amount = parseFloat(document.getElementById('chequeAmount').value) || 0;
+        if (!chequeNo || !chequeDate || !bank || amount <= 0) { alert('Please fill in all cheque details!'); return; }
+        chequeData = { chequeNo, chequeDate, bank, amount };
+        selectedPayment = 'cheque';
+        document.getElementById('paymentMethod').value = 'cheque';
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pay-btn').forEach(b => {
+            if (b.textContent.trim().toLowerCase().includes('cheque')) b.classList.add('active');
+        });
+        const details = document.getElementById('paymentDetails');
+        details.classList.add('show');
+        details.innerHTML = `
+            <div style="background:#f0f4ff; padding:15px; border-radius:8px;">
+                <p><strong>Cheque No:</strong> ${chequeNo}</p>
+                <p><strong>Date:</strong> ${chequeDate}</p>
+                <p><strong>Bank:</strong> ${document.getElementById('bankSelect').options[document.getElementById('bankSelect').selectedIndex].text}</p>
+                <p><strong>Amount:</strong> <strong style="color:#6f42c1;">Rs ${amount.toFixed(2)}</strong></p>
+            </div>
+            <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetCheque()">✕ Remove Cheque</button>
+        `;
+        closeChequeModal();
+    }
+    function resetCheque() {
+        chequeData = null;
+        if (selectedPayment === 'cheque') resetPayment();
+    }
+
+    // ============================================================
+    // ADD BANK MODAL
+    // ============================================================
+    function openAddBankModal() { document.getElementById('addBankModal').classList.add('show'); }
+    function closeAddBankModal() { document.getElementById('addBankModal').classList.remove('show'); document.getElementById('newBankName').value = ''; }
+    function confirmAddBank() {
+        const name = document.getElementById('newBankName').value.trim();
+        if (!name) { alert('Please enter a bank name.'); return; }
+        fetch('/api/add-bank/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({ name: name })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('bankSelect');
+                const option = document.createElement('option');
+                option.value = data.id;
+                option.textContent = data.name;
+                select.appendChild(option);
+                select.value = data.id;
+                closeAddBankModal();
+                alert('Bank added successfully!');
+            } else {
+                alert(data.error || 'Failed to add bank.');
+            }
+        })
+        .catch(() => alert('Error adding bank.'));
+    }
+
+    // ============================================================
+    // MULTI PAY MODAL
+    // ============================================================
+    function openMultiPayModal() {
+        document.getElementById('multiPayModal').classList.add('show');
+        updateMultiTotal();
+    }
+    function closeMultiPayModal() { document.getElementById('multiPayModal').classList.remove('show'); }
+    function updateMultiTotal() {
+        const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
+        const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
+        document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
+    }
+    function confirmMultiPay() {
+        const type1 = document.getElementById('multiType1').value;
+        const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
+        const type2 = document.getElementById('multiType2').value;
+        const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
+        const total = amt1 + amt2;
+        if (type1 === type2) { alert('Please select two different payment types.'); return; }
+        if (amt1 <= 0 || amt2 <= 0 || total <= 0) { alert('Please enter valid amounts.'); return; }
+        multiPayData = { type1, amt1, type2, amt2, total };
+        selectedPayment = 'multi';
+        document.getElementById('paymentMethod').value = 'multi';
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pay-btn').forEach(b => {
+            if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
+        });
+        const details = document.getElementById('paymentDetails');
+        details.classList.add('show');
+        details.innerHTML = `
+            <div style="background:#f8f0ff; padding:15px; border-radius:8px;">
+                <p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}</p>
+                <p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}</p>
+                <p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>
+            </div>
+            <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>
+        `;
+        closeMultiPayModal();
+    }
+    function resetMulti() {
+        multiPayData = null;
+        if (selectedPayment === 'multi') resetPayment();
+    }
+
+    // ============================================================
+    // CUSTOMER SEARCH
+    // ============================================================
+    function setupCustomerSearch() {
+        const searchInput = document.getElementById('customerSearchInput');
+        if (!searchInput) return;
+        let timeoutId = null;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(timeoutId);
+            const query = this.value.trim();
+            timeoutId = setTimeout(() => searchCustomers(query), 300);
+        });
+        document.addEventListener('click', function(e) {
+            const results = document.getElementById('customerSearchResults');
+            const searchBox = document.getElementById('customerSearchInput');
+            if (results && searchBox && !results.contains(e.target) && e.target !== searchBox) {
+                results.style.display = 'none';
+            }
+        });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const firstResult = document.querySelector('#customerSearchResults .search-result-item');
+                if (firstResult) { firstResult.click(); e.preventDefault(); }
+            }
+        });
+    }
+
+    function searchCustomers(query) {
+        const resultsContainer = document.getElementById('customerSearchResults');
+        if (query.length < 2) { resultsContainer.style.display = 'none'; return; }
+        resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
+        resultsContainer.style.display = 'block';
+        fetch(`/api/customers/search/?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                resultsContainer.innerHTML = '';
+                if (data.customers.length === 0) {
+                    resultsContainer.innerHTML = `<div class="no-results">No customers found. <br><span style="font-size:12px;">Try a different search or click "+ New Customer"</span></div>`;
+                    resultsContainer.style.display = 'block';
+                    return;
+                }
+                data.customers.forEach(customer => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `
+                        <div><div class="name">${customer.name}</div><div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div></div>
+                        <div class="info"><div class="phone">${customer.phone || ''}</div></div>
+                    `;
+                    div.addEventListener('click', function() { selectCustomer(customer); });
+                    resultsContainer.appendChild(div);
+                });
+                resultsContainer.style.display = 'block';
+            })
+            .catch(() => {
+                resultsContainer.innerHTML = '<div class="no-results">Error searching. Please try again.</div>';
+                resultsContainer.style.display = 'block';
+            });
+    }
+
+    function selectCustomer(customer) {
+        document.getElementById('selectedCustomerId').value = customer.id;
+        document.getElementById('shopNameHidden').value = customer.name;
+        document.getElementById('shopCodeHidden').value = customer.code;
+        document.getElementById('selectedCustomerCode').textContent = customer.code || '-';
+        document.getElementById('selectedCustomerPhone').textContent = customer.phone || '-';
+        document.getElementById('selectedCustomerAddress').textContent = customer.address || '-';
+        document.getElementById('customerDetails').style.display = 'block';
+        document.getElementById('customerSearchInput').value = customer.name;
+        document.getElementById('customerSearchResults').style.display = 'none';
+    }
+
+    function openAddCustomer() {
+        const currentSearch = document.getElementById('customerSearchInput').value || '';
+        const url = `/customer/add/?return_to=1&q=${encodeURIComponent(currentSearch)}`;
+        const features = 'width=600,height=800,scrollbars=yes,resizable=yes';
+        const newWindow = window.open(url, '_blank', features);
+        if (newWindow) newWindow.focus();
+        else if (confirm('Pop-up blocked. Do you want to open in a new tab?')) window.open(url, '_blank');
+    }
+
+    function checkForNewCustomer() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const customerId = urlParams.get('customer_id');
+        if (customerId) {
+            fetch(`/api/customers/search/?query=${customerId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.customers.length > 0) {
+                        const customer = data.customers.find(c => c.id == customerId);
+                        if (customer) selectCustomer(customer);
+                    }
+                })
+                .catch(() => {});
+            const newUrl = window.location.pathname + window.location.search.replace(/[?&]customer_id=[^&]*/, '');
+            window.history.replaceState({}, document.title, newUrl);
+        }
+    }
+
+    // ============================================================
+    // FORM SUBMIT HANDLER (FIXED)
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        setupCustomerSearch();
+        checkForNewCustomer();
+
+        const repSelect = document.getElementById('repSelect');
+        if (repSelect) {
+            repSelect.addEventListener('change', function() {
+                updateInvoiceFromRep();
+                manualInvoice = false;
+            });
+            setTimeout(updateInvoiceFromRep, 300);
+        }
+
+        const invoiceInput = document.getElementById('invoiceNoInput');
+        if (invoiceInput) {
+            invoiceInput.addEventListener('input', function() {
+                manualInvoice = true;
+            });
+        }
+
+        const vehicleSelect = document.getElementById('vehicleSelect');
+        if (vehicleSelect) {
+            vehicleSelect.addEventListener('change', function() {
+                updateVehicleStock();
+            });
+            setTimeout(updateVehicleStock, 500);
+        }
+
+        document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
+        document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
+
+        renderCart();
+        updateBillDiscount();
+
+        // ------------------------------------------
+        // FORM SUBMIT HANDLER
+        // ------------------------------------------
+        document.getElementById('salesForm').addEventListener('submit', function(e) {
+            // ✅ Validate cart
+            if (cart.length === 0) {
+                e.preventDefault();
+                alert('❌ Please add at least one item to the bill!');
+                return;
+            }
+
+            // ✅ Validate customer
+            if (!document.getElementById('selectedCustomerId').value) {
+                e.preventDefault();
+                alert('❌ Please select a customer!');
+                return;
+            }
+
+            // ✅ Validate payment method
+            if (!selectedPayment) {
+                e.preventDefault();
+                alert('❌ Please select a payment method!');
+                return;
+            }
+
+            // ✅ Validate vehicle
+            const vehicleSelect = document.getElementById('vehicleSelect');
+            if (!vehicleSelect.value) {
+                e.preventDefault();
+                alert('❌ Please select a delivery vehicle!');
+                return;
+            }
+
+            // ✅ Validate invoice number
+            const invoiceInput = document.getElementById('invoiceNoInput');
+            if (!invoiceInput.value.trim()) {
+                e.preventDefault();
+                alert('❌ Please enter an invoice number!');
+                return;
+            }
+
+            // ✅ Validate payment amount
+            const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
+            const netTotal = parseFloat(netText) || 0;
+            let paidAmount = 0;
+            if (selectedPayment === 'cash') paidAmount = parseFloat(document.getElementById('cashAmount')?.value) || 0;
+            else if (selectedPayment === 'credit') paidAmount = parseFloat(document.getElementById('creditAmount')?.value) || 0;
+            else if (selectedPayment === 'cheque' && chequeData) paidAmount = chequeData.amount;
+            else if (selectedPayment === 'online') paidAmount = parseFloat(document.getElementById('onlineAmount')?.value) || 0;
+            else if (selectedPayment === 'multi' && multiPayData) paidAmount = multiPayData.total;
+
+            if (Math.abs(paidAmount - netTotal) > 0.01) {
+                e.preventDefault();
+                alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})! Please adjust.`);
+                return;
+            }
+
+            // ✅ Populate hidden fields for cart items (20 slots)
+            const maxItems = 20;
+            for (let i = 1; i <= maxItems; i++) {
+                const item = cart[i - 1];
+                const productField = document.getElementById(`hidden_product_${i}`);
+                const qtyField = document.getElementById(`hidden_qty_${i}`);
+                const rateField = document.getElementById(`hidden_rate_${i}`);
+                const focField = document.getElementById(`hidden_is_foc_${i}`);
+
+                if (item) {
+                    const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
+                    productField.value = item.id;
+                    qtyField.value = qty;
+                    rateField.value = item.rate;
+                    focField.value = item.is_foc ? 'true' : 'false';
+                } else {
+                    productField.value = '';
+                    qtyField.value = '0';
+                    rateField.value = '0';
+                    focField.value = 'false';
+                }
+            }
+
+            // ✅ Populate payment method
+            document.getElementById('paymentMethod').value = selectedPayment;
+
+            // ✅ Set return mode
+            document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
+            if (returnMode) {
+                document.getElementById('returnReasonVal').value = document.getElementById('returnReason')?.value || '';
+            }
+
+            // ✅ Set bill status to COMPLETED
+            document.getElementById('billStatus').value = 'COMPLETED';
+
+            // ✅ Set bill discount
+            document.getElementById('hidden_bill_discount_type').value = billDiscountType;
+            document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
+
+            // ✅ The form will now submit with all hidden fields populated
+        });
+    });
+</script>
+{% endblock %}

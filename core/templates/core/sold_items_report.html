@@ -1,0 +1,433 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sold Items Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-container { max-width: 1400px; margin: 0 auto; }
+    .header-box {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .header-box h1 { font-size: 28px; font-weight: 400; margin: 0; }
+    .header-box .sub { color: #8aa3c9; font-size: 14px; }
+    .header-box .date-badge {
+        background: rgba(255,255,255,0.1);
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 14px;
+        color: #a0c4ff;
+    }
+
+    .filter-box {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: end;
+    }
+    .filter-box .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filter-box .filter-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .filter-box .filter-group input,
+    .filter-box .filter-group select {
+        padding: 8px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        min-width: 150px;
+        background: #fafbfc;
+    }
+    .filter-box .filter-group input:focus,
+    .filter-box .filter-group select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+    .filter-box .btn-filter {
+        background: #007bff;
+        color: white;
+        padding: 8px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        height: 42px;
+    }
+    .filter-box .btn-filter:hover { background: #0056b3; }
+    .filter-box .btn-clear {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .filter-box .btn-clear:hover { background: #5a6268; }
+    .filter-box .btn-excel {
+        background: #28a745;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .filter-box .btn-excel:hover { background: #218838; }
+
+    .checkbox-box {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center;
+    }
+    .checkbox-box label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .checkbox-box input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: #007bff;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .summary-card {
+        background: white;
+        padding: 18px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .summary-card .value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .summary-card .value.green { color: #28a745; }
+    .summary-card .value.blue { color: #007bff; }
+    .summary-card .value.orange { color: #fd7e14; }
+    .summary-card .value.purple { color: #6f42c1; }
+
+    .vehicle-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .vehicle-section .vehicle-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e8ecf2;
+    }
+    .vehicle-section .vehicle-header h3 {
+        font-size: 18px;
+        color: #1a2634;
+        margin: 0;
+    }
+    .vehicle-section .vehicle-header .totals {
+        color: #666;
+        font-size: 14px;
+    }
+    .vehicle-section .vehicle-header .totals strong {
+        color: #1a2634;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    table th {
+        background: #f8f9fc;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf1f7;
+        color: #333;
+    }
+    table td:last-child, table th:last-child { text-align: right; }
+    .footer {
+        text-align: center;
+        margin-top: 25px;
+        padding: 15px;
+        color: #999;
+        font-size: 13px;
+        border-top: 1px solid #e0e4eb;
+    }
+
+    @media (max-width: 992px) {
+        .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+        .filter-box { flex-direction: column; align-items: stretch; }
+        .filter-box .filter-group input,
+        .filter-box .filter-group select { min-width: 100%; }
+        .checkbox-box { flex-direction: column; align-items: stretch; }
+    }
+</style>
+
+<div class="report-container">
+    <!-- Header -->
+    <div class="header-box">
+        <div>
+            <h1>📊 Sold Items Report</h1>
+            <div class="sub">Product-wise sales performance</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <form method="GET" class="filter-box" id="filterForm">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }} - {{ v.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Product</label>
+            <select name="product">
+                <option value="">All Products</option>
+                {% for p in products %}
+                    <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+                        {{ p.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                    <option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>
+                        {{ c.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/sold-items/" class="btn-clear">Clear</a>
+    </form>
+
+    <!-- Toggle: Group by Vehicle -->
+    <div class="checkbox-box">
+        <label>
+            <input type="checkbox" name="group_by_vehicle" form="filterForm" {% if group_by_vehicle %}checked{% endif %} onchange="this.form.submit()">
+            Group by Vehicle
+        </label>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel" style="margin-left:auto;">📥 Excel</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Items Sold</div>
+            <div class="value blue">{{ total_qty|floatformat:0 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Total Sales Value</div>
+            <div class="value green">Rs {{ total_amount|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">FOC Given (Qty)</div>
+            <div class="value orange">{{ total_foc_qty|floatformat:0 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">FOC Value</div>
+            <div class="value purple">Rs {{ total_foc_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Invoices</div>
+            <div class="value blue">{{ invoice_count }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Unique Products</div>
+            <div class="value blue">{{ unique_products }}</div>
+        </div>
+    </div>
+
+    <!-- Detailed Data -->
+    {% if group_by_vehicle %}
+        <!-- Grouped by Vehicle -->
+        {% for group in grouped_data %}
+        <div class="vehicle-section">
+            <div class="vehicle-header">
+                <h3>🚛 {{ group.vehicle.vehicle_number }} - {{ group.vehicle.driver_name }}</h3>
+                <div class="totals">
+                    <strong>Total Qty: {{ group.vehicle_total_qty|floatformat:0 }}</strong> &nbsp;|&nbsp;
+                    <strong>Total Amount: Rs {{ group.vehicle_total_amount|floatformat:2 }}</strong>
+                </div>
+            </div>
+            {% if group.rows %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th style="text-align:right;">Qty Sold</th>
+                            <th style="text-align:right;">Amount (Rs)</th>
+                            <th style="text-align:right;">FOC Qty</th>
+                            <th style="text-align:right;">FOC Value (Rs)</th>
+                            <th style="text-align:right;">Avg Rate (Rs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in group.rows %}
+                        <tr>
+                            <td><strong>{{ row.name }}</strong></td>
+                            <td>{{ row.category }}</td>
+                            <td>{{ row.unit }}</td>
+                            <td style="text-align:right;">{{ row.qty_sold|floatformat:0 }}</td>
+                            <td style="text-align:right; font-weight:600;">Rs {{ row.amount|floatformat:2 }}</td>
+                            <td style="text-align:right;">{{ row.foc_qty|floatformat:0 }}</td>
+                            <td style="text-align:right; color:#fd7e14;">Rs {{ row.foc_value|floatformat:2 }}</td>
+                            <td style="text-align:right;">Rs {{ row.avg_rate|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-state" style="color:#999; text-align:center; padding:10px;">No items sold from this vehicle.</p>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="vehicle-section">
+            <p class="empty-state" style="color:#999; text-align:center; padding:20px;">No data found for the selected filters.</p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Flat List (All Vehicles) -->
+        <div class="vehicle-section">
+            <div class="vehicle-header">
+                <h3>📦 All Vehicles</h3>
+                <div class="totals">
+                    <strong>Total Items: {{ total_qty|floatformat:0 }}</strong> &nbsp;|&nbsp;
+                    <strong>Total Sales: Rs {{ total_amount|floatformat:2 }}</strong>
+                </div>
+            </div>
+            {% if grouped_data.0.rows %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th style="text-align:right;">Qty Sold</th>
+                            <th style="text-align:right;">Amount (Rs)</th>
+                            <th style="text-align:right;">FOC Qty</th>
+                            <th style="text-align:right;">FOC Value (Rs)</th>
+                            <th style="text-align:right;">Avg Rate (Rs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in grouped_data.0.rows %}
+                        <tr>
+                            <td><strong>{{ row.name }}</strong></td>
+                            <td>{{ row.category }}</td>
+                            <td>{{ row.unit }}</td>
+                            <td style="text-align:right;">{{ row.qty_sold|floatformat:0 }}</td>
+                            <td style="text-align:right; font-weight:600;">Rs {{ row.amount|floatformat:2 }}</td>
+                            <td style="text-align:right;">{{ row.foc_qty|floatformat:0 }}</td>
+                            <td style="text-align:right; color:#fd7e14;">Rs {{ row.foc_value|floatformat:2 }}</td>
+                            <td style="text-align:right;">Rs {{ row.avg_rate|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-state" style="color:#999; text-align:center; padding:20px;">No data found for the selected filters.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

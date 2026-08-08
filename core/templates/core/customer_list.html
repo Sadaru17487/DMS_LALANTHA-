@@ -1,0 +1,175 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Customers - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.active { color: #28a745; }
+    .summary-grid .card .value.credit { color: #fd7e14; }
+    .summary-grid .card .value.outstanding { color: #dc3545; }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+        .summary-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>👥 Customers</h2>
+            <span class="subtitle">Manage your customers</span>
+        </div>
+        <a href="/customer/add/" class="btn">+ Add Customer</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Customers</div>
+            <div class="value total">{{ total_customers }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Active Customers</div>
+            <div class="value active">{{ active_customers }}</div>
+        </div>
+        <div class="card">
+            <div class="label">With Credit</div>
+            <div class="value credit">{{ customers_with_credit }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Outstanding</div>
+            <div class="value outstanding">Rs {{ total_outstanding|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group" style="flex:2;">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Name, Code, Phone..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Type</label>
+            <select name="customer_type">
+                <option value="">All Types</option>
+                {% for key, value in customer_types %}
+                    <option value="{{ key }}" {% if selected_type == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All</option>
+                <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Credit</label>
+            <select name="credit_filter">
+                <option value="">All</option>
+                <option value="has_credit" {% if selected_credit_filter == 'has_credit' %}selected{% endif %}>Has Outstanding</option>
+                <option value="no_credit" {% if selected_credit_filter == 'no_credit' %}selected{% endif %}>No Outstanding</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/customers/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ customers|length }}</strong> customer{{ customers|pluralize }}
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:12%;">Code</th>
+                    <th style="width:20%;">Name</th>
+                    <th style="width:12%;">Type</th>
+                    <th style="width:15%;">Phone</th>
+                    <th style="width:12%;">Total Sales</th>
+                    <th style="width:12%;">Outstanding</th>
+                    <th style="width:8%;">Status</th>
+                    <th style="width:9%;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td><strong>{{ customer.code }}</strong></td>
+                    <td>{{ customer.name }}</td>
+                    <td>{{ customer.get_customer_type_display }}</td>
+                    <td>{{ customer.phone|default:"-" }}</td>
+                    <td style="font-weight:600;">Rs {{ customer.total_sales|floatformat:2 }}</td>
+                    <td style="font-weight:600; {% if customer.outstanding > 0 %}color:#dc3545;{% else %}color:#28a745;{% endif %}">
+                        Rs {{ customer.outstanding|floatformat:2 }}
+                    </td>
+                    <td>
+                        <span class="badge-status {% if customer.is_active %}complete{% else %}pending{% endif %}">
+                            {% if customer.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/customer/detail/{{ customer.id }}/" class="view" title="View">👁️</a>
+                            <a href="/customer/edit/{{ customer.id }}/" class="edit" title="Edit">✏️</a>
+                            <a href="/customer/toggle/{{ customer.id }}/" class="{% if customer.is_active %}delete{% else %}pay{% endif %}" title="{% if customer.is_active %}Deactivate{% else %}Activate{% endif %}" onclick="return confirm('{% if customer.is_active %}Deactivate{% else %}Activate{% endif %} {{ customer.name }}?')">
+                                {% if customer.is_active %}🔴{% else %}🟢{% endif %}
+                            </a>
+                            <a href="/customer/delete/{{ customer.id }}/" class="delete" title="Delete" onclick="return confirm('Delete {{ customer.name }}?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">👤</span>
+                        No customers found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add your first customer using the "Add Customer" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

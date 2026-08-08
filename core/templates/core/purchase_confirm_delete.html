@@ -1,0 +1,142 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Delete Purchase - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .delete-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    .delete-icon {
+        font-size: 60px;
+        display: block;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .delete-title {
+        text-align: center;
+        font-size: 24px;
+        color: #dc3545;
+        margin-bottom: 10px;
+    }
+    .delete-details {
+        background: #f8f9fc;
+        padding: 20px;
+        border-radius: 12px;
+        margin: 20px 0;
+    }
+    .delete-details .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e8ecf2;
+    }
+    .delete-details .row:last-child { border-bottom: none; }
+    .delete-details .label { color: #666; }
+    .delete-details .value { font-weight: 600; color: #1a2634; }
+    .warning-text {
+        text-align: center;
+        color: #856404;
+        background: #fff3cd;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 15px 0;
+        font-size: 14px;
+    }
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-delete:hover { background: #c82333; }
+</style>
+
+<div class="container delete-container">
+    <div class="card" style="text-align:center; padding: 30px;">
+        <span class="delete-icon">⚠️</span>
+        <h2 class="delete-title">Delete Purchase?</h2>
+        <p style="color: #666; margin-bottom: 5px;">
+            You are about to permanently delete this purchase.
+        </p>
+        <p style="color: #999; font-size: 14px;">
+            This action <strong>cannot</strong> be undone.
+        </p>
+
+        <div class="delete-details">
+            <div class="row">
+                <span class="label">Invoice No</span>
+                <span class="value">{{ purchase.invoice_no }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Supplier</span>
+                <span class="value">{{ purchase.supplier.name }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Date</span>
+                <span class="value">{{ purchase.purchase_date|date:"Y-m-d" }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Total</span>
+                <span class="value" style="color:#dc3545;">Rs {{ purchase.total|floatformat:2 }}</span>
+            </div>
+            <div class="row">
+                <span class="label">Status</span>
+                <span class="value">
+                    <span class="badge-status {{ purchase.status|lower }}">
+                        {{ purchase.get_status_display }}
+                    </span>
+                </span>
+            </div>
+        </div>
+
+        {% if purchase.status == 'RECEIVED' %}
+            <div class="warning-text" style="background:#f8d7da; border-color:#f5c6cb; color:#721c24;">
+                ⚠️ This purchase has been <strong>RECEIVED</strong>. Stock has been updated.
+                Deleting it will NOT reverse stock changes.
+            </div>
+        {% else %}
+            <div class="warning-text">
+                ⚠️ This purchase has <strong>{{ purchase.get_status_display|upper }}</strong> status.
+                No stock has been updated yet.
+            </div>
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="btn-group">
+                <a href="/purchase/detail/{{ purchase.id }}/" class="btn-cancel">← Cancel</a>
+                <button type="submit" class="btn-delete">🗑️ Confirm Delete</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

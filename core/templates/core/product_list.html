@@ -1,0 +1,105 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Products - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📦 Products</h2>
+            <span class="subtitle">Manage your product catalog</span>
+        </div>
+        <a href="/product/add/" class="btn">+ Add Product</a>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Name or Code..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All</option>
+                <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/products/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ total_count }}</strong> product{{ total_count|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Unit</th>
+                    <th style="text-align:right;">Price (Rs)</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ product.code }}</strong></td>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.category.name|default:"-" }}</td>
+                    <td>{{ product.get_unit_display }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ product.selling_price|floatformat:2 }}</td>
+                    <td>
+                        <span class="badge-status {% if product.is_active %}complete{% else %}pending{% endif %}">
+                            {% if product.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/product/edit/{{ product.id }}/" class="edit" title="Edit">✏️</a>
+                            <a href="/product/toggle/{{ product.id }}/" class="{% if product.is_active %}delete{% else %}pay{% endif %}" title="{% if product.is_active %}Deactivate{% else %}Activate{% endif %}" onclick="return confirm('{% if product.is_active %}Deactivate{% else %}Activate{% endif %} {{ product.name }}?')">
+                                {% if product.is_active %}🔴{% else %}🟢{% endif %}
+                            </a>
+                            <a href="/product/delete/{{ product.id }}/" class="delete" title="Delete" onclick="return confirm('Delete {{ product.name }} permanently?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">📭</span>
+                        No products found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add your first product using the "Add Product" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

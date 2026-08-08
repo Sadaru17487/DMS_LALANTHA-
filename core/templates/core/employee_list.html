@@ -1,0 +1,109 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Employees - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>👤 Employees</h2>
+            <span class="subtitle">Manage your staff</span>
+        </div>
+        <a href="/employee/add/" class="btn">+ Add Employee</a>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Name, Phone, Email..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Position</label>
+            <select name="position">
+                <option value="">All Positions</option>
+                {% for key, value in positions %}
+                    <option value="{{ key }}" {% if selected_position == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All</option>
+                <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/employees/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ total_count }}</strong> employee{{ total_count|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Rep Code</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Hire Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ emp.name }}</strong></td>
+                        <td>{{ emp.get_position_display }}</td>
+                        <td>
+                            <!-- ✅ ADD THIS -->
+                            {% if emp.position == 'Rep' %}
+                                {% if emp.rep_code %}
+                                    <strong style="color:#007bff;">{{ emp.rep_code }}</strong>
+                                {% else %}
+                                    <span style="color:#dc3545; font-size:12px;">⚠️ Not Set</span>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ emp.phone|default:"-" }}</td>
+                        <td>{{ emp.hire_date|date:"Y-m-d"|default:"-" }}</td>
+                        <td>
+                            <span class="badge-status {% if emp.is_active %}complete{% else %}pending{% endif %}">
+                                {% if emp.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="/employee/edit/{{ emp.id }}/" class="edit" title="Edit">✏️</a>
+                                <a href="/employee/toggle/{{ emp.id }}/" class="{% if emp.is_active %}delete{% else %}pay{% endif %}" title="{% if emp.is_active %}Deactivate{% else %}Activate{% endif %}" onclick="return confirm('{% if emp.is_active %}Deactivate{% else %}Activate{% endif %} {{ emp.name }}?')">
+                                    {% if emp.is_active %}🔴{% else %}🟢{% endif %}
+                                </a>
+                                <a href="/employee/delete/{{ emp.id }}/" class="delete" title="Delete" onclick="return confirm('Delete {{ emp.name }} permanently?')">🗑️</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

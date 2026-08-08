@@ -1,0 +1,207 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Vehicles - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.active { color: #28a745; }
+    .summary-grid .card .value.maintenance { color: #fd7e14; }
+    .summary-grid .card .value.insurance { color: #dc3545; }
+    .summary-grid .card .value.registration { color: #007bff; }
+    
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.complete { background: #d4edda; color: #155724; }
+    .badge-status.warning { background: #fff3cd; color: #856404; }
+    .badge-status.pending { background: #e2e3e5; color: #383d41; }
+    .badge-status.danger { background: #f8d7da; color: #721c24; }
+    
+    .alert-badge {
+        display: inline-block;
+        background: #f8d7da;
+        color: #721c24;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🚛 Vehicles</h2>
+            <span class="subtitle">Manage your fleet</span>
+        </div>
+        <a href="/vehicle/add/" class="btn">+ Add Vehicle</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Vehicles</div>
+            <div class="value total">{{ total_vehicles }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Active</div>
+            <div class="value active">{{ active_vehicles }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Under Maintenance</div>
+            <div class="value maintenance">{{ maintenance_vehicles }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Insurance Expiring</div>
+            <div class="value insurance">{{ insurance_expiring }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Registration Expiring</div>
+            <div class="value registration">{{ registration_expiring }}</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group" style="flex:2;">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Vehicle No, Driver, Registration..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Type</label>
+            <select name="vehicle_type">
+                <option value="">All Types</option>
+                {% for key, value in vehicle_types %}
+                    <option value="{{ key }}" {% if selected_type == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All Status</option>
+                {% for key, value in status_choices %}
+                    <option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Fuel</label>
+            <select name="fuel_type">
+                <option value="">All Fuel</option>
+                {% for key, value in fuel_types %}
+                    <option value="{{ key }}" {% if selected_fuel == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/vehicles/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ vehicles|length }}</strong> vehicle{{ vehicles|pluralize }}
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Vehicle No</th>
+                    <th>Type</th>
+                    <th>Driver</th>
+                    <th>Registration</th>
+                    <th>Insurance Expiry</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vehicle in vehicles %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ vehicle.vehicle_number }}</strong></td>
+                    <td>{{ vehicle.get_vehicle_type_display }}</td>
+                    <td>{{ vehicle.driver_name }}</td>
+                    <td>{{ vehicle.registration_number|default:"-" }}</td>
+                    <td>
+                        {{ vehicle.insurance_expiry|date:"Y-m-d"|default:"-" }}
+                        {% if vehicle.is_insurance_expiring_soon %}
+                            <span class="alert-badge">⚠️</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge-status {{ vehicle.get_status_badge }}">
+                            {{ vehicle.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/vehicle/detail/{{ vehicle.id }}/" class="view" title="View">👁️</a>
+                            <a href="/vehicle/edit/{{ vehicle.id }}/" class="edit" title="Edit">✏️</a>
+                            <a href="/vehicle/toggle/{{ vehicle.id }}/" class="{% if vehicle.is_active %}delete{% else %}pay{% endif %}" title="{% if vehicle.is_active %}Deactivate{% else %}Activate{% endif %}" onclick="return confirm('{% if vehicle.is_active %}Deactivate{% else %}Activate{% endif %} {{ vehicle.vehicle_number }}?')">
+                                {% if vehicle.is_active %}🔴{% else %}🟢{% endif %}
+                            </a>
+                            <a href="/vehicle/delete/{{ vehicle.id }}/" class="delete" title="Delete" onclick="return confirm('Delete vehicle {{ vehicle.vehicle_number }}?')">🗑️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">🚛</span>
+                        No vehicles found.<br>
+                        <span style="font-size:12px;color:#bbb;">Add your first vehicle using the "Add Vehicle" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

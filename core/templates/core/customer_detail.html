@@ -1,0 +1,201 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Customer Details - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .detail-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .detail-grid .item .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1a2634;
+        margin-top: 3px;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .summary-grid .card {
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 12px;
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 20px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.green { color: #28a745; }
+    .summary-grid .card .value.blue { color: #007bff; }
+    .summary-grid .card .value.orange { color: #fd7e14; }
+    .summary-grid .card .value.red { color: #dc3545; }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>👤 Customer Details</h2>
+            <span class="subtitle">{{ customer.code }} - {{ customer.name }}</span>
+        </div>
+        <div>
+            <a href="/customer/edit/{{ customer.id }}/" class="btn" style="background:#fd7e14;">✏️ Edit</a>
+            <a href="/customers/" class="btn" style="background:#6c757d;">← Back</a>
+        </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="card">
+        <div class="detail-grid">
+            <div class="item">
+                <div class="label">Code</div>
+                <div class="value">{{ customer.code }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Name</div>
+                <div class="value">{{ customer.name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Type</div>
+                <div class="value">{{ customer.get_customer_type_display }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Status</div>
+                <div class="value">
+                    <span class="badge-status {% if customer.is_active %}complete{% else %}pending{% endif %}">
+                        {% if customer.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="item">
+                <div class="label">Phone</div>
+                <div class="value">{{ customer.phone|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Email</div>
+                <div class="value">{{ customer.email|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">City</div>
+                <div class="value">{{ customer.city|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Tax Number</div>
+                <div class="value">{{ customer.tax_number|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Credit Limit</div>
+                <div class="value">{% if customer.credit_limit == 0 %}Unlimited{% else %}Rs {{ customer.credit_limit|floatformat:2 }}{% endif %}</div>
+            </div>
+            <div class="item">
+                <div class="label">Address</div>
+                <div class="value">{{ customer.address|default:"-" }}</div>
+            </div>
+        </div>
+        {% if customer.notes %}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e8ecf2;">
+            <div class="label" style="font-size:12px; color:#888; font-weight:600; text-transform:uppercase;">Notes</div>
+            <div style="margin-top:5px; color:#555;">{{ customer.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Sales</div>
+            <div class="value blue">Rs {{ total_sales|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Outstanding</div>
+            <div class="value red">Rs {{ outstanding|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Available Credit</div>
+            <div class="value green">
+                {% if available_credit == inf %}Unlimited{% else %}Rs {{ available_credit|floatformat:2 }}{% endif %}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Total Bills</div>
+            <div class="value orange">{{ sales_bills|length }}</div>
+        </div>
+    </div>
+
+    <!-- Sales History -->
+    <div class="card">
+        <h3>📋 Sales History</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th>Vehicle</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th style="text-align:right;">Paid</th>
+                        <th style="text-align:right;">Outstanding</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in sales_bills %}
+                    <tr>
+                        <td><a href="/sales-detail/{{ bill.id }}/" style="color:#007bff; text-decoration:none;">{{ bill.invoice_no }}</a></td>
+                        <td>{{ bill.date|date:"Y-m-d" }}</td>
+                        <td>{{ bill.vehicle.vehicle_number }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ bill.net_total|floatformat:2 }}</td>
+                        <td style="text-align:right;">
+                            Rs {% with total=bill.payments.exclude.type='Credit'|sum_amount %}{{ total|floatformat:2 }}{% endwith %}
+                        </td>
+                        <td style="text-align:right; color:{% if bill.outstanding > 0 %}#dc3545{% else %}#28a745{% endif %};">
+                            Rs {{ bill.outstanding|floatformat:2 }}
+                        </td>
+                        <td>
+                            <span class="badge-status {% if bill.status == 'COMPLETED' %}complete{% elif bill.status == 'DRAFT' %}pending{% else %}credit{% endif %}">
+                                {{ bill.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <span class="icon">📭</span>
+                            No sales found for this customer.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

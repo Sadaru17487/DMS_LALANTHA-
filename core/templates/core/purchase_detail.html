@@ -1,0 +1,246 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Purchase Detail - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .detail-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .detail-grid .item .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1a2634;
+        margin-top: 3px;
+    }
+    .total-row {
+        background: #f8fafc;
+        font-weight: 700;
+    }
+    .total-row td {
+        padding: 12px !important;
+    }
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    .btn-print {
+        background: #17a2b8;
+        color: white;
+        padding: 10px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-print:hover { background: #138496; }
+    .btn-receive {
+        background: #28a745;
+        color: white;
+        padding: 10px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-receive:hover { background: #218838; }
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.received { background: #d4edda; color: #155724; }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.cancelled { background: #f8d7da; color: #721c24; }
+    .badge-status.complete { background: #d4edda; color: #155724; }
+    .badge-status.partial { background: #fff3cd; color: #856404; }
+    
+    @media print {
+        .sidebar, .sidebar-toggle, .sidebar-overlay, .btn-group, .no-print { display: none !important; }
+        .main-content { margin-left: 0 !important; padding: 10px !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd; }
+        body { background: white !important; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🧾 Purchase Detail</h2>
+            <span class="subtitle">{{ purchase.invoice_no }}</span>
+        </div>
+        <a href="/purchases/" class="btn" style="background:#6c757d;">← Back to List</a>
+    </div>
+
+    <!-- Purchase Info -->
+    <div class="card">
+        <div class="detail-grid">
+            <div class="item">
+                <div class="label">Invoice No</div>
+                <div class="value">{{ purchase.invoice_no }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Supplier</div>
+                <div class="value">{{ purchase.supplier.name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">PO Number</div>
+                <div class="value">{{ purchase.po_number|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Date</div>
+                <div class="value">{{ purchase.purchase_date|date:"Y-m-d" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Rep</div>
+                <div class="value">{{ purchase.rep.name|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Status</div>
+                <div class="value">
+                    <span class="badge-status {{ purchase.status|lower }}">
+                        {{ purchase.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="item">
+                <div class="label">Payment Status</div>
+                <div class="value">
+                    <span class="badge-status {{ purchase.payment_status|lower }}">
+                        {{ purchase.get_payment_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="item">
+                <div class="label">Due Date</div>
+                <div class="value">{{ purchase.due_date|date:"Y-m-d"|default:"-" }}</div>
+            </div>
+            {% if purchase.received_at %}
+            <div class="item">
+                <div class="label">Received At</div>
+                <div class="value">{{ purchase.received_at|date:"Y-m-d H:i" }}</div>
+            </div>
+            {% endif %}
+            <div class="item">
+                <div class="label">Tax Rate</div>
+                <div class="value">{{ purchase.tax_rate }}%</div>
+            </div>
+            <div class="item">
+                <div class="label">Tax Invoice No</div>
+                <div class="value">{{ purchase.tax_invoice_no|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Created By</div>
+                <div class="value">{{ purchase.created_by.username|default:"-" }}</div>
+            </div>
+        </div>
+        {% if purchase.notes %}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e8ecf2;">
+            <div class="label" style="font-size:12px; color:#888; font-weight:600; text-transform:uppercase;">Notes</div>
+            <div style="margin-top:5px; color:#555;">{{ purchase.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div class="card">
+        <h3>🛒 Items</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th style="text-align:right;">Qty</th>
+                        <th style="text-align:right;">Cost Price</th>
+                        <th style="text-align:right;">Retail Price</th>
+                        <th style="text-align:right;">Wholesale Price</th>
+                        <th style="text-align:right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                {{ item.product.name }}
+                                {% if item.is_foc %}
+                                    <span style="color:#fd7e14; font-weight:600;">🎁 FOC</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right;">{{ item.quantity|floatformat:2 }}</td>
+                            <td style="text-align:right;">Rs {{ item.cost_price|floatformat:2 }}</td>
+                            <td style="text-align:right;">Rs {{ item.retail_price|floatformat:2 }}</td>
+                            <td style="text-align:right;">Rs {{ item.wholesale_price|floatformat:2 }}</td>
+                            <td style="text-align:right; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
+                        </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;color:#999;">No items found.</td></tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="5"></td>
+                        <td style="text-align:right;">Subtotal:</td>
+                        <td style="text-align:right;">Rs {{ purchase.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% if purchase.tax_rate > 0 %}
+                    <tr class="total-row">
+                        <td colspan="5"></td>
+                        <td style="text-align:right;">Tax ({{ purchase.tax_rate }}%):</td>
+                        <td style="text-align:right;">Rs {{ purchase.tax_amount|floatformat:2 }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="total-row" style="background:#e8ecf2; font-size:16px;">
+                        <td colspan="5"></td>
+                        <td style="text-align:right; font-weight:700;">Grand Total:</td>
+                        <td style="text-align:right; font-weight:700; color:#28a745;">Rs {{ purchase.total|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5"></td>
+                        <td style="text-align:right; font-weight:600;">Paid Amount:</td>
+                        <td style="text-align:right; font-weight:600; color:#007bff;">Rs {{ purchase.paid_amount|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5"></td>
+                        <td style="text-align:right; font-weight:600;">Balance:</td>
+                        <td style="text-align:right; font-weight:600; color:{% if purchase.balance > 0 %}#dc3545{% else %}#28a745{% endif %};">
+                            Rs {{ purchase.balance|floatformat:2 }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-group no-print">
+        <a href="/purchases/" class="btn" style="background:#6c757d;">← Back to List</a>
+        {% if purchase.status != 'RECEIVED' %}
+            <a href="/purchase/receive/{{ purchase.id }}/" class="btn-receive">📦 Mark as Received</a>
+            <a href="/purchase/edit/{{ purchase.id }}/" class="btn" style="background:#fd7e14;">✏️ Edit</a>
+        {% endif %}
+        <button onclick="window.print()" class="btn-print">🖨️ Print</button>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

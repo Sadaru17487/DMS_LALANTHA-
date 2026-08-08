@@ -1,0 +1,80 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Transfer Details - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .detail-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .detail-grid .item .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1a2634;
+        margin-top: 3px;
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🧾 Transfer Details</h2>
+            <span class="subtitle">#{{ transfer.id }}</span>
+        </div>
+        <a href="/transfers/" class="btn" style="background:#6c757d;">← Back to List</a>
+    </div>
+
+    <div class="card">
+        <div class="detail-grid">
+            <div class="item">
+                <div class="label">From</div>
+                <div class="value">{{ transfer.source_vehicle.vehicle_number }} ({{ transfer.source_vehicle.driver_name }})</div>
+            </div>
+            <div class="item">
+                <div class="label">To</div>
+                <div class="value">{{ transfer.destination_vehicle.vehicle_number }} ({{ transfer.destination_vehicle.driver_name }})</div>
+            </div>
+            <div class="item">
+                <div class="label">Product</div>
+                <div class="value">{{ transfer.product.name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Quantity</div>
+                <div class="value" style="color:#28a745;">{{ transfer.quantity|floatformat:2 }} {{ transfer.product.unit }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Date</div>
+                <div class="value">{{ transfer.transfer_date|date:"Y-m-d H:i" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Reason</div>
+                <div class="value">{{ transfer.get_reason_display }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Transferred By</div>
+                <div class="value">{{ transfer.transferred_by.username|default:"-" }}</div>
+            </div>
+            {% if transfer.notes %}
+            <div class="item">
+                <div class="label">Notes</div>
+                <div class="value">{{ transfer.notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

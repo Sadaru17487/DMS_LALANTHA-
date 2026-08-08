@@ -1,0 +1,457 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Add Purchase - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-weight: 600; color: #555; font-size: 14px; }
+    .form-group label .required { color: #dc3545; }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea { min-height: 60px; resize: vertical; }
+    .full-width { grid-column: 1 / -1; }
+    
+    .item-row { display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .item-row select, .item-row input { padding: 8px 10px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 13px; background: #fafbfc; width: 100%; }
+    .item-row .remove-btn { background: #fee; border: none; color: #dc3545; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .item-row .remove-btn:hover { background: #fcc; }
+    
+    .item-header { display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; gap: 8px; font-weight: 600; color: #555; font-size: 12px; text-transform: uppercase; margin-bottom: 5px; }
+    
+    .summary-box {
+        background: #f8f9fc;
+        padding: 20px;
+        border-radius: 12px;
+        margin-top: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    .summary-box .item .label { font-size: 12px; color: #888; text-transform: uppercase; }
+    .summary-box .item .value { font-size: 20px; font-weight: 700; color: #1a2634; }
+    .summary-box .item .value.green { color: #28a745; }
+    .summary-box .item .value.blue { color: #007bff; }
+    .summary-box .item .value.purple { color: #6f42c1; }
+    .summary-box .item .value.orange { color: #fd7e14; }
+    
+    .btn-add-row { background: #007bff; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+    .btn-add-row:hover { background: #0056b3; }
+    
+    .foc-section { border-top: 2px dashed #fd7e14; padding-top: 15px; margin-top: 10px; }
+    
+    .section-badge { font-size: 13px; font-weight: 600; color: #28a745; }
+    .section-badge.foc { color: #fd7e14; }
+    
+    .paid-display { background: #e8f5e9; border: 2px solid #28a745; padding: 12px 16px; border-radius: 8px; font-size: 18px; font-weight: 700; color: #28a745; width: 100%; text-align: center; cursor: default; }
+    .paid-display.credit { background: #fff3cd; border-color: #ffc107; color: #856404; }
+    .credit-note { background: #e3f2fd; padding: 10px 15px; border-radius: 8px; font-size: 13px; color: #0d47a1; margin-top: 5px; }
+    
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+        .item-row, .item-header { grid-template-columns: 1fr; gap: 5px; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>➕ Add Purchased</h2>
+            <span class="subtitle">Manage Your GRN (Goods Received Note)</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST" id="purchaseForm">
+            {% csrf_token %}
+            
+            <!-- Header Section -->
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Select Supplier <span class="required">*</span></label>
+                    <select name="supplier" id="supplierSelect" required>
+                        <option value="">-- Select Supplier --</option>
+                        {% for sup in suppliers %}
+                            <option value="{{ sup.id }}">{{ sup.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>PO Number</label>
+                    <input type="text" name="po_number" placeholder="Enter PO number" value="PO-{{ random_po }}">
+                </div>
+                <div class="form-group">
+                    <label>Select Rep</label>
+                    <select name="rep">
+                        <option value="">-- Select Rep --</option>
+                        {% for rep in reps %}
+                            <option value="{{ rep.id }}">{{ rep.name }} ({{ rep.get_position_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Purchased Date</label>
+                    <input type="date" name="purchase_date" value="{{ today|date:'Y-m-d' }}">
+                </div>
+                <div class="form-group">
+                    <label>Invoice Number <span class="required">*</span></label>
+                    <input type="text" name="invoice_no" placeholder="Supplier Invoice #" required>
+                </div>
+                <div class="form-group">
+                    <label>Tax Rate (%)</label>
+                    <input type="number" step="0.01" name="tax_rate" id="taxRate" value="0" placeholder="e.g., 5, 8, 12, 15" onchange="calculateTotals()" oninput="calculateTotals()">
+                </div>
+                <div class="form-group">
+                    <label>Tax Invoice Number</label>
+                    <input type="text" name="tax_invoice_no" placeholder="Tax Invoice #">
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date">
+                </div>
+            </div>
+
+            <!-- Items Section -->
+            <h3 style="margin-top: 25px; border-top: 2px solid #e8ecf2; padding-top: 20px;">🛒 Products</h3>
+            
+            <div id="itemsContainer">
+                <div class="item-header">
+                    <span>Product</span>
+                    <span>Cost Price</span>
+                    <span>Retail Price</span>
+                    <span>Wholesale Price</span>
+                    <span>Quantity</span>
+                    <span>Amount</span>
+                    <span></span>
+                </div>
+                <!-- Regular Items Section -->
+                <div id="regularItemsContainer">
+                    <!-- Regular items go here -->
+                </div>
+                <!-- FOC Items Section -->
+                <div id="focItemsContainer" class="foc-section" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-weight:600; color:#fd7e14;">🎁 FOC Items (Free)</span>
+                        <span class="section-badge foc">Total: Rs <span id="focSubtotalDisplay">0.00</span></span>
+                    </div>
+                    <!-- FOC items go here -->
+                </div>
+            </div>
+            
+            <button type="button" class="btn-add-row" onclick="addItemRow(false)">+ Add Regular Item</button>
+            <button type="button" class="btn-add-row" onclick="addItemRow(true)" style="background:#fd7e14; margin-left:10px;">🎁 + Add FOC Item</button>
+
+            <!-- Summary -->
+            <div class="summary-box" id="summaryBox">
+                <div class="item">
+                    <div class="label">Total Items</div>
+                    <div class="value blue" id="totalItemsDisplay">0 Items</div>
+                </div>
+                <div class="item">
+                    <div class="label">Subtotal (All Items)</div>
+                    <div class="value" id="subtotalDisplay">Rs 0.00</div>
+                </div>
+                <div class="item">
+                    <div class="label">FOC Value</div>
+                    <div class="value orange" id="focValueDisplay">Rs 0.00</div>
+                </div>
+                <div class="item">
+                    <div class="label">TAX</div>
+                    <div class="value purple" id="taxDisplay">Rs 0.00</div>
+                </div>
+                <div class="item">
+                    <div class="label">Grand Total</div>
+                    <div class="value green" id="grandTotalDisplay">Rs 0.00</div>
+                </div>
+                <div class="item">
+                    <div class="label">Payable to Supplier</div>
+                    <div class="value" id="payableDisplay" style="color:#007bff;">Rs 0.00</div>
+                </div>
+            </div>
+
+            <!-- Payment Section -->
+            <h3 style="margin-top: 25px; border-top: 2px solid #e8ecf2; padding-top: 20px;">💳 Payment</h3>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Paid Amount</label>
+                    <div class="paid-display" id="paidDisplay">Rs 0.00</div>
+                    <span class="help-text" style="font-size:12px; color:#888;">Auto-calculated from Grand Total</span>
+                </div>
+                <div class="form-group">
+                    <label>Payment Status</label>
+                    <select name="payment_status" id="paymentStatus" required>
+                        <option value="CREDIT">Credit Purchases</option>
+                        <option value="COMPLETE" selected>Complete Payment</option>
+                    </select>
+                    <div class="credit-note" id="creditNote" style="display:none;">
+                        💡 Credit purchase - Payment can be made later. Set Due Date above.
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Notes</label>
+                <textarea name="notes" rows="2" placeholder="Additional notes..."></textarea>
+            </div>
+
+            <!-- Hidden field for item count -->
+            <input type="hidden" name="item_count" id="itemCount" value="0">
+
+            <!-- Action Buttons -->
+            <div class="action-buttons" style="margin-top: 25px; display: flex; gap: 15px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-clear" onclick="clearForm()">🗑️ Clear Purchase</button>
+                <button type="button" class="btn btn-back" onclick="window.location.href='/purchases/'">← Back</button>
+                <button type="submit" class="btn btn-complete" id="completeBtn">📊 Complete Purchase</button>
+            </div>
+
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+
+<script>
+    let itemCount = 0;
+    let products = {};
+    let grandTotal = 0;
+    let payableAmount = 0;
+    let focTotal = 0;
+    
+    // Populate products list from Django
+    {% for p in products %}
+        products[{{ p.id }}] = {
+            id: {{ p.id }},
+            name: "{{ p.name|escapejs }}",
+            cost: {{ p.cost_price|default:0 }},
+            retail: {{ p.selling_price }},
+            wholesale: {{ p.selling_price|floatformat:2 }}
+        };
+    {% endfor %}
+    
+    function addItemRow(isFoc) {
+        const container = document.getElementById('itemsContainer');
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.id = `item_${itemCount}`;
+        row.dataset.isFoc = isFoc ? 'true' : 'false';
+        
+        const productOptions = Object.values(products).map(p => 
+            `<option value="${p.id}">${p.name}</option>`
+        ).join('');
+        
+        const borderColor = isFoc ? '#fd7e14' : '#e0e4eb';
+        row.style.borderLeft = `3px solid ${borderColor}`;
+        row.style.paddingLeft = '10px';
+        row.style.marginBottom = '8px';
+        
+        row.innerHTML = `
+            <select name="product_${itemCount}" class="product-select" onchange="updateItemTotals(${itemCount})">
+                <option value="">-- Select Product --</option>
+                ${productOptions}
+            </select>
+            <input type="number" step="0.01" name="cost_${itemCount}" class="cost-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
+            <input type="number" step="0.01" name="retail_${itemCount}" class="retail-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
+            <input type="number" step="0.01" name="wholesale_${itemCount}" class="wholesale-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
+            <input type="number" step="0.01" name="qty_${itemCount}" class="qty-input" value="1" placeholder="0" oninput="updateItemTotals(${itemCount})">
+            <span class="item-amount" id="amount_${itemCount}">Rs 0.00</span>
+            <button type="button" class="remove-btn" onclick="removeItem(${itemCount})">✕</button>
+            <input type="hidden" name="is_foc_${itemCount}" value="${isFoc ? 'true' : 'false'}">
+        `;
+        
+        // Insert at the right place
+        if (isFoc) {
+            // Insert before the "Add" buttons or into the FOC container
+            const focContainer = document.getElementById('focItemsContainer');
+            focContainer.style.display = 'block';
+            focContainer.appendChild(row);
+        } else {
+            const regularContainer = document.getElementById('regularItemsContainer');
+            regularContainer.appendChild(row);
+        }
+        
+        itemCount++;
+        document.getElementById('itemCount').value = itemCount;
+        updateItemTotals(itemCount - 1);
+        calculateTotals();
+        
+        row.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function removeItem(index) {
+        const row = document.getElementById(`item_${index}`);
+        if (row) {
+            row.remove();
+            // Check if FOC container is empty, hide it
+            const focContainer = document.getElementById('focItemsContainer');
+            if (focContainer && focContainer.children.length === 0) {
+                focContainer.style.display = 'none';
+            }
+            calculateTotals();
+        }
+    }
+    
+    function updateItemTotals(index) {
+        const row = document.getElementById(`item_${index}`);
+        if (!row) return;
+        
+        const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+        const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+        const amount = qty * cost;
+        
+        const amountSpan = document.getElementById(`amount_${index}`);
+        amountSpan.textContent = `Rs ${amount.toFixed(2)}`;
+        
+        calculateTotals();
+    }
+    
+    function calculateTotals() {
+        let totalItems = 0;
+        let subtotal = 0;
+        let focTotalVal = 0;
+        const rows = document.querySelectorAll('.item-row');
+        
+        rows.forEach(row => {
+            const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+            const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+            const isFoc = row.dataset.isFoc === 'true';
+            const amount = qty * cost;
+            
+            totalItems += qty;
+            subtotal += amount;
+            if (isFoc) {
+                focTotalVal += amount;
+            }
+        });
+        
+        focTotal = focTotalVal;
+        
+        const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+        const taxAmount = (subtotal * taxRate) / 100;
+        const grandTotalVal = subtotal + taxAmount;
+        const payableVal = grandTotalVal; // Supplier gets paid for all items (including FOC, but cost price is still for valuation)
+        // Actually, FOC items should NOT be paid to supplier. But since they have cost price for valuation,
+        // we need to track FOC separately. The "Payable" amount should be Subtotal - FOC_value + Tax.
+        // Let's adjust:
+        const regularSubtotal = subtotal - focTotalVal;
+        const payableAmountVal = regularSubtotal + taxAmount;
+        
+        grandTotal = grandTotalVal;
+        payableAmount = payableAmountVal;
+        
+        document.getElementById('totalItemsDisplay').textContent = `${totalItems} Items`;
+        document.getElementById('subtotalDisplay').textContent = `Rs ${subtotal.toFixed(2)}`;
+        document.getElementById('focValueDisplay').textContent = `Rs ${focTotalVal.toFixed(2)}`;
+        document.getElementById('taxDisplay').textContent = `Rs ${taxAmount.toFixed(2)} (${taxRate}%)`;
+        document.getElementById('grandTotalDisplay').textContent = `Rs ${grandTotalVal.toFixed(2)}`;
+        document.getElementById('payableDisplay').textContent = `Rs ${payableAmountVal.toFixed(2)}`;
+        
+        // Update paid display
+        updatePaidDisplay(payableAmountVal);
+        
+        // Update FOC subtotal display
+        document.getElementById('focSubtotalDisplay').textContent = focTotalVal.toFixed(2);
+    }
+    
+    function updatePaidDisplay(amount) {
+        const display = document.getElementById('paidDisplay');
+        display.textContent = `Rs ${amount.toFixed(2)}`;
+        const status = document.getElementById('paymentStatus').value;
+        if (status === 'CREDIT') {
+            display.className = 'paid-display credit';
+        } else {
+            display.className = 'paid-display';
+        }
+    }
+    
+    function updatePaymentStatus() {
+        const status = document.getElementById('paymentStatus').value;
+        const creditNote = document.getElementById('creditNote');
+        const dueDate = document.querySelector('input[name="due_date"]');
+        if (status === 'CREDIT') {
+            creditNote.style.display = 'block';
+            dueDate.required = true;
+        } else {
+            creditNote.style.display = 'none';
+            dueDate.required = false;
+        }
+        updatePaidDisplay(payableAmount);
+    }
+    
+    function clearForm() {
+        if (!confirm('Clear all entered data?')) return;
+        document.querySelectorAll('.item-row').forEach(row => row.remove());
+        document.getElementById('itemCount').value = 0;
+        document.getElementById('focItemsContainer').style.display = 'none';
+        document.getElementById('paidDisplay').textContent = 'Rs 0.00';
+        document.getElementById('paymentStatus').value = 'COMPLETE';
+        document.getElementById('supplierSelect').value = '';
+        document.querySelector('input[name="invoice_no"]').value = '';
+        document.querySelector('input[name="tax_invoice_no"]').value = '';
+        document.querySelector('input[name="due_date"]').value = '';
+        document.querySelector('textarea[name="notes"]').value = '';
+        document.getElementById('taxRate').value = 0;
+        grandTotal = 0;
+        payableAmount = 0;
+        focTotal = 0;
+        updatePaymentStatus();
+        calculateTotals();
+    }
+    
+    document.getElementById('purchaseForm').addEventListener('submit', function(e) {
+        const supplier = document.getElementById('supplierSelect').value;
+        const invoice = document.querySelector('input[name="invoice_no"]').value;
+        const rows = document.querySelectorAll('.item-row');
+        const paymentStatus = document.getElementById('paymentStatus').value;
+        const dueDate = document.querySelector('input[name="due_date"]').value;
+        
+        if (!supplier) { e.preventDefault(); alert('Please select a supplier.'); return; }
+        if (!invoice) { e.preventDefault(); alert('Please enter an invoice number.'); return; }
+        if (rows.length === 0) { e.preventDefault(); alert('Please add at least one product.'); return; }
+        if (paymentStatus === 'CREDIT' && !dueDate) {
+            e.preventDefault();
+            alert('Please enter a Due Date for credit purchases.');
+            return;
+        }
+        
+        let valid = true;
+        rows.forEach(row => {
+            const product = row.querySelector('.product-select').value;
+            const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+            const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+            if (!product || cost <= 0 || qty <= 0) valid = false;
+        });
+        if (!valid) {
+            e.preventDefault();
+            alert('Please ensure all items have a product, cost price, and quantity.');
+            return;
+        }
+    });
+    
+    document.getElementById('paymentStatus').addEventListener('change', updatePaymentStatus);
+    document.getElementById('taxRate').addEventListener('input', calculateTotals);
+    
+    // Initial add of 1 empty regular row
+    addItemRow(false);
+    
+    // Initialize payment status
+    updatePaymentStatus();
+</script>
+{% endblock %}

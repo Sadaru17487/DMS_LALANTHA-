@@ -1,0 +1,39 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Reject Expense - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container" style="max-width: 500px; margin: 0 auto;">
+    <div class="card" style="text-align:center; padding: 30px;">
+        <div style="font-size: 50px; margin-bottom: 15px;">❌</div>
+        <h2>Reject Expense</h2>
+        <p style="color: #666; margin-bottom: 5px;">
+            You are about to reject this expense:
+        </p>
+        <p style="color: #dc3545; font-size: 16px; margin: 10px 0;">
+            {{ expense.get_category_display }} - Rs {{ expense.amount|floatformat:2 }}
+        </p>
+        <p style="color: #999; font-size: 13px;">
+            {{ expense.date|date:"Y-m-d" }} {% if expense.vehicle %} • {{ expense.vehicle.vehicle_number }}{% endif %}
+        </p>
+
+        <form method="POST" style="margin-top: 20px;">
+            {% csrf_token %}
+            <div class="form-group" style="text-align:left;">
+                <label style="font-weight:600; color:#555;">Rejection Reason <span style="color:#dc3545;">*</span></label>
+                <textarea name="reason" rows="3" style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;" placeholder="Enter reason for rejection..." required></textarea>
+            </div>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 15px;">
+                <a href="/expense/detail/{{ expense.id }}/" class="btn" style="background: #6c757d; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none;">Cancel</a>
+                <button type="submit" style="background: #dc3545; color: white; padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">❌ Reject Expense</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

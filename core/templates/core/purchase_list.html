@@ -1,0 +1,258 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Purchased List - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .tabs-bar {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tabs-bar .tab-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .tabs-bar .tab-item label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .tabs-bar .tab-item input,
+    .tabs-bar .tab-item select {
+        padding: 8px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        min-width: 150px;
+    }
+    .tabs-bar .tab-item input:focus,
+    .tabs-bar .tab-item select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+    .tabs-bar .btn-filter {
+        background: #007bff;
+        color: white;
+        padding: 8px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .tabs-bar .btn-filter:hover { background: #0056b3; }
+    .tabs-bar .btn-clear {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .tabs-bar .btn-clear:hover { background: #5a6268; }
+    .tabs-bar .btn-new {
+        background: #28a745;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .tabs-bar .btn-new:hover { background: #218838; }
+    
+    .summary-bar {
+        background: #f8f9fc;
+        padding: 12px 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 25px;
+        align-items: center;
+    }
+    .summary-bar .item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .summary-bar .item .label {
+        font-size: 13px;
+        color: #666;
+    }
+    .summary-bar .item .value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a2634;
+    }
+    .summary-bar .item .value.total { color: #007bff; }
+    
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.received { background: #d4edda; color: #155724; }
+    .badge-status.cancelled { background: #f8d7da; color: #721c24; }
+    .badge-status.complete { background: #d4edda; color: #155724; }
+    .badge-status.partial { background: #fff3cd; color: #856404; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📦 Purchased List</h2>
+            <span class="subtitle">Manage Your Purchased</span>
+        </div>
+        <a href="/purchase/add/" class="btn">+ New Purchase</a>
+    </div>
+
+    <!-- Tabs / Filter Bar -->
+    <form method="GET" class="tabs-bar">
+        <div class="tab-item">
+            <label>Invoice No</label>
+            <input type="text" name="search" placeholder="Search..." value="{{ search }}">
+        </div>
+        <div class="tab-item">
+            <label>Date From</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="tab-item">
+            <label>Date To</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="tab-item">
+            <label>Supplier</label>
+            <select name="supplier">
+                <option value="">All Suppliers</option>
+                {% for sup in suppliers %}
+                    <option value="{{ sup.id }}" {% if selected_supplier == sup.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sup.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="tab-item">
+            <label>Payment Status</label>
+            <select name="payment_status">
+                <option value="">All Payment Status</option>
+                {% for key, value in payment_status_choices %}
+                    <option value="{{ key }}" {% if selected_payment_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="tab-item">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All Status</option>
+                {% for key, value in status_choices %}
+                    <option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/purchases/" class="btn-clear">Clear</a>
+    </form>
+
+    <!-- Summary -->
+    <div class="summary-bar">
+        <div class="item">
+            <span class="label">Total Purchases:</span>
+            <span class="value">{{ total_count }}</span>
+        </div>
+        <div class="item">
+            <span class="label">Total Cost:</span>
+            <span class="value total">Rs {{ total_cost_sum|floatformat:2 }}</span>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:18%;">Invoice No</th>
+                    <th style="width:20%;">Supplier</th>
+                    <th style="width:10%;">Date</th>
+                    <th style="width:10%;">Total Items</th>
+                    <th style="width:15%;">Total Cost</th>
+                    <th style="width:12%;">Status</th>
+                    <th style="width:15%;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in purchases %}
+                <tr>
+                    <td><strong>{{ purchase.invoice_no }}</strong></td>
+                    <td>{{ purchase.supplier.name }}</td>
+                    <td>{{ purchase.purchase_date|date:"Y-m-d" }}</td>
+                    <td>{{ purchase.get_total_items|floatformat:0 }} Items</td>
+                    <td><strong>Rs {{ purchase.total|floatformat:2 }}</strong></td>
+                    <td>
+                        <span class="badge-status {{ purchase.status|lower }}">
+                            {{ purchase.get_status_display }}
+                        </span>
+                        {% if purchase.payment_status != 'COMPLETE' %}
+                            <br><span class="badge-status" style="font-size:10px; background:#fff3cd; color:#856404;">
+                                {{ purchase.get_payment_status_display }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/purchase/detail/{{ purchase.id }}/" class="view" title="View">👁️</a>
+                            {% if purchase.status != 'RECEIVED' %}
+                                <a href="/purchase/edit/{{ purchase.id }}/" class="edit" title="Edit">✏️</a>
+                                <a href="/purchase/receive/{{ purchase.id }}/" class="pay" title="Mark Received" onclick="return confirm('Receive this purchase? Stock will be updated.')">📦</a>
+                                <a href="/purchase/delete/{{ purchase.id }}/" class="delete" title="Delete" onclick="return confirm('Delete purchase {{ purchase.invoice_no }}?')">🗑️</a>
+                            {% else %}
+                                <span style="color:#999; font-size:12px;">Received</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if purchase.items.filter.is_foc.exists %}
+                            <span style="color:#fd7e14;">🎁</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <span class="icon">📭</span>
+                        No purchases found.<br>
+                        <span style="font-size:12px;color:#bbb;">Create your first purchase using the "New Purchase" button.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

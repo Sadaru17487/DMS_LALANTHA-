@@ -1,0 +1,184 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Receive Purchase - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .confirmation-box {
+        background: #fff3cd;
+        border: 2px solid #ffeaa7;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    .confirmation-box .icon {
+        font-size: 48px;
+        display: block;
+        margin-bottom: 10px;
+    }
+    .confirmation-box h3 {
+        color: #856404;
+        margin-bottom: 5px;
+    }
+    .confirmation-box p {
+        color: #856404;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+    .summary-grid .item {
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .summary-grid .item .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .item .value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .summary-grid .item .value.green { color: #28a745; }
+    .summary-grid .item .value.blue { color: #007bff; }
+    .summary-grid .item .value.purple { color: #6f42c1; }
+    
+    .stock-update {
+        background: #d4edda;
+        border: 2px solid #c3e6cb;
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin: 15px 0;
+    }
+    .stock-update .item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .stock-update .item:last-child { border-bottom: none; }
+    .stock-update .item .product { font-weight: 600; }
+    .stock-update .item .qty { color: #28a745; font-weight: 600; }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+    .btn-confirm {
+        background: #28a745;
+        color: white;
+        padding: 14px 40px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .btn-confirm:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 14px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+</style>
+
+<div class="container" style="max-width: 800px;">
+    <div class="page-title">
+        <div>
+            <h2>📦 Receive Purchase</h2>
+            <span class="subtitle">Mark purchase as received and update stock</span>
+        </div>
+    </div>
+
+    <div class="confirmation-box">
+        <span class="icon">📦</span>
+        <h3>Confirm Stock Receipt</h3>
+        <p>You are about to receive purchase <strong>{{ purchase.invoice_no }}</strong> from <strong>{{ purchase.supplier.name }}</strong></p>
+        <p style="font-size:13px; margin-top:5px;">
+            This will add stock to your warehouse and update product prices.
+        </p>
+    </div>
+
+    <!-- Purchase Summary -->
+    <div class="card">
+        <h3>📋 Purchase Summary</h3>
+        <div class="summary-grid">
+            <div class="item">
+                <div class="label">Invoice No</div>
+                <div class="value">{{ purchase.invoice_no }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Supplier</div>
+                <div class="value">{{ purchase.supplier.name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Total Items</div>
+                <div class="value blue">{{ purchase.get_total_items|floatformat:0 }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Total Cost</div>
+                <div class="value green">Rs {{ purchase.total|floatformat:2 }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Tax Rate</div>
+                <div class="value purple">{{ purchase.tax_rate }}%</div>
+            </div>
+            <div class="item">
+                <div class="label">Purchase Date</div>
+                <div class="value">{{ purchase.purchase_date|date:"Y-m-d" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Update Preview -->
+    <div class="card">
+        <h3>🔄 Stock Updates</h3>
+        <div class="stock-update">
+            {% for item in items %}
+            <div class="item">
+                <span class="product">{{ item.product.name }}</span>
+                <span class="qty">+ {{ item.quantity|floatformat:2 }} units</span>
+            </div>
+            {% empty %}
+            <p style="text-align:center;color:#999;">No items to update.</p>
+            {% endfor %}
+        </div>
+        <p style="color:#666; font-size:13px; margin-top:10px;">
+            ⚠️ Product cost prices will be updated to match purchase prices.
+        </p>
+    </div>
+
+    <!-- Confirm Button -->
+    <form method="POST">
+        {% csrf_token %}
+        <div class="btn-group">
+            <a href="/purchase/detail/{{ purchase.id }}/" class="btn-cancel">← Cancel</a>
+            <button type="submit" class="btn-confirm">✅ Confirm & Receive Stock</button>
+        </div>
+    </form>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

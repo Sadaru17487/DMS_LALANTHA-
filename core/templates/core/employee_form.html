@@ -1,0 +1,220 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Employee - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #555;
+        font-size: 14px;
+    }
+    .form-group label .required {
+        color: #dc3545;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+        transition: 0.2s;
+        width: 100%;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+    .form-group .help-text {
+        font-size: 12px;
+        color: #888;
+    }
+    .full-width { grid-column: 1 / -1; }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .checkbox-group input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #007bff;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .btn-save {
+        background: #28a745;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-save:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    
+    .error {
+        color: #dc3545;
+        font-size: 13px;
+        margin-top: 4px;
+    }
+    
+    @media (max-width: 768px) {
+        .form-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container" style="max-width: 800px;">
+    <div class="page-title">
+        <div>
+            <h2>{{ action }} Employee</h2>
+            <span class="subtitle">{% if employee %}Update{% else %}Create a new{% endif %} employee record</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="POST" id="employeeForm">
+            {% csrf_token %}
+            <div class="form-grid">
+                <!-- Name -->
+                <div class="form-group">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" name="name" value="{{ employee.name|default:'' }}" required>
+                </div>
+                
+                <!-- Position -->
+                <div class="form-group">
+                    <label>Position <span class="required">*</span></label>
+                    <select name="position" id="positionSelect" required>
+                        <option value="">-- Select Position --</option>
+                        {% for key, value in positions %}
+                            <option value="{{ key }}" {% if employee.position == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Rep Code (only for Sales Representatives) -->
+                <div class="form-group" id="repCodeGroup" style="{% if employee.position != 'Rep' %}display:none;{% endif %}">
+                    <label>Rep Code</label>
+                    <input type="text" name="rep_code" value="{{ employee.rep_code|default:'' }}" placeholder="e.g., 008SIN">
+                    <span class="help-text">Unique code for this Sales Representative</span>
+                </div>
+                
+                <!-- Phone -->
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" name="phone" value="{{ employee.phone|default:'' }}">
+                </div>
+                
+                <!-- Email -->
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" value="{{ employee.email|default:'' }}">
+                </div>
+                
+                <!-- Address -->
+                <div class="form-group full-width">
+                    <label>Address</label>
+                    <textarea name="address" rows="2">{{ employee.address|default:'' }}</textarea>
+                </div>
+                
+                <!-- Hire Date -->
+                <div class="form-group">
+                    <label>Hire Date</label>
+                    <input type="date" name="hire_date" value="{{ employee.hire_date|date:'Y-m-d'|default:'' }}">
+                </div>
+                
+                <!-- Salary -->
+                <div class="form-group">
+                    <label>Salary (Monthly)</label>
+                    <input type="number" step="0.01" name="salary" value="{{ employee.salary|default:'' }}" placeholder="0.00">
+                    <span class="help-text">Leave blank if not applicable</span>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-group full-width">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="3">{{ employee.notes|default:'' }}</textarea>
+                </div>
+                
+                <!-- Active Status -->
+                <div class="form-group full-width">
+                    <div class="checkbox-group">
+                        <input type="checkbox" name="is_active" {% if employee.is_active or employee is None %}checked{% endif %}>
+                        <label style="font-weight:600; cursor:pointer;">Active</label>
+                    </div>
+                    <span class="help-text">Inactive employees won't appear in dropdowns</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn-save">✅ Save Employee</button>
+                <a href="/employees/" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const positionSelect = document.getElementById('positionSelect');
+        const repCodeGroup = document.getElementById('repCodeGroup');
+        const repCodeInput = document.querySelector('input[name="rep_code"]');
+        
+        if (positionSelect && repCodeGroup) {
+            function toggleRepCode() {
+                if (positionSelect.value === 'Rep') {
+                    repCodeGroup.style.display = 'block';
+                    if (repCodeInput) repCodeInput.required = true;
+                } else {
+                    repCodeGroup.style.display = 'none';
+                    if (repCodeInput) repCodeInput.required = false;
+                }
+            }
+            positionSelect.addEventListener('change', toggleRepCode);
+            toggleRepCode(); // Initial state
+        }
+    });
+</script>
+{% endblock %}

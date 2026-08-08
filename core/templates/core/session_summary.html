@@ -1,0 +1,218 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Daily Summary - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-header {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+    }
+    .summary-header h2 { margin: 0; font-weight: 400; }
+    .summary-header .sub { color: #8aa3c9; font-size: 14px; }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 18px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 24px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.green { color: #28a745; }
+    .summary-grid .card .value.red { color: #dc3545; }
+    .summary-grid .card .value.blue { color: #007bff; }
+    .summary-grid .card .value.orange { color: #fd7e14; }
+    .summary-grid .card .value.purple { color: #6f42c1; }
+    
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.draft { background: #fff3cd; color: #856404; }
+    .badge-status.completed { background: #d4edda; color: #155724; }
+    .badge-status.paid { background: #d4edda; color: #155724; }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+        justify-content: center;
+    }
+    .btn-group .btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-confirm {
+        background: #28a745;
+        color: white;
+    }
+    .btn-confirm:hover { background: #218838; }
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+    .btn-cancel:hover { background: #5a6268; }
+    .btn-edit {
+        background: #fd7e14;
+        color: white;
+    }
+    .btn-edit:hover { background: #e06b0f; }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="summary-header">
+        <h2>📊 Daily Summary Report</h2>
+        <div class="sub">Review and confirm all entries before finalizing</div>
+    </div>
+
+    <!-- Session Info -->
+    <div class="card">
+        <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between;">
+            <div>
+                <strong>Session:</strong> {{ session.session_id }}
+                <span style="margin-left:20px;"><strong>Status:</strong> <span class="badge-status {{ session.status|lower }}">{{ session.get_status_display }}</span></span>
+            </div>
+            <div>
+                <strong>Vehicle:</strong> {{ session.vehicle.vehicle_number }} ({{ session.vehicle.driver_name }})
+                <span style="margin-left:20px;"><strong>Rep:</strong> {{ session.rep.name }}</span>
+            </div>
+            <div>
+                <strong>Date:</strong> {{ today|date:"Y-m-d" }}
+                <span style="margin-left:20px;"><strong>Started:</strong> {{ session.started_at|date:"H:i" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Bills</div>
+            <div class="value blue">{{ bill_count }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Sales</div>
+            <div class="value green">Rs {{ total_sales|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">FOC Value</div>
+            <div class="value orange">Rs {{ total_foc|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Expenses</div>
+            <div class="value red">Rs {{ total_expenses|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Net Collection</div>
+            <div class="value purple">Rs {{ net_collection|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Expense Count</div>
+            <div class="value blue">{{ expense_count }}</div>
+        </div>
+    </div>
+
+    <!-- Sales Bills -->
+    <div class="card">
+        <h3>🧾 Sales Bills ({{ pending_bills|length }})</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th style="text-align:right;">FOC Value</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in pending_bills %}
+                    <tr>
+                        <td><strong>{{ bill.invoice_no }}</strong></td>
+                        <td>{{ bill.shop_name|default:"-" }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ bill.net_total|floatformat:2 }}</td>
+                        <td style="text-align:right; color:#fd7e14;">Rs {{ bill.foc_value|floatformat:2 }}</td>
+                        <td>{{ bill.payments.first.type|default:"-" }}</td>
+                        <td><span class="badge-status draft">PENDING</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" style="text-align:center;color:#999;">No pending bills.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="card">
+        <h3>💸 Expenses ({{ pending_expenses|length }})</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in pending_expenses %}
+                    <tr>
+                        <td>{{ expense.get_category_display }}</td>
+                        <td>{{ expense.note|default:"-" }}</td>
+                        <td style="text-align:right; font-weight:600; color:#dc3545;">Rs {{ expense.amount|floatformat:2 }}</td>
+                        <td><span class="badge-status pending">PENDING</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align:center;color:#999;">No pending expenses.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <form method="POST" action="/session-complete/">
+        {% csrf_token %}
+        <input type="hidden" name="session_id" value="{{ session.id }}">
+        <button type="submit" class="btn btn-confirm">✅ Confirm & Save All</button>
+    </form>
+</div>
+{% endblock %}

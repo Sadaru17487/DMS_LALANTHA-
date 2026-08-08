@@ -1,0 +1,123 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Vehicle Stock - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .vehicle-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .vehicle-card .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e8ecf2;
+    }
+    .vehicle-card .header h3 {
+        font-size: 18px;
+        color: #1a2634;
+        margin: 0;
+    }
+    .vehicle-card .header .badge {
+        background: #007bff;
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .vehicle-card .empty {
+        color: #999;
+        text-align: center;
+        padding: 15px 0;
+    }
+    .vehicle-card table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    .vehicle-card table th {
+        background: #f8f9fc;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    .vehicle-card table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf1f7;
+    }
+    .vehicle-card table tr:last-child td {
+        border-bottom: none;
+    }
+    .vehicle-card table td:last-child {
+        text-align: right;
+        font-weight: 600;
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📦 Vehicle Stock</h2>
+            <span class="subtitle">Current stock loaded on each vehicle</span>
+        </div>
+        <a href="/load/" class="btn" style="background:#28a745;">🚚 Load Vehicle</a>
+    </div>
+
+    {% if stock_data %}
+        {% for data in stock_data %}
+        <div class="vehicle-card">
+            <div class="header">
+                <h3>{{ data.vehicle.vehicle_number }}</h3>
+                <div>
+                    <span class="badge">Total Items: {{ data.total_items|floatformat:0 }}</span>
+                    <span style="margin-left: 10px; color: #666; font-size: 13px;">Driver: {{ data.vehicle.driver_name }}</span>
+                </div>
+            </div>
+            {% if data.stocks %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th style="text-align:right;">Quantity</th>
+                        <th style="text-align:right;">Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stock in data.stocks %}
+                    <tr>
+                        <td>{{ stock.product.name }}</td>
+                        <td style="text-align:right; font-weight:600;">{{ stock.quantity|floatformat:2 }}</td>
+                        <td style="text-align:right; color:#888;">{{ stock.product.unit }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty">No stock loaded on this vehicle.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="vehicle-card">
+        <p class="empty" style="font-size:16px;">No vehicles found. Please add vehicles first.</p>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

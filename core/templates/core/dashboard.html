@@ -1,0 +1,218 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .row-top { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    .row-mid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    .row-bottom { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 25px; }
+    
+    .dash-card {
+        background: white;
+        border-radius: 12px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: 0.2s;
+    }
+    .dash-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .dash-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .dash-card .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .dash-card .value.green { color: #28a745; }
+    .dash-card .value.red { color: #dc3545; }
+    .dash-card .value.blue { color: #007bff; }
+    .dash-card .value.orange { color: #fd7e14; }
+    .dash-card .value.purple { color: #6f42c1; }
+    
+    .product-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-top: 10px;
+    }
+    .product-section .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .product-section .section-header h3 {
+        font-size: 16px;
+        color: #333;
+    }
+    .product-section .section-header a {
+        color: #007bff;
+        text-decoration: none;
+        font-size: 14px;
+    }
+    .product-section .section-header a:hover { text-decoration: underline; }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table th {
+        background: #f8f9fc;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf1f7;
+        color: #333;
+    }
+    .stock-badge {
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .stock-badge.high { background: #d4edda; color: #155724; }
+    .stock-badge.medium { background: #fff3cd; color: #856404; }
+    .stock-badge.low { background: #f8d7da; color: #721c24; }
+    
+    @media (max-width: 1200px) {
+        .row-top, .row-mid { grid-template-columns: repeat(2, 1fr); }
+        .row-bottom { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .row-top, .row-mid, .row-bottom { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container">
+    <!-- Row 1: Today's Stats -->
+    <div class="row-top">
+        <div class="dash-card">
+            <div class="label">Today Sellings</div>
+            <div class="value green">Rs: {{ today_sales|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Today Purchased</div>
+            <div class="value blue">Rs: {{ today_purchased|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Today Expense</div>
+            <div class="value red">Rs: {{ today_expense|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Inventory Value</div>
+            <div class="value purple">Rs: {{ inventory_value|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Row 2: Monthly Stats -->
+    <div class="row-mid">
+        <div class="dash-card">
+            <div class="label">Monthly Sellings</div>
+            <div class="value green">Rs: {{ month_sales|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Monthly Purchased</div>
+            <div class="value blue">Rs: {{ month_purchased|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Monthly Expense</div>
+            <div class="value red">Rs: {{ month_expense|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Retail Price Value</div>
+            <div class="value purple">Rs: {{ retail_value|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Row 3: Additional Stats -->
+    <div class="row-bottom">
+        <div class="dash-card">
+            <div class="label">Total Credit Bills</div>
+            <div class="value orange">Rs: {{ total_credit_bills|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Monthly Purch. Returns</div>
+            <div class="value red">Rs: {{ month_purch_returns|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Total Items</div>
+            <div class="value blue">{{ total_items }} Items</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Today Profit</div>
+            <div class="value {% if today_profit >= 0 %}green{% else %}red{% endif %}">Rs: {{ today_profit|floatformat:2 }}</div>
+        </div>
+        <div class="dash-card">
+            <div class="label">Monthly Profit</div>
+            <div class="value {% if month_profit >= 0 %}green{% else %}red{% endif %}">Rs: {{ month_profit|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Products Table -->
+    <div class="product-section">
+        <div class="section-header">
+            <h3>📦 Products & Stock Levels</h3>
+            <a href="/admin/core/product/">View All →</a>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product Name</th>
+                    <th>Code</th>
+                    <th>Unit</th>
+                    <th style="text-align:right;">Price (Rs)</th>
+                    <th style="text-align:right;">Stock</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in recent_products %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ product.name }}</strong></td>
+                    <td>{{ product.code }}</td>
+                    <td>{{ product.unit }}</td>
+                    <td style="text-align:right;">{{ product.selling_price|floatformat:2 }}</td>
+                    <td style="text-align:right;">
+                        {% with stock=product.stock %}
+                            {{ stock.quantity|floatformat:2 }}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% with stock=product.stock %}
+                            {% if stock.quantity > 50 %}
+                                <span class="stock-badge high">High</span>
+                            {% elif stock.quantity > 10 %}
+                                <span class="stock-badge medium">Medium</span>
+                            {% else %}
+                                <span class="stock-badge low">Low</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:20px; color:#999;">No products found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

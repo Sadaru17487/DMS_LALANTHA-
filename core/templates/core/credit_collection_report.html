@@ -1,0 +1,205 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Collection Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-summary {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .report-summary .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .report-summary .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .report-summary .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .report-summary .card .value.taken { color: #007bff; }
+    .report-summary .card .value.collected { color: #28a745; }
+    .report-summary .card .value.not-collected { color: #dc3545; }
+    .report-summary .card .value.pending { color: #fd7e14; }
+    .report-summary .card .value.amount { color: #6f42c1; }
+    
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.taken { background: #cce5ff; color: #004085; }
+    .badge-status.collected { background: #d4edda; color: #155724; }
+    .badge-status.not_collected { background: #f8d7da; color: #721c24; }
+    
+    @media (max-width: 768px) {
+        .report-summary { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📊 Collection Report</h2>
+            <span class="subtitle">Credit collection summary</span>
+        </div>
+        <a href="/credit-list/" class="btn" style="background:#6c757d;">← Back to Credit List</a>
+    </div>
+
+    <div class="card">
+        <form method="GET" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end;">
+            <div>
+                <label style="font-weight:600; font-size:13px; color:#555;">From:</label>
+                <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+            </div>
+            <div>
+                <label style="font-weight:600; font-size:13px; color:#555;">To:</label>
+                <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+            </div>
+            <div>
+                <label style="font-weight:600; font-size:13px; color:#555;">Rep:</label>
+                <select name="rep" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
+                    <option value="">All Reps</option>
+                    {% for rep in reps %}
+                        <option value="{{ rep.id }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                            {{ rep.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-filter" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
+            <a href="/credit-collection/report/" class="btn-clear" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+        </form>
+    </div>
+
+    <!-- Summary -->
+    <div class="report-summary">
+        <div class="card">
+            <div class="label">Taken</div>
+            <div class="value taken">{{ total_taken }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Collected</div>
+            <div class="value collected">{{ total_collected }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Not Collected</div>
+            <div class="value not-collected">{{ total_not_collected }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Pending</div>
+            <div class="value pending">{{ total_pending }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Amount Collected</div>
+            <div class="value amount">Rs {{ collected_amount|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Rep Breakdown -->
+    {% if rep_breakdown %}
+    <div class="card">
+        <h3>👤 Rep Performance</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rep</th>
+                        <th style="text-align:center;">Taken</th>
+                        <th style="text-align:center;">Collected</th>
+                        <th style="text-align:center;">Not Collected</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th style="text-align:center;">Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rep in rep_breakdown %}
+                    <tr>
+                        <td><strong>{{ rep.rep__name|default:"Unassigned" }}</strong></td>
+                        <td style="text-align:center;">{{ rep.taken }}</td>
+                        <td style="text-align:center; color:#28a745;">{{ rep.collected }}</td>
+                        <td style="text-align:center; color:#dc3545;">{{ rep.not_collected }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ rep.amount|floatformat:2 }}</td>
+                        <td style="text-align:center;">
+                            {% if rep.taken > 0 %}
+                                {% widthratio rep.collected rep.taken 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Detailed List -->
+    <div class="card">
+        <h3>📋 Collection Details</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Rep</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Date Taken</th>
+                        <th>Status</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in collections %}
+                    <tr>
+                        <td><strong>{{ collection.sales_bill.invoice_no }}</strong></td>
+                        <td>{{ collection.sales_bill.shop_name }}</td>
+                        <td>{{ collection.rep.name|default:"-" }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ collection.sales_bill.net_total|floatformat:2 }}</td>
+                        <td>{{ collection.date_taken|date:"Y-m-d" }}</td>
+                        <td>
+                            <span class="badge-status {{ collection.status|lower }}">
+                                {{ collection.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if collection.status == 'COLLECTED' %}
+                                Rs {{ collection.collection_amount|floatformat:2 }} ({{ collection.payment_method }})
+                            {% elif collection.status == 'NOT_COLLECTED' %}
+                                {{ collection.get_not_collected_reason_display|default:"-" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">No collections found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

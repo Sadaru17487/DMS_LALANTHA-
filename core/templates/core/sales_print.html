@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice - {{ bill.invoice_no }}</title>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: white; padding: 40px; }
+        .invoice-container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 30px; border-radius: 8px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1a2634; padding-bottom: 15px; margin-bottom: 20px; }
+        .header .company h1 { font-size: 22px; color: #1a2634; }
+        .header .company .sub { font-size: 13px; color: #666; }
+        .header .invoice-title { text-align: right; }
+        .header .invoice-title h2 { font-size: 20px; color: #1a2634; }
+        .header .invoice-title .status { font-size: 13px; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; padding: 15px; background: #f8f9fc; border-radius: 8px; }
+        .info-grid .item .label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: 600; }
+        .info-grid .item .value { font-size: 14px; font-weight: 600; color: #1a2634; margin-top: 2px; }
+        
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        table th { background: #f0f4f9; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #555; border-bottom: 2px solid #ddd; }
+        table td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        table td:last-child, table th:last-child { text-align: right; }
+        .total-row { font-weight: 700; background: #f8f9fc; }
+        .total-row td { border-top: 2px solid #1a2634; }
+        
+        .payments-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; }
+        .payments-section h4 { font-size: 14px; color: #1a2634; margin-bottom: 10px; }
+        
+        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 12px; color: #999; }
+        
+        .badge { display: inline-block; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge.complete { background: #d4edda; color: #155724; }
+        .badge.credit { background: #fff3cd; color: #856404; }
+        .badge.pending { background: #e2e3e5; color: #383d41; }
+        
+        @media print {
+            body { padding: 20px; }
+            .invoice-container { border: none; padding: 0; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="invoice-container">
+    <!-- Header -->
+    <div class="header">
+        <div class="company">
+            <h1>LALANTHA DISTRIBUTORS</h1>
+            <div class="sub">Distribution Management System</div>
+        </div>
+        <div class="invoice-title">
+            <h2>INVOICE</h2>
+            <div class="status">
+                <span class="badge {{ status|lower }}">{{ status }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info -->
+    <div class="info-grid">
+        <div>
+            <div class="item">
+                <div class="label">Invoice No</div>
+                <div class="value">{{ bill.invoice_no }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Date</div>
+                <div class="value">{{ bill.date|date:"Y-m-d" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Time</div>
+                <div class="value">{{ bill.created_at|date:"H:i:s" }}</div>
+            </div>
+        </div>
+        <div>
+            <div class="item">
+                <div class="label">Customer</div>
+                <div class="value">{{ bill.shop_name|default:"-" }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Vehicle</div>
+                <div class="value">{{ bill.vehicle.vehicle_number }} - {{ bill.vehicle.driver_name }}</div>
+            </div>
+            <div class="item">
+                <div class="label">Sales Rep</div>
+                <div class="value">{{ bill.rep.name|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width:5%;">#</th>
+                <th style="width:55%;">Product</th>
+                <th style="width:15%;">Qty</th>
+                <th style="width:12%;">Rate</th>
+                <th style="width:13%;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+<!-- In the items table -->
+            {% for item in items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    {{ item.product.name }}
+                    {% if item.is_foc %}
+                        <span style="color:#fd7e14; font-weight:600;">🎁 FOC</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.quantity|floatformat:2 }}</td>
+                <td>Rs {{ item.rate|floatformat:2 }}</td>
+                <td>Rs {{ item.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="3"></td>
+                <td>Subtotal:</td>
+                <td>Rs {{ bill.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% if bill.discount_total > 0 %}
+            <tr class="total-row">
+                <td colspan="3"></td>
+                <td>Discount:</td>
+                <td style="color:#dc3545;">- Rs {{ bill.discount_total|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
+            <tr class="total-row" style="font-size:16px;">
+                <td colspan="3"></td>
+                <td><strong>Net Total:</strong></td>
+                <td style="color:#28a745; font-size:18px;"><strong>Rs {{ bill.net_total|floatformat:2 }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Payments -->
+    {% if payments %}
+    <div class="payments-section">
+        <h4>Payment Details</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Payment Type</th>
+                    <th style="text-align:right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td>{{ p.type }}</td>
+                    <td style="text-align:right;">Rs {{ p.amount|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        &copy; LALANTHA DISTRIBUTORS - Distribution Management System<br>
+        Thank you for your business!
+    </div>
+</div>
+
+<div class="no-print" style="text-align:center; margin-top:20px;">
+    <button onclick="window.print()" style="padding:12px 30px; background:#007bff; color:white; border:none; border-radius:8px; font-size:16px; cursor:pointer;">🖨️ Print</button>
+    <button onclick="window.close()" style="padding:12px 30px; background:#6c757d; color:white; border:none; border-radius:8px; font-size:16px; cursor:pointer; margin-left:10px;">Close</button>
+</div>
+</body>
+</html>

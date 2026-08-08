@@ -1,0 +1,188 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Cheque List - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.pending { color: #fd7e14; }
+    .summary-grid .card .value.deposited { color: #007bff; }
+    .summary-grid .card .value.cleared { color: #28a745; }
+    .summary-grid .card .value.bounced { color: #dc3545; }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+        .summary-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>💰 Cheque List</h2>
+            <span class="subtitle">Manage customer cheques</span>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Cheques</div>
+            <div class="value total">{{ total_cheques }}</div>
+            <div style="font-size:13px; color:#666;">Rs {{ total_amount|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Pending</div>
+            <div class="value pending">Rs {{ pending_amount|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Deposited</div>
+            <div class="value deposited">Rs {{ deposited_amount|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Cleared</div>
+            <div class="value cleared">Rs {{ cleared_amount|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Bounced</div>
+            <div class="value bounced">Rs {{ bounced_amount|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" placeholder="Cheque No, Customer..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <label>Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Bank</label>
+            <select name="bank">
+                <option value="">All Banks</option>
+                {% for bank in banks %}
+                    <option value="{{ bank.id }}" {% if selected_bank == bank.id|stringformat:"s" %}selected{% endif %}>
+                        {{ bank.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All Status</option>
+                {% for key, value in status_choices %}
+                    <option value="{{ key }}" {% if selected_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/cheques/" class="btn-clear">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ total_cheques }}</strong> cheque{{ total_cheques|pluralize }}
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:12%;">Cheque No</th>
+                    <th style="width:15%;">Bank</th>
+                    <th style="width:10%;">Date</th>
+                    <th style="width:12%;">Amount</th>
+                    <th style="width:18%;">Customer</th>
+                    <th style="width:13%;">Invoice</th>
+                    <th style="width:10%;">Status</th>
+                    <th style="width:10%;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cheque in cheques %}
+                <tr>
+                    <td><strong>{{ cheque.cheque_no }}</strong></td>
+                    <td>{{ cheque.bank.name }}</td>
+                    <td>{{ cheque.cheque_date|date:"Y-m-d" }}</td>
+                    <td style="font-weight:600;">Rs {{ cheque.amount|floatformat:2 }}</td>
+                    <td>{{ cheque.customer_name }}</td>
+                    <td>
+                        <a href="/sales-detail/{{ cheque.sales_bill.id }}/" style="color:#007bff; text-decoration:none;">
+                            {{ cheque.sales_bill.invoice_no }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge-status {{ cheque.status|lower }}">
+                            {{ cheque.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/cheque/detail/{{ cheque.id }}/" class="view" title="View">👁️</a>
+                            {% if cheque.status == 'PENDING' %}
+                                <a href="/cheque/deposit/{{ cheque.id }}/" class="pay" title="Deposit">📦</a>
+                            {% elif cheque.status == 'DEPOSITED' %}
+                                <a href="/cheque/clear/{{ cheque.id }}/" class="edit" title="Clear">✅</a>    
+                            {% endif %}
+                            {% if cheque.status == 'PENDING' or cheque.status == 'DEPOSITED' %}
+                                <a href="/cheque/bounce/{{ cheque.id }}/" class="delete" title="Bounce" onclick="return confirm('Bounce this cheque?')">❌</a>    
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <span class="icon">💳</span>
+                        No cheques found.<br>
+                        <span style="font-size:12px;color:#bbb;">Cheques will appear here when customers pay by cheque.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

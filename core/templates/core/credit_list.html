@@ -1,0 +1,491 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Credit List - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-grid .card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+    }
+    .summary-grid .card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .summary-grid .card .value {
+        font-size: 22px;
+        font-weight: 700;
+        margin-top: 5px;
+    }
+    .summary-grid .card .value.total { color: #1a2634; }
+    .summary-grid .card .value.pending { color: #fd7e14; }
+    .summary-grid .card .value.taken { color: #007bff; }
+    .summary-grid .card .value.collected { color: #28a745; }
+    .summary-grid .card .value.not-collected { color: #dc3545; }
+
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.taken { background: #cce5ff; color: #004085; }
+    .badge-status.collected { background: #d4edda; color: #155724; }
+    .badge-status.not_collected { background: #f8d7da; color: #721c24; }
+    .badge-status.outstanding { background: #fff3cd; color: #856404; }
+    .badge-status.paid { background: #d4edda; color: #155724; }
+    .badge-status.partial { background: #cce5ff; color: #004085; }
+
+    .action-icons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .action-icons a, .action-icons button {
+        color: #555;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: 0.2s;
+        border: none;
+        background: none;
+        cursor: pointer;
+    }
+    .action-icons a:hover, .action-icons button:hover { background: #e8ecf2; }
+    .action-icons a.view { color: #007bff; }
+    .action-icons a.pay { color: #28a745; }
+    .action-icons button.return { color: #fd7e14; }
+    .action-icons button.retake { color: #6f42c1; }
+    .action-icons a.print { color: #17a2b8; }
+    .action-icons a.delete { color: #dc3545; }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-content {
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .modal-content h3 { margin-bottom: 20px; color: #1a2634; }
+    .modal-content .form-group { margin-bottom: 15px; }
+    .modal-content .form-group label { font-weight: 600; color: #555; font-size: 14px; }
+    .modal-content .form-group input,
+    .modal-content .form-group select,
+    .modal-content .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fafbfc;
+    }
+    .modal-content .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+    .modal-content .btn-group .btn-modal {
+        padding: 10px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        flex: 1;
+    }
+    .modal-content .btn-group .btn-modal.confirm { background: #28a745; color: white; }
+    .modal-content .btn-group .btn-modal.confirm:hover { background: #218838; }
+    .modal-content .btn-group .btn-modal.cancel { background: #6c757d; color: white; }
+    .modal-content .btn-group .btn-modal.cancel:hover { background: #5a6268; }
+
+    .empty-state { text-align: center; padding: 40px; color: #999; }
+    .empty-state .icon { font-size: 48px; display: block; margin-bottom: 10px; }
+    .result-count { color: #777; font-size: 14px; margin-top: 10px; }
+
+    .info-box {
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .info-box .row {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px solid #e8ecf2;
+    }
+    .info-box .row:last-child { border-bottom: none; }
+    .info-box .label { color: #666; }
+    .info-box .value { font-weight: 600; color: #1a2634; }
+
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>💰 Credit List</h2>
+            <span class="subtitle">Manage credit sales and collections</span>
+        </div>
+        <a href="/credit-collection/report/" class="btn" style="background:#17a2b8;">📊 Collection Report</a>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="card">
+            <div class="label">Total Outstanding</div>
+            <div class="value total">Rs {{ total_credit_outstanding|floatformat:2 }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Pending</div>
+            <div class="value pending">{{ pending_count }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Taken</div>
+            <div class="value taken">{{ taken_count }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Collected</div>
+            <div class="value collected">{{ collected_count }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Not Collected</div>
+            <div class="value not-collected">{{ not_collected_count }}</div>
+        </div>
+    </div>
+
+    <!-- Morning Action: Take Bills -->
+    <form method="POST" action="/credit-collection/take/" class="action-section" id="takeForm" style="background:#f8f9fc; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
+        {% csrf_token %}
+        <span style="font-weight:600; color:#1a2634;">⏰ Morning Action:</span>
+        <label>Select Rep:</label>
+        <select name="rep" required style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+            <option value="">-- Select --</option>
+            {% for rep in reps %}
+                <option value="{{ rep.id }}">{{ rep.name }}</option>
+            {% endfor %}
+        </select>
+        <label>Collection Date:</label>
+        <input type="date" name="collection_date" value="{{ today|date:'Y-m-d' }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        <button type="submit" class="btn-action primary" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;" onclick="return confirm('Take selected bills for collection?')">📤 Take Selected</button>
+        <span style="color:#999; font-size:13px;">(Select bills below and choose rep)</span>
+    </form>
+
+    <!-- Filters -->
+    <form method="GET" class="filter-bar" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Search</label>
+            <input type="text" name="search" placeholder="Invoice, Customer..." value="{{ search }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
+        </div>
+        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">From</label>
+            <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">To</label>
+            <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Collection Status</label>
+            <select name="collection_status" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
+                <option value="">All Status</option>
+                {% for key, value in status_choices %}
+                    <option value="{{ key }}" {% if selected_collection_status == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Rep</label>
+            <select name="rep" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
+                <option value="">All Reps</option>
+                {% for rep in reps %}
+                    <option value="{{ rep.id }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                        {{ rep.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Filter</button>
+        <a href="/credit-list/" class="btn-clear" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+    </form>
+
+    <div class="result-count">
+        Found <strong>{{ total_count }}</strong> credit sale{{ total_count|pluralize }}
+    </div>
+
+    <!-- Table -->
+    <div class="table-container" style="background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <thead>
+                <tr>
+                    <th style="width:30px;"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th style="text-align:right;">Amount</th>
+                    <th style="text-align:right;">Paid</th>
+                    <th style="text-align:right;">Outstanding</th>
+                    <th>Date</th>
+                    <th>Credit Status</th>
+                    <th>Collection Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in bills %}
+                <tr>
+                    <td>
+                        {% if item.collection.status == 'PENDING' %}
+                            <input type="checkbox" name="bill_ids" value="{{ item.bill.id }}" form="takeForm" class="bill-checkbox">
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ item.bill.invoice_no }}</strong></td>
+                    <td>{{ item.customer }}</td>
+                    <td style="text-align:right; font-weight:600;">Rs {{ item.bill.net_total|floatformat:2 }}</td>
+                    <td style="text-align:right; color:#28a745;">Rs {{ item.paid_amount|floatformat:2 }}</td>
+                    <td style="text-align:right; color:#dc3545;">Rs {{ item.outstanding|floatformat:2 }}</td>
+                    <td>{{ item.bill.date|date:"Y-m-d" }}</td>
+                    <td>
+                        <span class="badge-status {{ item.credit_status|lower }}">
+                            {{ item.credit_status }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge-status {{ item.collection.status|lower }}">
+                            {{ item.collection.get_status_display }}
+                        </span>
+                        {% if item.collection.status == 'NOT_COLLECTED' %}
+                            <br><span style="font-size:10px; color:#dc3545;">{{ item.collection.get_not_collected_reason_display|default:"" }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-icons">
+                            <!-- View -->
+                            <a href="/sales-detail/{{ item.bill.id }}/" class="view" title="View">👁️</a>
+                            
+                            <!-- Pay Now -->
+                            <a href="/pay-credit/{{ item.bill.id }}/" class="pay" title="Pay Now">💰</a>
+                            
+                            <!-- Return (only for TAKEN) -->
+                            {% if item.collection.status == 'TAKEN' %}
+                                <button type="button" class="return" title="Return Collection" 
+                                        onclick="openReturnModal({{ item.collection.id }}, '{{ item.bill.invoice_no }}', '{{ item.customer }}', {{ item.bill.net_total|floatformat:2 }})">
+                                    📤
+                                </button>
+                            {% endif %}
+                            
+                            <!-- Retake (only for NOT_COLLECTED) -->
+                            {% if item.collection.status == 'NOT_COLLECTED' %}
+                                <button type="button" class="retake" title="Retake for Collection" 
+                                        onclick="retakeBill({{ item.collection.id }})">
+                                    🔄
+                                </button>
+                            {% endif %}
+                            
+                            <!-- Print -->
+                            <a href="#" class="print" title="Print" onclick="window.print(); return false;">🖨️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="empty-state">
+                        <span class="icon">✅</span>
+                        No credit sales found.<br>
+                        <span style="font-size:12px;color:#bbb;">All credit sales are fully paid or no credits exist.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+
+<!-- ===== RETURN MODAL ===== -->
+<div class="modal-overlay" id="returnModal">
+    <div class="modal-content">
+        <h3>📤 Return Collection</h3>
+        <div id="returnModalInfo" class="info-box">
+            <div class="row">
+                <span class="label">Invoice</span>
+                <span class="value" id="modalInvoice">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Customer</span>
+                <span class="value" id="modalCustomer">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Amount</span>
+                <span class="value" id="modalAmount" style="color:#28a745;">-</span>
+            </div>
+        </div>
+
+        <form method="POST" action="/credit-collection/return/">
+            {% csrf_token %}
+            <input type="hidden" name="collection_id" id="modalCollectionId">
+            
+            <!-- Radio buttons -->
+            <div class="form-group">
+                <label style="font-weight:600;">Status:</label>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #28a745; border-radius:8px;" onclick="selectCollectionAction('collected')">
+                        <input type="radio" name="action" value="collected" checked> ✅ Collected
+                    </label>
+                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #dc3545; border-radius:8px;" onclick="selectCollectionAction('not_collected')">
+                        <input type="radio" name="action" value="not_collected"> ❌ Not Collected
+                    </label>
+                </div>
+            </div>
+
+            <!-- Collected Fields -->
+            <div id="collectedFields" style="display:block;">
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea name="notes" rows="2" placeholder="Additional notes..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;"></textarea>
+                </div>
+            </div>
+
+            <!-- Not Collected Fields -->
+            <div id="notCollectedFields" style="display:none;">
+                <div class="form-group">
+                    <label>Reason <span class="required">*</span></label>
+                    <select name="reason" style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
+                        <option value="">-- Select Reason --</option>
+                        <option value="CUSTOMER_NOT_AVAILABLE">Customer Not Available</option>
+                        <option value="REFUSED_TO_PAY">Customer Refused to Pay</option>
+                        <option value="INSUFFICIENT_FUNDS">Insufficient Funds</option>
+                        <option value="CUSTOMER_REQUESTED_DELAY">Customer Requested Delay</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="2" placeholder="Additional notes..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;"></textarea>
+                </div>
+            </div>
+
+            <!-- ✅ IMPORTANT: Confirm button MUST be type="submit" -->
+            <div class="btn-group">
+                <button type="button" class="btn-modal cancel" onclick="closeReturnModal()">Cancel</button>
+                <button type="submit" class="btn-modal confirm" id="modalConfirmBtn">✅ Confirm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleAll(source) {
+        const checkboxes = document.querySelectorAll('.bill-checkbox');
+        checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    // ===== RETURN MODAL FUNCTIONS =====
+    function openReturnModal(collectionId, invoice, customer, amount) {
+        console.log('Opening return modal for collection ID:', collectionId);
+        document.getElementById('modalCollectionId').value = collectionId;
+        document.getElementById('modalCollectionId').value = collectionId;
+        document.getElementById('modalInvoice').textContent = invoice;
+        document.getElementById('modalCustomer').textContent = customer;
+        document.getElementById('modalAmount').textContent = `Rs ${amount.toFixed(2)}`;
+        document.getElementById('returnModal').style.display = 'flex';
+        selectCollectionAction('collected');
+        console.log('Return modal opened for collection ID:', collectionId);
+    }
+
+    function closeReturnModal() {
+        document.getElementById('returnModal').style.display = 'none';
+    }
+
+   function selectCollectionAction(action) {
+    const reasonSelect = document.querySelector('select[name="reason"]');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
+    
+    if (action === 'collected') {
+        document.getElementById('collectedFields').style.display = 'block';
+        document.getElementById('notCollectedFields').style.display = 'none';
+        confirmBtn.textContent = '✅ Confirm Collected';
+        confirmBtn.style.background = '#28a745';
+        document.querySelector('input[name="action"][value="collected"]').checked = true;
+        // Remove required attribute
+        reasonSelect.removeAttribute('required');
+    } else {
+        document.getElementById('collectedFields').style.display = 'none';
+        document.getElementById('notCollectedFields').style.display = 'block';
+        confirmBtn.textContent = '❌ Confirm Not Collected';
+        confirmBtn.style.background = '#dc3545';
+        document.querySelector('input[name="action"][value="not_collected"]').checked = true;
+        // Add required attribute
+        reasonSelect.setAttribute('required', 'required');
+    }
+}
+    document.querySelector('#returnModal form').addEventListener('submit', function(e) {
+        console.log('Form submitted');
+    });
+    // Close modal on outside click
+    document.getElementById('returnModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReturnModal();
+    });
+
+    // ===== RETAKE BILL (AJAX) =====
+    function retakeBill(collectionId) {
+        if (!confirm('Move this bill back to PENDING status? It will be available for collection again.')) return;
+        
+        fetch('/credit-collection/retake/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: `collection_id=${collectionId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Bill moved back to PENDING.');
+                location.reload();
+            } else {
+                alert('❌ ' + (data.message || 'Error retaking bill.'));
+            }
+        })
+        .catch(error => {
+            alert('❌ Error retaking bill. Please try again.');
+            console.error('Retake error:', error);
+        });
+    }
+</script>
+{% endblock %}
+
