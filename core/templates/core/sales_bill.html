@@ -6,25 +6,17 @@
 {% block content %}
 
 <style>
-    /* ===== BASE STYLES ===== */
+    /* ===== BASE ===== */
     .top-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: end; }
     .top-row .field-group { flex: 1; min-width: 150px; }
     .top-row .field-group label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .top-row .field-group input, 
-    .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; transition: 0.2s; background: #fafbfc; }
-    .top-row .field-group input:focus, 
-    .top-row .field-group select:focus { border-color: #007bff; outline: none; background: white; }
-    
+    .top-row .field-group input, .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; transition: 0.2s; }
+    .top-row .field-group input:focus, .top-row .field-group select:focus { border-color: #007bff; outline: none; background: white; }
+
     /* ===== CUSTOMER SEARCH ===== */
     #customerSearchInput:focus { border-color: #007bff; outline: none; background: white; }
     #customerSearchResults .search-result-item {
-        padding: 10px 14px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        transition: 0.15s;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;
     }
     #customerSearchResults .search-result-item:hover { background: #e3f0ff; }
     #customerSearchResults .search-result-item:last-child { border-bottom: none; }
@@ -32,214 +24,76 @@
     #customerSearchResults .search-result-item .code { font-size: 12px; color: #888; }
     #customerSearchResults .search-result-item .phone { font-size: 12px; color: #666; }
     #customerSearchResults .no-results { padding: 12px 14px; color: #999; text-align: center; }
-    
-    /* ===== PRODUCT SEARCH ===== */
-    .product-search-bar {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        align-items: center;
-    }
-    .product-search-bar input {
-        flex: 1;
-        padding: 12px 18px;
-        border: 2px solid #e0e4eb;
-        border-radius: 30px;
-        font-size: 15px;
-        background: #f8f9fc;
-        transition: 0.2s;
-    }
-    .product-search-bar input:focus {
-        border-color: #007bff;
-        outline: none;
-        background: white;
-    }
-    .product-search-bar .icon {
-        font-size: 20px;
-        color: #888;
-    }
 
-    /* ===== PRODUCT RESULTS ===== */
-    .product-results {
+    /* ===== PRODUCT SEARCH ===== */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+    .search-bar input { flex: 1; padding: 12px 18px; border: 2px solid #e0e4eb; border-radius: 30px; font-size: 15px; background: #f8f9fc; transition: 0.2s; }
+    .search-bar input:focus { border-color: #007bff; outline: none; background: white; }
+    .search-bar .icon { font-size: 20px; color: #888; }
+
+    .product-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
         gap: 12px;
         margin-bottom: 25px;
         min-height: 60px;
     }
-    .product-result-card {
+    .product-card {
         background: white;
         border: 2px solid #e8ecf2;
         border-radius: 12px;
         padding: 12px 14px;
         text-align: center;
         transition: 0.15s;
-        display: none; /* hidden by default; shown via JS */
     }
-    .product-result-card.visible {
-        display: block;
+    .product-card:hover { border-color: #007bff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .product-name { display: block; font-weight: 600; color: #1a2634; font-size: 14px; line-height: 1.3; }
+    .product-price { display: block; color: #28a745; font-weight: 700; font-size: 14px; margin-top: 3px; }
+    .product-stock {
+        display: inline-block; background: #007bff; color: white; font-size: 11px; font-weight: 600;
+        padding: 2px 10px; border-radius: 12px; margin-top: 4px;
     }
-    .product-result-card:hover {
-        border-color: #007bff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .product-result-card .name {
-        display: block;
-        font-weight: 600;
-        color: #1a2634;
-        font-size: 14px;
-        line-height: 1.3;
-    }
-    .product-result-card .price {
-        display: block;
-        color: #28a745;
-        font-weight: 700;
-        font-size: 14px;
-        margin-top: 3px;
-    }
-    .product-result-card .stock {
-        display: inline-block;
-        background: #007bff;
-        color: white;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 2px 10px;
-        border-radius: 12px;
-        margin-top: 4px;
-    }
-    .product-result-card .stock.low { background: #dc3545; }
-    .product-result-card .stock.medium { background: #fd7e14; }
-    .product-result-card .stock.high { background: #28a745; }
-    .product-result-card .actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 10px;
-        justify-content: center;
-    }
-    .product-result-card .actions .btn-sale {
-        flex: 1;
-        padding: 6px 8px;
-        background: #28a745;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 12px;
-        cursor: pointer;
-        transition: 0.2s;
-        max-width: 80px;
-    }
-    .product-result-card .actions .btn-sale:hover { background: #218838; }
-    .product-result-card .actions .btn-foc {
-        flex: 1;
-        padding: 6px 8px;
-        background: #fd7e14;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 12px;
-        cursor: pointer;
-        transition: 0.2s;
-        max-width: 80px;
-    }
-    .product-result-card .actions .btn-foc:hover { background: #e06b0f; }
-    .no-results-msg {
-        grid-column: 1 / -1;
-        text-align: center;
-        color: #999;
-        font-size: 16px;
-        padding: 20px;
-        display: none;
-    }
-    .no-results-msg.visible {
-        display: block;
-    }
+    .product-stock.low { background: #dc3545; }
+    .product-stock.medium { background: #fd7e14; }
+    .product-stock.high { background: #28a745; }
+    .product-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .product-actions .btn-sale { flex: 1; padding: 6px 8px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; }
+    .product-actions .btn-sale:hover { background: #218838; }
+    .product-actions .btn-foc { flex: 1; padding: 6px 8px; background: #fd7e14; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; }
+    .product-actions .btn-foc:hover { background: #e06b0f; }
 
-    /* ===== CART SECTION (unchanged) ===== */
+    .empty-results { text-align: center; color: #999; padding: 20px; font-size: 14px; grid-column: 1 / -1; }
+
+    /* ===== RETURN TOGGLE ===== */
+    .return-toggle { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .return-toggle label { font-weight: 600; font-size: 14px; color: #333; cursor: pointer; }
+    .return-toggle input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #dc3545; }
+    .return-toggle select { display: none; padding: 5px 10px; border-radius: 6px; border: 1px solid #d0d5dd; background: white; }
+
+    /* ===== CART ===== */
     .cart-section { margin: 20px 0; }
     .cart-section .section-title {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        flex-wrap: wrap;
-        gap: 10px;
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
     }
-    .cart-section .section-title h3 {
-        font-size: 16px;
-        color: #333;
-        margin: 0;
-    }
-    .cart-section .section-title .section-badge {
-        font-size: 14px;
-        font-weight: 600;
-        color: #28a745;
-    }
-    .cart-section .section-title .section-badge.foc {
-        color: #fd7e14;
-    }
-    .cart-section .return-toggle {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .cart-section .return-toggle label {
-        font-weight: 600;
-        font-size: 14px;
-        color: #333;
-    }
-    .cart-section .return-toggle input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        cursor: pointer;
-        accent-color: #dc3545;
-    }
-    .cart-section .return-toggle select {
-        display: none;
-        padding: 5px 10px;
-        border-radius: 6px;
-        border: 1px solid #d0d5dd;
-    }
+    .cart-section .section-title h3 { font-size: 16px; color: #333; margin: 0; }
+    .cart-section .section-title .section-badge { font-size: 14px; font-weight: 600; }
+    .cart-section .section-title .section-badge.regular { color: #28a745; }
+    .cart-section .section-title .section-badge.foc { color: #fd7e14; }
+    .cart-section .section-title .section-badge.return { color: #dc3545; }
 
     table.cart { width: 100%; border-collapse: collapse; }
-    table.cart th {
-        background: #f0f4f9;
-        padding: 10px 10px;
-        text-align: left;
-        font-size: 13px;
-        font-weight: 600;
-        color: #444;
-        border-bottom: 2px solid #dde3ec;
-    }
-    table.cart td {
-        padding: 8px 10px;
-        border-bottom: 1px solid #edf1f7;
-        vertical-align: middle;
-    }
-    table.cart td input {
-        width: 100%;
-        padding: 6px 8px;
-        border: 1px solid #d0d5dd;
-        border-radius: 6px;
-        font-size: 14px;
-        text-align: center;
-    }
+    table.cart th { background: #f0f4f9; padding: 10px 10px; text-align: left; font-size: 13px; font-weight: 600; color: #444; border-bottom: 2px solid #dde3ec; }
+    table.cart td { padding: 8px 10px; border-bottom: 1px solid #edf1f7; vertical-align: middle; }
+    table.cart td input { width: 100%; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; text-align: center; }
     table.cart td input:focus { border-color: #007bff; outline: none; }
-    table.cart .remove-btn {
-        background: #fee;
-        border: none;
-        color: #dc3545;
-        font-size: 18px;
-        cursor: pointer;
-        padding: 4px 10px;
-        border-radius: 6px;
-    }
+    table.cart .remove-btn { background: #fee; border: none; color: #dc3545; font-size: 18px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
     table.cart .remove-btn:hover { background: #fcc; }
     .empty-cart { text-align: center; padding: 20px; color: #999; font-size: 14px; }
     .foc-section { border-top: 2px dashed #fd7e14; padding-top: 15px; margin-top: 10px; }
 
-    .totals-row { display: flex; flex-wrap: wrap; gap: 20px; justify-content: flex-end; padding: 15px 0; border-top: 2px solid #e8ecf2; margin-top: 10px; }
+    .totals-row {
+        display: flex; flex-wrap: wrap; gap: 20px; justify-content: flex-end; padding: 15px 0; border-top: 2px solid #e8ecf2; margin-top: 10px;
+    }
     .totals-row .total-item { text-align: right; }
     .totals-row .total-item .label { font-size: 13px; color: #666; font-weight: 500; }
     .totals-row .total-item .value { font-size: 22px; font-weight: 700; color: #1a2634; }
@@ -248,43 +102,23 @@
     .totals-row .total-item .value.red { color: #dc3545; }
 
     .bill-discount-row {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-        justify-content: flex-end;
-        padding: 10px 0;
-        flex-wrap: wrap;
-        width: 100%;
+        display: flex; gap: 15px; align-items: center; justify-content: flex-end; padding: 10px 0; flex-wrap: wrap; width: 100%;
     }
     .bill-discount-row .discount-group {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        background: #f8f9fc;
-        padding: 8px 15px;
-        border-radius: 8px;
-        border: 1px solid #e0e4eb;
+        display: flex; gap: 8px; align-items: center; background: #f8f9fc; padding: 8px 15px; border-radius: 8px; border: 1px solid #e0e4eb;
     }
-    .bill-discount-row .discount-group label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #555;
-    }
+    .bill-discount-row .discount-group label { font-size: 13px; font-weight: 600; color: #555; }
     .bill-discount-row .discount-group input,
-    .bill-discount-row .discount-group select {
-        padding: 6px 10px;
-        border: 2px solid #e0e4eb;
-        border-radius: 6px;
-        font-size: 13px;
-        background: white;
-        width: 100px;
-    }
+    .bill-discount-row .discount-group select { padding: 6px 10px; border: 2px solid #e0e4eb; border-radius: 6px; font-size: 13px; background: white; width: 100px; }
     .bill-discount-row .discount-group select { width: 80px; }
 
+    /* ===== PAYMENT SECTION ===== */
     .payment-section { margin: 20px 0 10px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e0e4eb; }
     .payment-section .pay-label { font-weight: 600; color: #333; font-size: 14px; display: block; margin-bottom: 12px; }
     .payment-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
-    .payment-buttons .pay-btn { padding: 10px 25px; border: 2px solid #d0d5dd; border-radius: 8px; background: white; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    .payment-buttons .pay-btn {
+        padding: 10px 25px; border: 2px solid #d0d5dd; border-radius: 8px; background: white; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px;
+    }
     .payment-buttons .pay-btn:hover { border-color: #007bff; background: #e3f0ff; }
     .payment-buttons .pay-btn.active { border-color: #007bff; background: #007bff; color: white; }
     .payment-buttons .pay-btn.cash { border-color: #28a745; color: #28a745; }
@@ -303,8 +137,10 @@
     .payment-details .form-row { display: flex; flex-wrap: wrap; gap: 15px; align-items: end; }
     .payment-details .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
     .payment-details .form-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.3px; }
-    .payment-details .form-group input, .payment-details .form-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; width: 100%; }
-    .payment-details .form-group input:focus, .payment-details .form-group select:focus { border-color: #007bff; outline: none; }
+    .payment-details .form-group input,
+    .payment-details .form-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; width: 100%; }
+    .payment-details .form-group input:focus,
+    .payment-details .form-group select:focus { border-color: #007bff; outline: none; }
 
     .multi-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .multi-options .option-group { padding: 10px; border: 1px solid #e0e4eb; border-radius: 8px; }
@@ -319,39 +155,30 @@
     .action-buttons .btn-back { background: #e8ecf2; color: #333; }
     .action-buttons .btn-back:hover { background: #d0d5dd; }
 
+    /* ===== MODALS ===== */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
     .modal-overlay.show { display: flex; }
     .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
     .modal-content h3 { margin-bottom: 20px; color: #1a2634; }
     .modal-content .form-group { margin-bottom: 15px; }
     .modal-content .form-group label { display: block; font-weight: 600; color: #555; margin-bottom: 4px; font-size: 13px; }
-    .modal-content .form-group input, .modal-content .form-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
+    .modal-content .form-group input,
+    .modal-content .form-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
     .modal-content .btn-group { display: flex; gap: 10px; margin-top: 15px; }
     .modal-content .btn-group .btn-modal { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; flex: 1; }
     .modal-content .btn-group .btn-modal.confirm { background: #28a745; color: white; }
-    .modal-content .btn-group .btn-modal.confirm:hover { background: #218838; }
     .modal-content .btn-group .btn-modal.cancel { background: #6c757d; color: white; }
-    .modal-content .btn-group .btn-modal.cancel:hover { background: #5a6268; }
     .modal-content .add-row { display: flex; gap: 10px; align-items: end; }
     .modal-content .add-row .form-group { flex: 1; margin-bottom: 0; }
     .modal-content .add-row .btn-add { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-    .modal-content .add-row .btn-add:hover { background: #0056b3; }
 
-    .errorlist {
-        background: #f8d7da;
-        color: #721c24;
-        padding: 12px 16px;
-        border-radius: 8px;
-        border: 1px solid #f5c6cb;
-        margin-bottom: 15px;
-        list-style: none;
-    }
+    .errorlist { background: #f8d7da; color: #721c24; padding: 12px 16px; border-radius: 8px; border: 1px solid #f5c6cb; margin-bottom: 15px; list-style: none; }
     .errorlist li { margin: 3px 0; }
     .errorlist strong { color: #dc3545; }
 
     @media (max-width: 768px) {
         .top-row .field-group { flex: 1 1 100%; }
-        .product-results { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        .product-grid { grid-template-columns: 1fr 1fr; }
         .multi-options { grid-template-columns: 1fr; }
         .payment-details .form-row { flex-direction: column; }
         .bill-discount-row { justify-content: center; }
@@ -360,6 +187,7 @@
 
 <div class="container">
     <div class="card">
+        <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
                 <div class="msg {% if message.tags == 'error' %}error{% elif message.tags == 'info' %}info{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
@@ -384,6 +212,7 @@
 
             <!-- ===== TOP ROW ===== -->
             <div class="top-row">
+                <!-- Vehicle -->
                 <div class="field-group" style="flex: 1.5;">
                     <label>🚛 Delivery Vehicle *</label>
                     <select name="vehicle" id="vehicleSelect" required>
@@ -396,6 +225,7 @@
                     </select>
                 </div>
 
+                <!-- Rep -->
                 <div class="field-group" style="flex: 1.5;">
                     <label>👤 Sales Rep</label>
                     <select name="rep" id="repSelect">
@@ -408,6 +238,7 @@
                     </select>
                 </div>
 
+                <!-- Customer Search -->
                 <div class="field-group" style="position:relative; flex: 2; min-width:250px;">
                     <label>Search Customer <span class="required" style="color:#dc3545;">*</span></label>
                     <div style="display: flex; gap: 10px; align-items: center;">
@@ -429,12 +260,14 @@
                     </div>
                 </div>
 
+                <!-- Invoice No -->
                 <div class="field-group">
                     <label>Invoice No <span class="required" style="color:#dc3545;">*</span></label>
-                    <input type="text" name="invoice_no" id="invoiceNoInput" placeholder="Rep Code or custom number" value="{{ random_invoice }}" required>
-                    <span class="help-text" style="font-size:11px; color:#888;">Auto-fills with Rep Code when selected; can be edited.</span>
+                    <input type="text" name="invoice_no" id="invoiceNoInput" placeholder="Auto-generated from Rep" value="{{ random_invoice }}" required>
+                    <span class="help-text" style="font-size:11px; color:#888;">Auto-fills with Rep Code; can be edited.</span>
                 </div>
 
+                <!-- Date -->
                 <div class="field-group">
                     <label>Date</label>
                     <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}">
@@ -446,33 +279,44 @@
                 </div>
             </div>
 
-            <!-- ===== PRODUCT SEARCH BAR ===== -->
-            <div class="product-search-bar">
+            <!-- ===== PRODUCT SEARCH ===== -->
+            <div class="search-bar">
                 <span class="icon">🔍</span>
-                <input type="text" id="productSearch" placeholder="Search products by name or code..." oninput="filterProductResults()" autofocus>
+                <input type="text" id="productSearch" placeholder="Search products by name or code..." oninput="filterProducts()">
             </div>
-
-            <!-- ===== PRODUCT RESULTS (search only) ===== -->
-            <div class="product-results" id="productResults">
-                <!-- Cards inserted by JavaScript -->
-                <div class="no-results-msg" id="noResultsMsg">No products found. Try a different search.</div>
+            <div id="productResults" class="product-grid">
+                <div class="empty-results">Type to search for products...</div>
             </div>
 
             <!-- ===== CART SECTION ===== -->
             <div class="cart-section">
-                <!-- Regular Items -->
+                <!-- Section Title with Return Toggle -->
                 <div class="section-title">
-                    <h3>🛒 Regular Items (Charged)</h3>
-                    <span class="section-badge">Total: Rs <span id="regularTotalDisplay">0.00</span></span>
+                    <h3>🛒 Current Bill Items</h3>
+                    <div class="return-toggle">
+                        <label for="returnMode">🔄 SALES RETURN</label>
+                        <input type="checkbox" id="returnMode" onchange="toggleReturnMode()">
+                        <select id="returnReason">
+                            <option value="DAMAGED">Damaged</option>
+                            <option value="EXPIRED">Expired</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Regular Items -->
+                <div class="section-title" style="border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <span style="font-weight:600;">Regular Items (Charged)</span>
+                    <span class="section-badge regular">Total: Rs <span id="regularTotalDisplay">0.00</span></span>
                 </div>
                 <table class="cart" id="regularCart">
                     <thead>
                         <tr>
-                            <th style="width:40%;">Product</th>
-                            <th style="width:18%;">Qty</th>
+                            <th style="width:35%;">Product</th>
+                            <th style="width:15%;">Qty</th>
                             <th style="width:18%;">Rate (Rs)</th>
                             <th style="width:18%;">Total (Rs)</th>
-                            <th style="width:6%;">Action</th>
+                            <th style="width:14%;">Action</th>
                         </tr>
                     </thead>
                     <tbody id="regularCartBody">
@@ -482,18 +326,18 @@
 
                 <!-- FOC Items -->
                 <div class="foc-section">
-                    <div class="section-title">
-                        <h3>🎁 FOC Items (Free)</h3>
+                    <div class="section-title" style="border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                        <span style="font-weight:600;">🎁 FOC Items (Free)</span>
                         <span class="section-badge foc">Total: Rs <span id="focTotalDisplay">0.00</span></span>
                     </div>
                     <table class="cart" id="focCart">
                         <thead>
                             <tr>
-                                <th style="width:40%;">Product</th>
-                                <th style="width:18%;">Qty</th>
+                                <th style="width:35%;">Product</th>
+                                <th style="width:15%;">Qty</th>
                                 <th style="width:18%;">Rate (Rs)</th>
                                 <th style="width:18%;">Total (Rs)</th>
-                                <th style="width:6%;">Action</th>
+                                <th style="width:14%;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="focCartBody">
@@ -502,11 +346,11 @@
                     </table>
                 </div>
 
-                <!-- ===== TOTALS & BILL DISCOUNT ===== -->
+                <!-- Totals -->
                 <div class="totals-row" style="flex-direction:column; align-items:flex-end; width:100%;">
                     <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:flex-end; width:100%;">
                         <div class="total-item">
-                            <div class="label">Subtotal (Regular)</div>
+                            <div class="label">Regular Subtotal</div>
                             <div class="value" id="subtotalDisplay">Rs 0.00</div>
                         </div>
                         <div class="total-item">
@@ -515,7 +359,7 @@
                         </div>
                     </div>
 
-                    <!-- Bill Discount Section -->
+                    <!-- Bill Discount -->
                     <div class="bill-discount-row">
                         <div class="discount-group">
                             <label>Bill Discount:</label>
@@ -559,12 +403,11 @@
                 <button type="submit" class="btn btn-save" id="saveBtn">💾 SAVE</button>
             </div>
 
-            <!-- ===== HIDDEN FIELDS ===== -->
+            <!-- Hidden Fields -->
             <input type="hidden" name="payment_method" id="paymentMethod" value="">
             <input type="hidden" name="is_return" id="isReturn" value="false">
             <input type="hidden" name="return_reason" id="returnReasonVal" value="">
             <input type="hidden" name="bill_status" id="billStatus" value="COMPLETED">
-
             <div id="hiddenFieldsContainer">
                 {% for i in "1234567891011121314151617181920"|make_list %}
                     <input type="hidden" name="product_{{ forloop.counter }}" id="hidden_product_{{ forloop.counter }}" value="">
@@ -575,14 +418,12 @@
             </div>
             <input type="hidden" name="bill_discount_type" id="hidden_bill_discount_type" value="">
             <input type="hidden" name="bill_discount_value" id="hidden_bill_discount_value" value="0">
-
         </form>
     </div>
     <div class="footer">&copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System</div>
 </div>
 
-<!-- ===== MODALS ===== -->
-<!-- Cheque Modal -->
+<!-- ===== CHEQUE MODAL ===== -->
 <div class="modal-overlay" id="chequeModal">
     <div class="modal-content">
         <h3>🏦 Cheque Payment</h3>
@@ -617,7 +458,7 @@
     </div>
 </div>
 
-<!-- Add Bank Modal -->
+<!-- ===== ADD BANK MODAL ===== -->
 <div class="modal-overlay" id="addBankModal">
     <div class="modal-content">
         <h3>➕ Add New Bank</h3>
@@ -632,7 +473,7 @@
     </div>
 </div>
 
-<!-- Multi Pay Modal -->
+<!-- ===== MULTI PAY MODAL ===== -->
 <div class="modal-overlay" id="multiPayModal">
     <div class="modal-content">
         <h3>🔀 Multi Payment</h3>
@@ -681,70 +522,81 @@
     let manualInvoice = false;
     let billDiscountType = '';
     let billDiscountValue = 0;
+    let allProducts = [];
 
-    // All products (from Django template)
-    const allProducts = [
+    // ============================================================
+    // PRODUCT DATA (from Django)
+    // ============================================================
+    allProducts = [
         {% for product in products %}
         {
             id: {{ product.id }},
             name: "{{ product.name|escapejs }}",
             code: "{{ product.code|escapejs }}",
             price: {{ product.selling_price }},
-            unit: "{{ product.unit|escapejs }}",
-            stock: {{ product.vehicle_stock|default:0 }}
+            stock: {{ product.vehicle_stock|floatformat:0 }},
         },
         {% endfor %}
     ];
 
     // ============================================================
-    // PRODUCT SEARCH & RENDER
+    // PRODUCT SEARCH (filter products)
     // ============================================================
-    function filterProductResults() {
+    function filterProducts() {
         const query = document.getElementById('productSearch').value.toLowerCase().trim();
-        const container = document.getElementById('productResults');
-        const noMsg = document.getElementById('noResultsMsg');
+        const resultsContainer = document.getElementById('productResults');
 
-        // Remove previous result cards (keep the no-results-msg)
-        container.querySelectorAll('.product-result-card').forEach(el => el.remove());
-
-        if (!query) {
-            noMsg.classList.remove('visible');
-            noMsg.textContent = 'Start typing to search products...';
+        if (query.length === 0) {
+            resultsContainer.innerHTML = `<div class="empty-results">Type to search for products...</div>`;
             return;
         }
 
-        const matches = allProducts.filter(p =>
+        const filtered = allProducts.filter(p =>
             p.name.toLowerCase().includes(query) ||
-            (p.code && p.code.toLowerCase().includes(query))
+            p.code.toLowerCase().includes(query)
         );
 
-        if (matches.length === 0) {
-            noMsg.textContent = 'No products found. Try a different search.';
-            noMsg.classList.add('visible');
+        if (filtered.length === 0) {
+            resultsContainer.innerHTML = `<div class="empty-results">No products found.</div>`;
             return;
         }
-        noMsg.classList.remove('visible');
 
-        matches.forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'product-result-card visible';
-            card.dataset.id = p.id;
-            const stockClass = p.stock <= 0 ? 'low' : (p.stock < 10 ? 'medium' : 'high');
-            card.innerHTML = `
-                <span class="name">${p.name}</span>
-                <span class="price">Rs ${p.price.toFixed(2)}</span>
-                <span class="stock ${stockClass}">${p.stock.toFixed(0)}</span>
-                <div class="actions">
-                    <button class="btn-sale" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', ${p.price}, false)">🛒 Sale</button>
-                    <button class="btn-foc" onclick="addToCart(${p.id}, '${p.name.replace(/'/g, "\\'")}', 0, true)">🎁 FOC</button>
+        let html = '';
+        filtered.forEach(product => {
+            const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
+            html += `
+                <div class="product-card" data-name="${product.name}">
+                    <span class="product-name">${product.name}</span>
+                    <span class="product-price">Rs ${product.price.toFixed(2)}</span>
+                    <span class="product-stock ${stockClass}">${product.stock}</span>
+                    <div class="product-actions">
+                        <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name}', ${product.price}, false)">🛒 Sale</button>
+                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name}', 0, true)">🎁 FOC</button>
+                    </div>
                 </div>
             `;
-            container.appendChild(card);
         });
+        resultsContainer.innerHTML = html;
     }
 
     // ============================================================
-    // ADD TO CART
+    // TOGGLE RETURN MODE
+    // ============================================================
+    function toggleReturnMode() {
+        returnMode = document.getElementById('returnMode').checked;
+        const reasonSelect = document.getElementById('returnReason');
+        if (returnMode) {
+            reasonSelect.style.display = 'inline-block';
+            document.querySelector('.return-toggle label').style.color = '#dc3545';
+        } else {
+            reasonSelect.style.display = 'none';
+            document.querySelector('.return-toggle label').style.color = '#333';
+        }
+        renderCart();
+    }
+
+    // ============================================================
+    // CART FUNCTIONS
     // ============================================================
     function addToCart(productId, productName, rate, isFoc) {
         cart.push({
@@ -758,17 +610,11 @@
         renderCart();
     }
 
-    // ============================================================
-    // REMOVE FROM CART
-    // ============================================================
     function removeFromCart(index) {
         cart.splice(index, 1);
         renderCart();
     }
 
-    // ============================================================
-    // UPDATE CART ITEM
-    // ============================================================
     function updateCartItem(index, field, value) {
         const val = parseFloat(value) || 0;
         if (field === 'qty') {
@@ -779,9 +625,6 @@
         renderCart();
     }
 
-    // ============================================================
-    // RENDER CART
-    // ============================================================
     function renderCart() {
         const regularItems = cart.filter(item => !item.is_foc);
         const focItems = cart.filter(item => item.is_foc);
@@ -793,6 +636,7 @@
         const subtotalDisplay = document.getElementById('subtotalDisplay');
         const focValueDisplay = document.getElementById('focValueDisplay');
         const netTotalDisplay = document.getElementById('netTotalDisplay');
+        const discountDisplay = document.getElementById('discountDisplay');
 
         // Regular items
         if (regularItems.length === 0) {
@@ -805,12 +649,13 @@
                 const index = cart.indexOf(item);
                 const total = item.qty * item.rate;
                 regularTotal += total;
+                const sign = returnMode ? '-' : '';
                 html += `
                     <tr>
                         <td><strong>${item.name}</strong></td>
                         <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
                         <td><input type="number" step="0.01" value="${item.rate}" style="width:80px;" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
-                        <td>Rs ${total.toFixed(2)}</td>
+                        <td>${sign} Rs ${total.toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
                     </tr>
                 `;
@@ -830,12 +675,13 @@
                 const index = cart.indexOf(item);
                 const total = item.qty * item.rate;
                 focTotal += total;
+                const sign = returnMode ? '-' : '';
                 html += `
                     <tr>
                         <td><strong>${item.name}</strong></td>
                         <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
                         <td>${item.rate.toFixed(2)}</td>
-                        <td>Rs ${total.toFixed(2)}</td>
+                        <td>${sign} Rs ${total.toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
                     </tr>
                 `;
@@ -879,13 +725,6 @@
     }
 
     // ============================================================
-    // FILTER PRODUCTS (for the search bar)
-    // ============================================================
-    function filterProducts() {
-        // Already handled by filterProductResults()
-    }
-
-    // ============================================================
     // CLEAR CART
     // ============================================================
     function clearCart() {
@@ -901,16 +740,16 @@
     }
 
     // ============================================================
-    // VEHICLE STOCK UPDATE
+    // VEHICLE STOCK UPDATE (when vehicle changes)
     // ============================================================
     function updateVehicleStock() {
         const vehicleSelect = document.getElementById('vehicleSelect');
         const vehicleId = vehicleSelect ? vehicleSelect.value : '';
         if (!vehicleId) {
-            // Update all product cards' stock to 0
-            document.querySelectorAll('.product-result-card .stock').forEach(badge => {
+            // Reset all stock badges to 0
+            document.querySelectorAll('.product-card .product-stock').forEach(badge => {
                 badge.textContent = '0';
-                badge.className = 'stock low';
+                badge.className = 'product-stock';
             });
             return;
         }
@@ -918,17 +757,21 @@
             .then(response => response.json())
             .then(data => {
                 const stocks = data.stocks || {};
-                document.querySelectorAll('.product-result-card').forEach(card => {
-                    const productId = card.dataset.id;
-                    if (productId) {
-                        const quantity = stocks[productId] || 0;
-                        const badge = card.querySelector('.stock');
-                        if (badge) {
-                            badge.textContent = quantity.toFixed(0);
-                            badge.className = 'stock';
-                            if (quantity <= 0) badge.classList.add('low');
-                            else if (quantity < 10) badge.classList.add('medium');
-                            else badge.classList.add('high');
+                document.querySelectorAll('.product-card').forEach(card => {
+                    const saleBtn = card.querySelector('.btn-sale');
+                    if (saleBtn) {
+                        const match = saleBtn.getAttribute('onclick').match(/\d+/);
+                        if (match) {
+                            const productId = match[0];
+                            const quantity = stocks[productId] || 0;
+                            const badge = card.querySelector('.product-stock');
+                            if (badge) {
+                                badge.textContent = quantity.toFixed(0);
+                                badge.className = 'product-stock';
+                                if (quantity <= 0) badge.classList.add('low');
+                                else if (quantity < 10) badge.classList.add('medium');
+                                else badge.classList.add('high');
+                            }
                         }
                     }
                 });
@@ -1011,7 +854,6 @@
                     <div style="padding:5px 0; font-weight:600; color:#17a2b8;">Total: <span id="onlineTotalDisplay">Rs 0.00</span></div>
                 </div>
             `;
-            updatePaymentInputs();
         }
     }
 
@@ -1060,7 +902,6 @@
     function openChequeModal() {
         document.getElementById('chequeModal').classList.add('show');
         document.getElementById('chequeDate').value = new Date().toISOString().split('T')[0];
-        // Auto-fill amount with Net Total
         const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
         const netTotal = parseFloat(netText) || 0;
         document.getElementById('chequeAmount').value = netTotal.toFixed(2);
@@ -1071,7 +912,10 @@
         const chequeDate = document.getElementById('chequeDate').value;
         const bank = document.getElementById('bankSelect').value;
         const amount = parseFloat(document.getElementById('chequeAmount').value) || 0;
-        if (!chequeNo || !chequeDate || !bank || amount <= 0) { alert('Please fill in all cheque details!'); return; }
+        if (!chequeNo || !chequeDate || !bank || amount <= 0) {
+            alert('Please fill in all cheque details!');
+            return;
+        }
         chequeData = { chequeNo, chequeDate, bank, amount };
         selectedPayment = 'cheque';
         document.getElementById('paymentMethod').value = 'cheque';
@@ -1107,10 +951,7 @@
         if (!name) { alert('Please enter a bank name.'); return; }
         fetch('/api/add-bank/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
             body: JSON.stringify({ name: name })
         })
         .then(response => response.json())
@@ -1150,8 +991,14 @@
         const type2 = document.getElementById('multiType2').value;
         const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
         const total = amt1 + amt2;
-        if (type1 === type2) { alert('Please select two different payment types.'); return; }
-        if (amt1 <= 0 || amt2 <= 0 || total <= 0) { alert('Please enter valid amounts.'); return; }
+        if (type1 === type2) {
+            alert('Please select two different payment types.');
+            return;
+        }
+        if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
+            alert('Please enter valid amounts.');
+            return;
+        }
         multiPayData = { type1, amt1, type2, amt2, total };
         selectedPayment = 'multi';
         document.getElementById('paymentMethod').value = 'multi';
@@ -1177,7 +1024,7 @@
     }
 
     // ============================================================
-    // CUSTOMER SEARCH (unchanged)
+    // CUSTOMER SEARCH
     // ============================================================
     function setupCustomerSearch() {
         const searchInput = document.getElementById('customerSearchInput');
@@ -1213,7 +1060,7 @@
             .then(data => {
                 resultsContainer.innerHTML = '';
                 if (data.customers.length === 0) {
-                    resultsContainer.innerHTML = `<div class="no-results">No customers found. <br><span style="font-size:12px;">Try a different search or click "+ New Customer"</span></div>`;
+                    resultsContainer.innerHTML = `<div class="no-results">No customers found.<br><span style="font-size:12px;">Try a different search or click "+ New Customer"</span></div>`;
                     resultsContainer.style.display = 'block';
                     return;
                 }
@@ -1278,9 +1125,11 @@
     // FORM SUBMIT HANDLER
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
+        // Customer search
         setupCustomerSearch();
         checkForNewCustomer();
 
+        // Rep select listener for invoice
         const repSelect = document.getElementById('repSelect');
         if (repSelect) {
             repSelect.addEventListener('change', function() {
@@ -1290,6 +1139,7 @@
             setTimeout(updateInvoiceFromRep, 300);
         }
 
+        // Invoice manual override
         const invoiceInput = document.getElementById('invoiceNoInput');
         if (invoiceInput) {
             invoiceInput.addEventListener('input', function() {
@@ -1297,51 +1147,55 @@
             });
         }
 
+        // Vehicle select listener for stock update
         const vehicleSelect = document.getElementById('vehicleSelect');
         if (vehicleSelect) {
             vehicleSelect.addEventListener('change', function() {
                 updateVehicleStock();
-                // Re-render product results to update stock badges
-                filterProductResults();
+                // Also auto-save the vehicle selection (handled by view)
             });
-            setTimeout(() => {
-                updateVehicleStock();
-                filterProductResults();
-            }, 500);
+            // Initial stock load if vehicle pre-selected
+            setTimeout(updateVehicleStock, 500);
         }
 
+        // Multi pay total update
         document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
         document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
 
         renderCart();
-        updateBillDiscount();
-        // Initial product filter (show nothing until search)
-        filterProductResults();
 
-        // ===== FORM SUBMIT =====
+        // Form submit handler
         document.getElementById('salesForm').addEventListener('submit', function(e) {
-            // Validation
+            // Validate cart
             if (cart.length === 0) {
                 e.preventDefault();
                 alert('❌ Please add at least one item to the bill!');
                 return;
             }
+
+            // Validate customer
             if (!document.getElementById('selectedCustomerId').value) {
                 e.preventDefault();
                 alert('❌ Please select a customer!');
                 return;
             }
+
+            // Validate payment method
             if (!selectedPayment) {
                 e.preventDefault();
                 alert('❌ Please select a payment method!');
                 return;
             }
+
+            // Validate vehicle
             const vehicleSelect = document.getElementById('vehicleSelect');
             if (!vehicleSelect.value) {
                 e.preventDefault();
                 alert('❌ Please select a delivery vehicle!');
                 return;
             }
+
+            // Validate invoice number
             const invoiceInput = document.getElementById('invoiceNoInput');
             if (!invoiceInput.value.trim()) {
                 e.preventDefault();
@@ -1365,7 +1219,7 @@
                 return;
             }
 
-            // Populate hidden fields for cart items (20 slots)
+            // Populate hidden fields for cart items
             const maxItems = 20;
             for (let i = 1; i <= maxItems; i++) {
                 const item = cart[i - 1];
@@ -1388,23 +1242,31 @@
                 }
             }
 
-            // Set payment method
+            // Payment method
             document.getElementById('paymentMethod').value = selectedPayment;
 
-            // Set return mode
+            // Return mode
             document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
             if (returnMode) {
-                document.getElementById('returnReasonVal').value = document.getElementById('returnReason')?.value || '';
+                document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
             }
 
-            // Set bill status to COMPLETED
-            document.getElementById('billStatus').value = 'COMPLETED';
-
-            // Set bill discount
+            // Bill discount
             document.getElementById('hidden_bill_discount_type').value = billDiscountType;
             document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
 
-            // The form will now submit with all hidden fields populated.
+            // Bill status already set to COMPLETED
+
+            // For cheque, we add cheque details via the addHiddenFields in confirmCheque
+            // but they are also added via hidden fields in the modal – we can also add them here.
+            // The confirmCheque function already adds them to the hidden container, but we also need to
+            // ensure they are in the form. We'll rely on the confirmCheque function to have added them.
+            // However, if the user uses the cheque modal, the fields are appended to the form directly.
+            // We'll just make sure the hidden container is in the form.
+
+            // For multi pay, confirmMultiPay already adds fields.
+
+            // Proceed with submit.
         });
     });
 </script>
