@@ -321,22 +321,22 @@ class UserProfile(models.Model):
     def has_permission(self, permission):
         if self.role == 'Admin':
             return True
-        elif self.role == 'Accountant':
+        elif self.role == 'Users':          # New combined role
+            # Everything Accountant + Loader could do
             return permission in [
-                'view_sales', 'create_sales', 'delete_sales', 'view_reports',
-                'view_sales', 'create_sales', 'view_reports', 'view_products',
-                'view_employees', 'view_purchases', 'manage_purchases',
-                'view_suppliers', 'manage_suppliers',
-                'view_expenses', 'manage_expenses',
-                'view_vehicles', 'manage_vehicles',  # ✅ Already there
+                # Sales & Credit
+                'view_sales', 'create_sales', 'view_reports',
+                'view_products', 'view_vehicles', 'load_vehicle',
+                'view_employees', 'view_expenses', 'manage_expenses',
+                'view_purchases', 'view_suppliers',
+                'view_customers', 'view_cheques',
+                'view_credit_list', 'credit_collection',
                 'view_transfers', 'manage_transfers',
+                'view_vehicle_stock',
                 'view_collections',
-                'manage_sessions',
             ]
-        elif self.role == 'Loader':
-            return permission in ['load_vehicle', 'view_products', 'view_vehicles']  # ✅ Add view_vehicles
         elif self.role == 'Viewer':
-            return permission in ['view_reports']
+            return permission in ['view_reports', 'view_products']
         return False
 
 

@@ -30,7 +30,6 @@ from django.http import HttpResponse
 
 
 
-
 @login_required
 def dashboard(request):
     """Main Dashboard - Landing page after login"""
@@ -2428,9 +2427,13 @@ def create_sales_bill(request):
                 if credit > 0:
                     Payment.objects.create(bill=bill, type='Credit', amount=credit)
                 
-                if cheque > 0:
-                    Payment.objects.create(bill=bill, type='Cheque', amount=cheque)
-                    # Auto-create cheque record
+                cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
+                if cheque_amount > 0:
+                    Payment.objects.create(
+                        bill=bill,
+                        type='Cheque',
+                        amount=cheque_amount
+                    )
                     cheque_no = request.POST.get('cheque_no', '')
                     cheque_date = request.POST.get('cheque_date', '')
                     bank_id = request.POST.get('cheque_bank', '')
@@ -2441,7 +2444,7 @@ def create_sales_bill(request):
                                 cheque_no=cheque_no,
                                 bank=bank,
                                 cheque_date=cheque_date,
-                                amount=cheque,
+                                amount=cheque_amount,
                                 customer_name=bill.shop_name or bill.shop_code or 'N/A',
                                 sales_bill=bill,
                                 status='PENDING',
@@ -2468,14 +2471,17 @@ def create_sales_bill(request):
                 multi_type2 = request.POST.get('multi_type2', '')
                 multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
                 if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
-                    MultiPayment.objects.create(
+                    Payment.objects.create(
                         bill=bill,
-                        payment_type_1=multi_type1,
-                        amount_1=multi_amount1,
-                        payment_type_2=multi_type2,
-                        amount_2=multi_amount2
+                        type=multi_type1,
+                        amount=multi_amount1
                     )
-                
+                    Payment.objects.create(
+                        bill=bill,
+                        type=multi_type2,
+                        amount=multi_amount2
+                    )
+                                
                 # ============================================================
                 # ✅ SESSION SAVING – AFTER ALL SAVES
                 # ============================================================
