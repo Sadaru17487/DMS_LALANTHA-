@@ -5271,10 +5271,11 @@ def vehicle_loading_history_report(request):
         start_date_obj = today
         end_date_obj = today
     
+    # Remove `loaded_by` from select_related if it doesn't exist
     loads = VehicleLoad.objects.filter(
         loaded_at__date__gte=start_date_obj,
         loaded_at__date__lte=end_date_obj
-    ).select_related('vehicle', 'product', 'loaded_by')
+    ).select_related('vehicle', 'product')
     
     if vehicle_id and vehicle_id.isdigit():
         loads = loads.filter(vehicle_id=int(vehicle_id))
@@ -5287,18 +5288,16 @@ def vehicle_loading_history_report(request):
         wb = Workbook()
         ws = wb.active
         ws.title = "Vehicle Loading History"
-        headers = ['Date', 'Vehicle', 'Product', 'Quantity', 'Loaded By', 'Notes']
+        headers = ['Date', 'Vehicle', 'Product', 'Quantity', 'Notes']
         ws.append(headers)
-        for col in range(1, 7):
+        for col in range(1, 6):
             ws.cell(row=1, column=col).font = Font(bold=True)
         for load in loads:
-            loaded_by = load.loaded_by.username if load.loaded_by else ''
             ws.append([
                 load.loaded_at.strftime('%Y-%m-%d %H:%M'),
                 load.vehicle.vehicle_number,
                 load.product.name,
                 float(load.quantity),
-                loaded_by,
                 load.notes or '',
             ])
         for col in ws.columns:
