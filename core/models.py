@@ -418,22 +418,23 @@ class ChequePayment(models.Model):
     def __str__(self):
         return f"{self.cheque_no} - {self.bank.name}"
 
-
+    
 class OnlinePayment(models.Model):
-    bill = models.OneToOneField(SalesBill, on_delete=models.CASCADE, related_name='online_detail')
-    payment_method = models.CharField(max_length=50, choices=[
+    PAYMENT_METHODS = [
         ('Bank Transfer', 'Bank Transfer'),
         ('Mobile Wallet', 'Mobile Wallet'),
         ('Card', 'Card'),
         ('Other', 'Other'),
-    ])
+    ]
+    
+    bill = models.OneToOneField(SalesBill, on_delete=models.CASCADE, related_name='online_detail')
+    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS)
     reference_no = models.CharField(max_length=100, blank=True, null=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.payment_method} - {self.reference_no or 'N/A'}"
-
 
 class MultiPayment(models.Model):
     bill = models.OneToOneField(SalesBill, on_delete=models.CASCADE, related_name='multi_detail')
