@@ -5106,3 +5106,142 @@ def online_payment_report(request):
     return render(request, 'core/online_payment_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def inventory_by_location_report(request):
+    """Inventory by Location Report (Warehouse, Vehicles, or Both)"""
+    
+    today = date.today()
+    location_filter = request.GET.get('location', 'all')  # all, warehouse, vehicles
+    category_id = request.GET.get('category', '')
+    
+    # Get all active products
+    products = Product.objects.filter(is_active=True)
+    
+    # Filter by category if selected
+    if category_id and category_id.isdigit():
+        products = products.filter(category_id=int(category_id))
+    
+    # Prepare stock data
+    stock_data = []
+    total_warehouse_qty = Decimal('0')
+    total_vehicle_qty = Decimal('0')
+    total_stock_qty = Decimal('0')
+    total_warehouse_value = Decimal('0')
+    total_vehicle_value = Decimal('0')
+    total_stock_value = Decimal('0')
+    
+    for product in products:
+        warehouse_qty = product.get_warehouse_stock()  # from Product model method
+        vehicle_qty = product.get_vehicle_stock()
+        
+        # Apply location filter
+        if location_filter == 'warehouse':
+            if warehouse_qty == 0:
+                continue
+            display_warehouse = warehouse_qty
+            display_vehicle = Decimal('0')
+            display_total = warehouse_qty
+        elif location_filter == 'vehicles':
+            if vehicle_qty == 0:
+                continue
+            display_warehouse = Decimal('0')
+            display_vehicle = vehicle_qty
+            display_total = vehicle_qty
+        else:  # all
+            if warehouse_qty == 0 and vehicle_qty == 0:
+                continue
+            display_warehouse = warehouse_qty
+            display_vehicle = vehicle_qty
+            display_total = warehouse_qty + vehicle_qty
+        
+        # Calculate values (using selling price)
+        warehouse_value = display_warehouse * product.selling_price
+        vehicle_value = display_vehicle * product.selling_price
+        total_value = display_total * product.selling_price
+        
+        # Accumulate totals
+        total_warehouse_qty += display_warehouse
+        total_vehicle_qty += display_vehicle
+        total_stock_qty += display_total
+        total_warehouse_value += warehouse_value
+        total_vehicle_value += vehicle_value
+        total_stock_value += total_value
+        
+        stock_data.append({
+            'product': product,
+            'warehouse_qty': display_warehouse,
+            'vehicle_qty': display_vehicle,
+            'total_qty': display_total,
+            'warehouse_value': warehouse_value,
+            'vehicle_value': vehicle_value,
+            'total_value': total_value,
+        })
+    
+    # Sort by total quantity descending
+    stock_data.sort(key=lambda x: x['total_qty'], reverse=True)
+    
+    # Get categories for filter
+    categories = Category.objects.filter(is_active=True)
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Inventory by Location"
+        
+        headers = ['Product', 'Category', 'Unit', 'Warehouse Qty', 'Vehicle Qty', 'Total Qty', 'Total Value (Rs)']
+        ws.append(headers)
+        for col in range(1, 8):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        for row in stock_data:
+            ws.append([
+                row['product'].name,
+                row['product'].category.name if row['product'].category else 'Uncategorized',
+                row['product'].unit,
+                float(row['warehouse_qty']),
+                float(row['vehicle_qty']),
+                float(row['total_qty']),
+                float(row['total_value']),
+            ])
+        
+        # Add summary row
+        ws.append([])
+        ws.append(['TOTALS', '', '', float(total_warehouse_qty), float(total_vehicle_qty), float(total_stock_qty), float(total_stock_value)])
+        for col in range(1, 8):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Inventory_by_Location_{today.strftime("%Y-%m-%d")}.xlsx"'
+        wb.save(response)
+        return response
+    
+    context = {
+        'stock_data': stock_data,
+        'location_filter': location_filter,
+        'categories': categories,
+        'selected_category': category_id,
+        'total_warehouse_qty': total_warehouse_qty,
+        'total_vehicle_qty': total_vehicle_qty,
+        'total_stock_qty': total_stock_qty,
+        'total_warehouse_value': total_warehouse_value,
+        'total_vehicle_value': total_vehicle_value,
+        'total_stock_value': total_stock_value,
+        'today': today,
+    }
+    
+    return render(request, 'core/inventory_by_location_report.html', context)
+
+
