@@ -1,0 +1,113 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Vehicle Transfer History - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    /* same base styles as above, adjust as needed */
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .summary-card { border-top-color: #6f42c1; }
+    .summary-card .value.purple { color: #6f42c1; }
+</style>
+
+<div class="report-container">
+    <div class="header-box">
+        <div>
+            <h1>🔄 Vehicle Transfer History</h1>
+            <div class="sub">Stock transfers between vehicles</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Source Vehicle</label>
+            <select name="source_vehicle">
+                <option value="">All</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_source == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Destination Vehicle</label>
+            <select name="dest_vehicle">
+                <option value="">All</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_dest == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/vehicle-transfer-history/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Transfers</div>
+            <div class="value purple">{{ total_transfers }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #28a745;">
+            <div class="label">Total Quantity</div>
+            <div class="value green">{{ total_quantity|floatformat:0 }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Transfer Details</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>From Vehicle</th>
+                        <th>To Vehicle</th>
+                        <th>Product</th>
+                        <th style="text-align:right;">Quantity</th>
+                        <th>Transferred By</th>
+                        <th>Reason</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transfers %}
+                    <tr>
+                        <td>{{ t.transfer_date|date:"Y-m-d H:i" }}</td>
+                        <td>{{ t.source_vehicle.vehicle_number }}</td>
+                        <td>{{ t.destination_vehicle.vehicle_number }}</td>
+                        <td>{{ t.product.name }}</td>
+                        <td style="text-align:right;">{{ t.quantity|floatformat:0 }}</td>
+                        <td>{{ t.transferred_by.username|default:"-" }}</td>
+                        <td>{{ t.get_reason_display }}</td>
+                        <td>{{ t.notes|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No transfer records found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

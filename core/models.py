@@ -1022,3 +1022,19 @@ class DailySession(models.Model):
         ordering = ['-started_at']
 
 
+class VehicleLoad(models.Model):
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='loads')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    loaded_at = models.DateTimeField(auto_now_add=True)
+    loaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicle_loads')
+    notes = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.vehicle.vehicle_number} - {self.product.name} x{self.quantity}"
+    
+    class Meta:
+        ordering = ['-loaded_at']
+
+
+        

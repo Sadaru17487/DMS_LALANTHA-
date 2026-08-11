@@ -19,7 +19,7 @@ from . import views
 from .decorators import permission_required
 from .forms import VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
-    Category, Employee, Product, WarehouseStock, Vehicle, VehicleStock,
+    Category, Employee, Product, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, 
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession
@@ -686,9 +686,19 @@ def load_vehicle(request):
     else:
         form = VehicleLoadForm()
 
+        VehicleLoad.objects.create(
+    vehicle=vehicle,
+    product=product,
+    quantity=quantity,
+    loaded_by=request.user,
+    notes=f"Loaded from warehouse"
+)
+
     return render(request, 'core/load_vehicle.html', {
         'form': form,
         'product_list': product_list
+
+        
     })
 
 
@@ -5245,3 +5255,153 @@ def inventory_by_location_report(request):
     return render(request, 'core/inventory_by_location_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def vehicle_loading_history_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    vehicle_id = request.GET.get('vehicle', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    loads = VehicleLoad.objects.filter(
+        loaded_at__date__gte=start_date_obj,
+        loaded_at__date__lte=end_date_obj
+    ).select_related('vehicle', 'product', 'loaded_by')
+    
+    if vehicle_id and vehicle_id.isdigit():
+        loads = loads.filter(vehicle_id=int(vehicle_id))
+    
+    total_loads = loads.count()
+    total_quantity = loads.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Vehicle Loading History"
+        headers = ['Date', 'Vehicle', 'Product', 'Quantity', 'Loaded By', 'Notes']
+        ws.append(headers)
+        for col in range(1, 7):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        for load in loads:
+            ws.append([
+                load.loaded_at.strftime('%Y-%m-%d %H:%M'),
+                load.vehicle.vehicle_number,
+                load.product.name,
+                float(load.quantity),
+                load.loaded_by.username if load.loaded_by else '',
+                load.notes or '',
+            ])
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Vehicle_Loading_History_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    vehicles = Vehicle.objects.filter(is_active=True)
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'loads': loads,
+        'total_loads': total_loads,
+        'total_quantity': total_quantity,
+        'vehicles': vehicles,
+        'selected_vehicle': vehicle_id,
+        'today': today,
+    }
+    return render(request, 'core/vehicle_loading_history_report.html', context)
+
+
+@login_required
+@permission_required('view_reports')
+def vehicle_transfer_history_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    source_vehicle_id = request.GET.get('source_vehicle', '')
+    dest_vehicle_id = request.GET.get('dest_vehicle', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    transfers = StockTransfer.objects.filter(
+        transfer_date__date__gte=start_date_obj,
+        transfer_date__date__lte=end_date_obj
+    ).select_related('source_vehicle', 'destination_vehicle', 'product', 'transferred_by')
+    
+    if source_vehicle_id and source_vehicle_id.isdigit():
+        transfers = transfers.filter(source_vehicle_id=int(source_vehicle_id))
+    if dest_vehicle_id and dest_vehicle_id.isdigit():
+        transfers = transfers.filter(destination_vehicle_id=int(dest_vehicle_id))
+    
+    total_transfers = transfers.count()
+    total_quantity = transfers.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Vehicle Transfer History"
+        headers = ['Date', 'From Vehicle', 'To Vehicle', 'Product', 'Quantity', 'Transferred By', 'Reason', 'Notes']
+        ws.append(headers)
+        for col in range(1, 9):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        for t in transfers:
+            ws.append([
+                t.transfer_date.strftime('%Y-%m-%d %H:%M'),
+                t.source_vehicle.vehicle_number,
+                t.destination_vehicle.vehicle_number,
+                t.product.name,
+                float(t.quantity),
+                t.transferred_by.username if t.transferred_by else '',
+                t.get_reason_display(),
+                t.notes or '',
+            ])
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Vehicle_Transfer_History_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    vehicles = Vehicle.objects.filter(is_active=True)
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'transfers': transfers,
+        'total_transfers': total_transfers,
+        'total_quantity': total_quantity,
+        'vehicles': vehicles,
+        'selected_source': source_vehicle_id,
+        'selected_dest': dest_vehicle_id,
+        'today': today,
+    }
+    return render(request, 'core/vehicle_transfer_history_report.html', context)
