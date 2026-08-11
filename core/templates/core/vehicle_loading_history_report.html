@@ -250,7 +250,13 @@
                         <td>{{ load.vehicle.vehicle_number }}</td>
                         <td>{{ load.product.name }}</td>
                         <td style="text-align:right;">{{ load.quantity|floatformat:0 }}</td>
-                        <td>{{ load.loaded_by.username|default:"-" }}</td>
+                        <td>
+                            {% if load.loaded_by %}
+                                {{ load.loaded_by.username }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                         <td>{{ load.notes|default:"-" }}</td>
                     </tr>
                     {% empty %}

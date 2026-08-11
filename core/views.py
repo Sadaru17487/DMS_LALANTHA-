@@ -5258,6 +5258,7 @@ def inventory_by_location_report(request):
 @login_required
 @permission_required('view_reports')
 def vehicle_loading_history_report(request):
+    from datetime import date, datetime
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -5291,23 +5292,21 @@ def vehicle_loading_history_report(request):
         for col in range(1, 7):
             ws.cell(row=1, column=col).font = Font(bold=True)
         for load in loads:
+            loaded_by = load.loaded_by.username if load.loaded_by else ''
             ws.append([
                 load.loaded_at.strftime('%Y-%m-%d %H:%M'),
                 load.vehicle.vehicle_number,
                 load.product.name,
                 float(load.quantity),
-                load.loaded_by.username if load.loaded_by else '',
+                loaded_by,
                 load.notes or '',
             ])
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len:
-                        max_len = len(str(cell.value))
-                except:
-                    pass
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Vehicle_Loading_History_{start_date}_to_{end_date}.xlsx"'

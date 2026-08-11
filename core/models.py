@@ -1037,4 +1037,3 @@ class VehicleLoad(models.Model):
         ordering = ['-loaded_at']
 
 
-        
