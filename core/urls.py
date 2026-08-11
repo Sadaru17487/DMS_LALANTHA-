@@ -102,5 +102,8 @@ urlpatterns = [
     path('reports/inventory-by-location/', views.inventory_by_location_report, name='inventory_by_location_report'),
     path('reports/vehicle-loading-history/', views.vehicle_loading_history_report, name='vehicle_loading_history_report'),
     path('reports/vehicle-transfer-history/', views.vehicle_transfer_history_report, name='vehicle_transfer_history_report'),
+    path('reports/purchase-products/', views.purchase_products_report, name='purchase_products_report'),
+    path('reports/purchase-foc/', views.purchase_foc_report, name='purchase_foc_report'),
+    path('reports/monthly-purchase/', views.monthly_purchase_report, name='monthly_purchase_report'),
     
 ]

@@ -1,0 +1,127 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Monthly Purchase Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    .summary-card { border-top-color: #1a2634; }
+</style>
+
+<div class="report-container">
+    <div class="header-box">
+        <div>
+            <h1>📅 Monthly Purchase Report</h1>
+            <div class="sub">Purchase summary by month</div>
+        </div>
+        <div class="date-badge">
+            Year: {{ year }}
+        </div>
+    </div>
+
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>Year</label>
+            <select name="year">
+                {% for y in years %}
+                    <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Supplier</label>
+            <select name="supplier">
+                <option value="">All Suppliers</option>
+                {% for sup in suppliers %}
+                    <option value="{{ sup.id }}" {% if selected_supplier == sup.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sup.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/monthly-purchase/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Invoices</div>
+            <div class="value">{{ total_invoices }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #28a745;">
+            <div class="label">Total Cost</div>
+            <div class="value green">Rs {{ total_cost_all|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #fd7e14;">
+            <div class="label">Total FOC Value</div>
+            <div class="value orange">Rs {{ total_foc_value_all|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📊 Monthly Breakdown</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th style="text-align:right;">Invoices</th>
+                        <th style="text-align:right;">Total Qty</th>
+                        <th style="text-align:right;">Total Cost</th>
+                        <th style="text-align:right;">FOC Qty</th>
+                        <th style="text-align:right;">FOC Value</th>
+                        <th style="text-align:right;">Suppliers</th>
+                        <th style="text-align:right;">Avg Cost/Inv</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in monthly_data %}
+                    <tr>
+                        <td><strong>{{ year }}-{{ data.month|stringformat:"02d" }}</strong></td>
+                        <td style="text-align:right;">{{ data.invoices }}</td>
+                        <td style="text-align:right;">{{ data.total_qty|floatformat:0 }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ data.total_cost|floatformat:2 }}</td>
+                        <td style="text-align:right;">{{ data.foc_qty|floatformat:0 }}</td>
+                        <td style="text-align:right; color:#fd7e14;">Rs {{ data.foc_value|floatformat:2 }}</td>
+                        <td style="text-align:right;">{{ data.suppliers }}</td>
+                        <td style="text-align:right;">Rs {{ data.avg_cost_per_invoice|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No data found.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:#f8f9fc; font-weight:700;">
+                        <td><strong>TOTAL</strong></td>
+                        <td style="text-align:right;">{{ total_invoices }}</td>
+                        <td style="text-align:right;"></td>
+                        <td style="text-align:right; color:#28a745;">Rs {{ total_cost_all|floatformat:2 }}</td>
+                        <td style="text-align:right;"></td>
+                        <td style="text-align:right; color:#fd7e14;">Rs {{ total_foc_value_all|floatformat:2 }}</td>
+                        <td style="text-align:right;"></td>
+                        <td style="text-align:right;"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

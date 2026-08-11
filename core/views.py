@@ -5405,3 +5405,320 @@ def vehicle_transfer_history_report(request):
         'today': today,
     }
     return render(request, 'core/vehicle_transfer_history_report.html', context)
+
+
+@login_required
+@permission_required('view_reports')
+def purchase_products_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    supplier_id = request.GET.get('supplier', '')
+    product_id = request.GET.get('product', '')
+    category_id = request.GET.get('category', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+    
+    # Base queryset
+    items = PurchaseItem.objects.filter(
+        purchase__purchase_date__gte=start_date_obj,
+        purchase__purchase_date__lte=end_date_obj
+    ).select_related('purchase', 'purchase__supplier', 'product', 'product__category')
+    
+    if supplier_id and supplier_id.isdigit():
+        items = items.filter(purchase__supplier_id=int(supplier_id))
+    if product_id and product_id.isdigit():
+        items = items.filter(product_id=int(product_id))
+    if category_id and category_id.isdigit():
+        items = items.filter(product__category_id=int(category_id))
+    
+    # Exclude FOC items? For this report we include all (both regular and FOC)
+    # We'll add a column to indicate FOC status.
+    
+    total_qty = items.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    total_cost = items.aggregate(total=Sum('total'))['total'] or Decimal('0')
+    total_invoices = items.values('purchase_id').distinct().count()
+    suppliers_used = items.values('purchase__supplier_id').distinct().count()
+    
+    # For Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Purchase Products History"
+        headers = ['Date', 'Invoice No', 'Supplier', 'Product', 'Category', 'Qty', 'Unit Price', 'Total Cost', 'FOC?']
+        ws.append(headers)
+        for col in range(1, 10):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        for item in items:
+            ws.append([
+                item.purchase.purchase_date.strftime('%Y-%m-%d'),
+                item.purchase.invoice_no,
+                item.purchase.supplier.name,
+                item.product.name,
+                item.product.category.name if item.product.category else '',
+                float(item.quantity),
+                float(item.cost_price),
+                float(item.total),
+                'Yes' if item.is_foc else 'No',
+            ])
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Purchase_Products_History_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    # Get filter options
+    suppliers = Supplier.objects.filter(is_active=True)
+    products = Product.objects.filter(is_active=True)
+    categories = Category.objects.filter(is_active=True)
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'items': items,
+        'total_qty': total_qty,
+        'total_cost': total_cost,
+        'total_invoices': total_invoices,
+        'suppliers_used': suppliers_used,
+        'suppliers': suppliers,
+        'products': products,
+        'categories': categories,
+        'selected_supplier': supplier_id,
+        'selected_product': product_id,
+        'selected_category': category_id,
+    }
+    return render(request, 'core/purchase_products_report.html', context)
+
+
+@login_required
+@permission_required('view_reports')
+def purchase_foc_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    supplier_id = request.GET.get('supplier', '')
+    product_id = request.GET.get('product', '')
+    category_id = request.GET.get('category', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+    
+    # Only FOC items
+    items = PurchaseItem.objects.filter(
+        is_foc=True,
+        purchase__purchase_date__gte=start_date_obj,
+        purchase__purchase_date__lte=end_date_obj
+    ).select_related('purchase', 'purchase__supplier', 'product', 'product__category')
+    
+    if supplier_id and supplier_id.isdigit():
+        items = items.filter(purchase__supplier_id=int(supplier_id))
+    if product_id and product_id.isdigit():
+        items = items.filter(product_id=int(product_id))
+    if category_id and category_id.isdigit():
+        items = items.filter(product__category_id=int(category_id))
+    
+    total_foc_qty = items.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    total_foc_value = items.aggregate(total=Sum('total'))['total'] or Decimal('0')
+    suppliers_with_foc = items.values('purchase__supplier_id').distinct().count()
+    unique_foc_products = items.values('product_id').distinct().count()
+    
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "FOC Products Received"
+        headers = ['Date', 'Invoice No', 'Supplier', 'Product', 'Category', 'Qty', 'Unit Value', 'Total FOC Value']
+        ws.append(headers)
+        for col in range(1, 9):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        for item in items:
+            ws.append([
+                item.purchase.purchase_date.strftime('%Y-%m-%d'),
+                item.purchase.invoice_no,
+                item.purchase.supplier.name,
+                item.product.name,
+                item.product.category.name if item.product.category else '',
+                float(item.quantity),
+                float(item.cost_price),
+                float(item.total),
+            ])
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="FOC_Products_Received_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    suppliers = Supplier.objects.filter(is_active=True)
+    products = Product.objects.filter(is_active=True)
+    categories = Category.objects.filter(is_active=True)
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'items': items,
+        'total_foc_qty': total_foc_qty,
+        'total_foc_value': total_foc_value,
+        'suppliers_with_foc': suppliers_with_foc,
+        'unique_foc_products': unique_foc_products,
+        'suppliers': suppliers,
+        'products': products,
+        'categories': categories,
+        'selected_supplier': supplier_id,
+        'selected_product': product_id,
+        'selected_category': category_id,
+    }
+    return render(request, 'core/purchase_foc_report.html', context)
+
+
+@login_required
+@permission_required('view_reports')
+def monthly_purchase_report(request):
+    today = date.today()
+    year = request.GET.get('year', str(today.year))
+    supplier_id = request.GET.get('supplier', '')
+    category_id = request.GET.get('category', '')
+    
+    try:
+        year_int = int(year)
+    except ValueError:
+        year_int = today.year
+    
+    # Base queryset for purchases in that year
+    purchases = Purchase.objects.filter(
+        purchase_date__year=year_int,
+        status__in=['RECEIVED', 'COMPLETED']  # Only completed/received purchases
+    ).select_related('supplier')
+    
+    if supplier_id and supplier_id.isdigit():
+        purchases = purchases.filter(supplier_id=int(supplier_id))
+    
+    # Category filter applies to items, so we need to filter through items
+    if category_id and category_id.isdigit():
+        purchases = purchases.filter(items__product__category_id=int(category_id)).distinct()
+    
+    # Group by month
+    monthly_data = []
+    for month in range(1, 13):
+        month_purchases = purchases.filter(purchase_date__month=month)
+        if month_purchases.exists():
+            total_qty = PurchaseItem.objects.filter(purchase__in=month_purchases).aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+            total_cost = PurchaseItem.objects.filter(purchase__in=month_purchases).aggregate(total=Sum('total'))['total'] or Decimal('0')
+            foc_qty = PurchaseItem.objects.filter(purchase__in=month_purchases, is_foc=True).aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+            foc_value = PurchaseItem.objects.filter(purchase__in=month_purchases, is_foc=True).aggregate(total=Sum('total'))['total'] or Decimal('0')
+            invoices = month_purchases.count()
+            suppliers = month_purchases.values('supplier_id').distinct().count()
+            avg_cost_per_invoice = total_cost / invoices if invoices > 0 else Decimal('0')
+            
+            monthly_data.append({
+                'month': month,
+                'invoices': invoices,
+                'total_qty': total_qty,
+                'total_cost': total_cost,
+                'foc_qty': foc_qty,
+                'foc_value': foc_value,
+                'suppliers': suppliers,
+                'avg_cost_per_invoice': avg_cost_per_invoice,
+            })
+        else:
+            monthly_data.append({
+                'month': month,
+                'invoices': 0,
+                'total_qty': Decimal('0'),
+                'total_cost': Decimal('0'),
+                'foc_qty': Decimal('0'),
+                'foc_value': Decimal('0'),
+                'suppliers': 0,
+                'avg_cost_per_invoice': Decimal('0'),
+            })
+    
+    # Totals
+    total_invoices = sum(m['invoices'] for m in monthly_data)
+    total_cost_all = sum(m['total_cost'] for m in monthly_data)
+    total_foc_value_all = sum(m['foc_value'] for m in monthly_data)
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Monthly Purchase Report"
+        headers = ['Month', 'Invoices', 'Total Qty', 'Total Cost', 'FOC Qty', 'FOC Value', 'Suppliers', 'Avg Cost/Invoice']
+        ws.append(headers)
+        for col in range(1, 9):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        for data in monthly_data:
+            ws.append([
+                f"{year_int}-{data['month']:02d}",
+                data['invoices'],
+                float(data['total_qty']),
+                float(data['total_cost']),
+                float(data['foc_qty']),
+                float(data['foc_value']),
+                data['suppliers'],
+                float(data['avg_cost_per_invoice']),
+            ])
+        
+        ws.append([])
+        ws.append(['TOTAL', total_invoices, '', float(total_cost_all), '', float(total_foc_value_all), '', ''])
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Monthly_Purchase_Report_{year_int}.xlsx"'
+        wb.save(response)
+        return response
+    
+    suppliers = Supplier.objects.filter(is_active=True)
+    categories = Category.objects.filter(is_active=True)
+    
+    # Get list of years available for filter
+    years = Purchase.objects.dates('purchase_date', 'year').values_list('purchase_date__year', flat=True).distinct()
+    years = sorted(list(years), reverse=True)
+    
+    context = {
+        'year': year_int,
+        'years': years,
+        'suppliers': suppliers,
+        'categories': categories,
+        'selected_supplier': supplier_id,
+        'selected_category': category_id,
+        'monthly_data': monthly_data,
+        'total_invoices': total_invoices,
+        'total_cost_all': total_cost_all,
+        'total_foc_value_all': total_foc_value_all,
+    }
+    return render(request, 'core/monthly_purchase_report.html', context)
+
+

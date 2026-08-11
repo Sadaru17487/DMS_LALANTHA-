@@ -1,0 +1,132 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}FOC Products Received - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    /* reuse same styles from above, adjust colors */
+    .summary-card { border-top-color: #fd7e14; }
+    .summary-card .value.orange { color: #fd7e14; }
+</style>
+
+<div class="report-container">
+    <div class="header-box">
+        <div>
+            <h1>🆓 FOC Products Received</h1>
+            <div class="sub">Free-of-charge items from suppliers</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+
+    <form method="GET" class="filter-box">
+        <!-- same filter fields as above -->
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Supplier</label>
+            <select name="supplier">
+                <option value="">All Suppliers</option>
+                {% for sup in suppliers %}
+                    <option value="{{ sup.id }}" {% if selected_supplier == sup.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sup.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Product</label>
+            <select name="product">
+                <option value="">All Products</option>
+                {% for prod in products %}
+                    <option value="{{ prod.id }}" {% if selected_product == prod.id|stringformat:"s" %}selected{% endif %}>
+                        {{ prod.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/purchase-foc/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total FOC Qty</div>
+            <div class="value orange">{{ total_foc_qty|floatformat:0 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #28a745;">
+            <div class="label">Total FOC Value</div>
+            <div class="value green">Rs {{ total_foc_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #007bff;">
+            <div class="label">Suppliers with FOC</div>
+            <div class="value blue">{{ suppliers_with_foc }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #6f42c1;">
+            <div class="label">Unique FOC Products</div>
+            <div class="value purple">{{ unique_foc_products }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📋 FOC Details</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Invoice No</th>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th style="text-align:right;">Qty</th>
+                        <th style="text-align:right;">Unit Value</th>
+                        <th style="text-align:right;">Total FOC Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.purchase.purchase_date|date:"Y-m-d" }}</td>
+                        <td>{{ item.purchase.invoice_no }}</td>
+                        <td>{{ item.purchase.supplier.name }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.product.category.name|default:"-" }}</td>
+                        <td style="text-align:right;">{{ item.quantity|floatformat:0 }}</td>
+                        <td style="text-align:right;">Rs {{ item.cost_price|floatformat:2 }}</td>
+                        <td style="text-align:right; font-weight:600; color:#28a745;">Rs {{ item.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No FOC records found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}
