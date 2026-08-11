@@ -278,6 +278,12 @@ class SalesItem(models.Model):
     ], null=True, blank=True)
     discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discounted_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    return_reason = models.CharField(max_length=20, choices=[
+        ('DAMAGED', 'Damaged'),
+        ('EXPIRED', 'Expired'),
+        ('OTHER', 'Other'),
+    ], null=True, blank=True)
 
 
 class Payment(models.Model):

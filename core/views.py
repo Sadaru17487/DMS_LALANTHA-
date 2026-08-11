@@ -4732,3 +4732,125 @@ def sales_by_rep_report(request):
     return render(request, 'core/sales_by_rep_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def return_report(request):
+    """Return Report with date range and return type filters"""
+    
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    return_type = request.GET.get('return_type', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    # Get all return items (negative quantities)
+    # A return is identified by quantity < 0 in SalesItem
+    return_items = SalesItem.objects.filter(
+        quantity__lt=0,
+        bill__status='COMPLETED',
+        bill__date__gte=start_date_obj,
+        bill__date__lte=end_date_obj
+    ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep', 'bill__customer')
+    
+    # Filter by return type (if you have a return_reason field on SalesItem or SalesBill)
+    # For this, we assume you have a return_reason field on SalesItem or SalesBill
+    # If not, we'll filter by bill.return_reason (which we added earlier)
+    
+    if return_type:
+        # If you store return_reason on the SalesItem
+        return_items = return_items.filter(return_reason=return_type)
+        # Alternatively, if stored on SalesBill:
+        # return_items = return_items.filter(bill__return_reason=return_type)
+    
+    # Calculate summary
+    total_return_qty = abs(return_items.aggregate(total=Sum('quantity'))['total'] or Decimal('0'))
+    total_return_value = return_items.aggregate(total=Sum('total'))['total'] or Decimal('0')
+    total_return_value = abs(total_return_value)
+    total_invoices = return_items.values('bill_id').distinct().count()
+    unique_products = return_items.values('product_id').distinct().count()
+    
+    # Group by return reason (if you have it)
+    reason_breakdown = {}
+    for item in return_items:
+        reason = item.return_reason or 'OTHER'
+        if reason not in reason_breakdown:
+            reason_breakdown[reason] = {
+                'count': 0,
+                'value': Decimal('0'),
+            }
+        reason_breakdown[reason]['count'] += 1
+        reason_breakdown[reason]['value'] += abs(item.total)
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Return Report"
+        
+        headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Qty Returned', 'Rate', 'Total Value', 'Reason']
+        ws.append(headers)
+        for col in range(1, 11):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        for item in return_items:
+            ws.append([
+                item.bill.date.strftime('%Y-%m-%d'),
+                item.bill.invoice_no,
+                item.bill.shop_name or 'N/A',
+                item.bill.vehicle.vehicle_number if item.bill.vehicle else 'N/A',
+                item.bill.rep.name if item.bill.rep else 'N/A',
+                item.product.name,
+                float(abs(item.quantity)),
+                float(item.rate),
+                float(abs(item.total)),
+                item.return_reason or 'Other',
+            ])
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Return_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    # Return type choices for filter (if you have a model with choices)
+    return_types = [
+        ('DAMAGED', 'Damaged'),
+        ('EXPIRED', 'Expired'),
+        ('OTHER', 'Other'),
+    ]
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'selected_return_type': return_type,
+        'return_types': return_types,
+        'return_items': return_items,
+        'total_return_qty': total_return_qty,
+        'total_return_value': total_return_value,
+        'total_invoices': total_invoices,
+        'unique_products': unique_products,
+        'reason_breakdown': reason_breakdown,
+        'today': today,
+    }
+    
+    return render(request, 'core/return_report.html', context)
+
+
