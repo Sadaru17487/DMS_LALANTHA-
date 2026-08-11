@@ -95,5 +95,5 @@ urlpatterns = [
     path('reports/free-issue/', views.free_issue_report, name='free_issue_report'),
     path('reports/discount-report/', views.discount_report, name='discount_report'),
     path('reports/expense-by-vehicle/', views.expense_by_vehicle_report, name='expense_by_vehicle_report'),
-
+    path('reports/sales-by-rep/', views.sales_by_rep_report, name='sales_by_rep_report'),
 ]

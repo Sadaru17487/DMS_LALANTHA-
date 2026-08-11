@@ -4602,3 +4602,133 @@ def expense_by_vehicle_report(request):
     return render(request, 'core/expense_by_vehicle_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def sales_by_rep_report(request):
+    """Sales by Rep Report with date range and rep filters"""
+    
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    rep_id = request.GET.get('rep', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    # Filter bills by date range
+    bills = SalesBill.objects.filter(
+        date__gte=start_date_obj,
+        date__lte=end_date_obj,
+        status='COMPLETED'
+    ).select_related('rep', 'vehicle')
+    
+    # Filter by rep
+    if rep_id and rep_id.isdigit():
+        bills = bills.filter(rep_id=int(rep_id))
+    
+    # ====== Group by Rep ======
+    rep_data = {}
+    
+    for bill in bills:
+        rep_name = bill.rep.name if bill.rep else 'Unassigned'
+        if rep_name not in rep_data:
+            rep_data[rep_name] = {
+                'rep': bill.rep,
+                'total_sales': Decimal('0'),
+                'total_foc': Decimal('0'),
+                'bill_count': 0,
+                'bills': [],
+            }
+        rep_data[rep_name]['total_sales'] += bill.net_total
+        rep_data[rep_name]['total_foc'] += bill.foc_value or Decimal('0')
+        rep_data[rep_name]['bill_count'] += 1
+        rep_data[rep_name]['bills'].append(bill)
+    
+    # Sort by total sales descending
+    rep_list = sorted(rep_data.values(), key=lambda x: x['total_sales'], reverse=True)
+    
+    # Overall totals
+    total_sales = sum(r['total_sales'] for r in rep_list)
+    total_foc = sum(r['total_foc'] for r in rep_list)
+    total_bills = sum(r['bill_count'] for r in rep_list)
+    
+    # Get reps for filter dropdown
+    reps = Employee.objects.filter(position='Rep', is_active=True)
+    
+    # ====== Excel Export ======
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Sales by Rep Report"
+        
+        # Headers
+        headers = ['Rep', 'Total Sales (Rs)', 'FOC Value (Rs)', 'Bill Count']
+        ws.append(headers)
+        for col in range(1, 5):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        # Data rows
+        for rep in rep_list:
+            ws.append([
+                rep_name,
+                float(rep['total_sales']),
+                float(rep['total_foc']),
+                rep['bill_count'],
+            ])
+        
+        # Add bill details
+        ws.append([])
+        ws.append(['Invoice', 'Customer', 'Vehicle', 'Amount (Rs)', 'Date'])
+        for col in range(1, 6):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+        
+        for rep in rep_list:
+            ws.append([f"--- {rep['rep'].name if rep['rep'] else 'Unassigned'} ---"])
+            for bill in rep['bills']:
+                ws.append([
+                    bill.invoice_no,
+                    bill.shop_name or 'N/A',
+                    bill.vehicle.vehicle_number if bill.vehicle else 'N/A',
+                    float(bill.net_total),
+                    bill.date.strftime('%Y-%m-%d'),
+                ])
+            ws.append([])  # blank row between reps
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Sales_by_Rep_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'selected_rep': rep_id,
+        'reps': reps,
+        'rep_list': rep_list,
+        'total_sales': total_sales,
+        'total_foc': total_foc,
+        'total_bills': total_bills,
+        'today': today,
+    }
+    
+    return render(request, 'core/sales_by_rep_report.html', context)
+
+
