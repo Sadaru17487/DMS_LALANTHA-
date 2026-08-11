@@ -97,4 +97,6 @@ urlpatterns = [
     path('reports/expense-by-vehicle/', views.expense_by_vehicle_report, name='expense_by_vehicle_report'),
     path('reports/sales-by-rep/', views.sales_by_rep_report, name='sales_by_rep_report'),
     path('reports/return-report/', views.return_report, name='return_report'),
+    path('reports/cheque-report/', views.cheque_report, name='cheque_report'),
+    
 ]

@@ -4854,3 +4854,138 @@ def return_report(request):
     return render(request, 'core/return_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def cheque_report(request):
+    """Cheque Report with date range and status filters"""
+    
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    status_filter = request.GET.get('status', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    # Get all cheques with filtering
+    cheques = Cheque.objects.filter(
+        created_at__date__gte=start_date_obj,
+        created_at__date__lte=end_date_obj
+    ).select_related('bank', 'sales_bill', 'sales_bill__customer')
+    
+    if status_filter:
+        cheques = cheques.filter(status=status_filter)
+    
+    # Calculate summary by status
+    total_cheques = cheques.count()
+    total_amount = cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    # Status breakdown
+    pending_cheques = cheques.filter(status='PENDING')
+    deposited_cheques = cheques.filter(status='DEPOSITED')
+    cleared_cheques = cheques.filter(status='CLEARED')
+    bounced_cheques = cheques.filter(status='BOUNCED')
+    
+    pending_count = pending_cheques.count()
+    pending_amount = pending_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    deposited_count = deposited_cheques.count()
+    deposited_amount = deposited_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    cleared_count = cleared_cheques.count()
+    cleared_amount = cleared_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    bounced_count = bounced_cheques.count()
+    bounced_amount = bounced_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    
+    # Additional summary
+    total_received = cleared_count + deposited_count + bounced_count + pending_count
+    total_received_amount = cleared_amount + deposited_amount + bounced_amount + pending_amount
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Cheque Report"
+        
+        # Status Summary
+        ws.append(['Cheque Status Summary'])
+        ws.append(['Status', 'Count', 'Total Amount (Rs)'])
+        for col in range(1, 4):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        
+        ws.append(['Pending', pending_count, float(pending_amount)])
+        ws.append(['Deposited', deposited_count, float(deposited_amount)])
+        ws.append(['Cleared', cleared_count, float(cleared_amount)])
+        ws.append(['Bounced', bounced_count, float(bounced_amount)])
+        ws.append(['Total', total_cheques, float(total_amount)])
+        
+        # Cheque Details
+        ws.append([])
+        ws.append(['Cheque Details'])
+        headers = ['Cheque No', 'Bank', 'Customer', 'Amount (Rs)', 'Cheque Date', 'Status', 'Invoice']
+        ws.append(headers)
+        for col in range(1, 8):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+        
+        for cheque in cheques:
+            ws.append([
+                cheque.cheque_no,
+                cheque.bank.name,
+                cheque.customer_name,
+                float(cheque.amount),
+                cheque.cheque_date.strftime('%Y-%m-%d'),
+                cheque.get_status_display(),
+                cheque.sales_bill.invoice_no if cheque.sales_bill else 'N/A',
+            ])
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_len:
+                        max_len = len(str(cell.value))
+                except:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Cheque_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    # Status choices for filter
+    status_choices = Cheque.STATUS_CHOICES
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'selected_status': status_filter,
+        'status_choices': status_choices,
+        'cheques': cheques,
+        'total_cheques': total_cheques,
+        'total_amount': total_amount,
+        'pending_count': pending_count,
+        'pending_amount': pending_amount,
+        'deposited_count': deposited_count,
+        'deposited_amount': deposited_amount,
+        'cleared_count': cleared_count,
+        'cleared_amount': cleared_amount,
+        'bounced_count': bounced_count,
+        'bounced_amount': bounced_amount,
+        'total_received': total_received,
+        'total_received_amount': total_received_amount,
+        'today': today,
+    }
+    
+    return render(request, 'core/cheque_report.html', context)
+
+
