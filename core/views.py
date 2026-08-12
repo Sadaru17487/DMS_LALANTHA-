@@ -27,7 +27,7 @@ from .models import (
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from django.http import HttpResponse
-
+from django.http import JsonResponse
 
 
 @login_required
@@ -2186,25 +2186,81 @@ def customer_detail(request, customer_id):
     return render(request, 'core/customer_detail.html', context)
 
 
+@login_required
+@permission_required('manage_customers')
 def customer_search_api(request):
-    query = request.GET.get('query', '')
-    if len(query) < 2:
-        return JsonResponse({'customers': []})
-    customers = Customer.objects.filter(
-        Q(name__icontains=query) | 
-        Q(code__icontains=query) |
-        Q(phone__icontains=query)
-    )[:20]
-    data = [{
-        'id': c.id,
-        'code': c.code,
-        'name': c.name,
-        'phone': c.phone or '',
-        'address': c.address or '',
-        'city': c.city or '',
-        'tax_number': c.tax_number or '',
-    } for c in customers]
+    query = request.GET.get('q', '')
+    customer_type = request.GET.get('type', '')
+    status = request.GET.get('status', '')
+    
+    customers = Customer.objects.all()
+    
+    if query and len(query) >= 2:
+        customers = customers.filter(
+            Q(name__icontains=query) | 
+            Q(code__icontains=query) |
+            Q(phone__icontains=query)
+        )
+    
+    if customer_type:
+        customers = customers.filter(customer_type=customer_type)
+    
+    if status == 'active':
+        customers = customers.filter(is_active=True)
+    elif status == 'inactive':
+        customers = customers.filter(is_active=False)
+    
+    customers = customers[:50]
+    
+    data = []
+    for c in customers:
+        data.append({
+            'id': c.id,
+            'code': c.code,
+            'name': c.name,
+            'customer_type': c.get_customer_type_display(),
+            'phone': c.phone or '',
+            'address': c.address or '',
+            'city': c.city or '',
+            'is_active': c.is_active,
+            'total_sales': float(c.get_total_sales()),
+            'outstanding': float(c.get_outstanding_balance()),
+        })
     return JsonResponse({'customers': data})
+
+
+@login_required
+@permission_required('manage_customers')
+def customer_check_duplicate(request):
+    """Check if a customer with the same name or code already exists."""
+    name = request.GET.get('name', '').strip()
+    code = request.GET.get('code', '').strip()
+    exclude_id = request.GET.get('exclude_id', '')
+    
+    if not name and not code:
+        return JsonResponse({'exists': False})
+    
+    q = Q()
+    if name:
+        q |= Q(name__iexact=name)
+    if code:
+        q |= Q(code__iexact=code)
+    
+    customers = Customer.objects.filter(q)
+    if exclude_id and exclude_id.isdigit():
+        customers = customers.exclude(id=int(exclude_id))
+    
+    exists = customers.exists()
+    duplicate = customers.first()
+    
+    return JsonResponse({
+        'exists': exists,
+        'duplicate': {
+            'id': duplicate.id if duplicate else None,
+            'name': duplicate.name if duplicate else None,
+            'code': duplicate.code if duplicate else None,
+        } if duplicate else None,
+    })
 
 
 @login_required

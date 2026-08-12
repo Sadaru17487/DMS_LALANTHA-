@@ -93,6 +93,61 @@
     }
 </style>
 
+    <script>
+        const nameInput = document.getElementById('customerName');
+        const codeInput = document.getElementById('customerCode');
+        const nameWarning = document.getElementById('nameWarning');
+        const codeWarning = document.getElementById('codeWarning');
+        const form = document.querySelector('form');
+        let duplicateCheckTimeout = null;
+
+        function checkDuplicate(field, value, warningElement) {
+            if (!value || value.length < 2) {
+                warningElement.style.display = 'none';
+                return;
+            }
+
+            const excludeId = '{{ customer.id|default:"" }}';
+            const url = `/api/customers/check-duplicate/?${field}=${encodeURIComponent(value)}&exclude_id=${excludeId}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        warningElement.textContent = `⚠️ A customer with this ${field} already exists: ${data.duplicate.name} (${data.duplicate.code})`;
+                        warningElement.style.display = 'block';
+                    } else {
+                        warningElement.style.display = 'none';
+                    }
+                })
+                .catch(() => {
+                    warningElement.style.display = 'none';
+                });
+        }
+
+        nameInput.addEventListener('input', function() {
+            clearTimeout(duplicateCheckTimeout);
+            duplicateCheckTimeout = setTimeout(() => {
+                checkDuplicate('name', this.value, nameWarning);
+            }, 500);
+        });
+
+        codeInput.addEventListener('input', function() {
+            clearTimeout(duplicateCheckTimeout);
+            duplicateCheckTimeout = setTimeout(() => {
+                checkDuplicate('code', this.value, codeWarning);
+            }, 500);
+        });
+
+        // On form submit, prevent if any warning is shown
+        form.addEventListener('submit', function(e) {
+            if (nameWarning.style.display !== 'none' || codeWarning.style.display !== 'none') {
+                e.preventDefault();
+                alert('⚠️ Please resolve the duplicate warnings before saving.');
+            }
+        });
+    </script>
+
 <div class="container" style="max-width: 800px;">
     <div class="page-title">
         <div>
@@ -108,13 +163,14 @@
                 <!-- Name -->
                 <div class="form-group">
                     <label>Customer Name <span class="required">*</span></label>
-                    <input type="text" name="name" value="{{ customer.name|default:'' }}" required>
+                    <input type="text" name="name" id="customerName" value="{{ customer.name|default:'' }}" required>
+                    <div id="nameWarning" style="color:#dc3545; font-size:13px; margin-top:4px; display:none;"></div>
                 </div>
                 <!-- Code -->
                 <div class="form-group">
                     <label>Customer Code</label>
-                    <input type="text" name="code" value="{{ customer.code|default:'' }}" placeholder="Leave blank for auto-generate">
-                    <span class="help-text">Leave blank to auto-generate (CUST-XXXX)</span>
+                    <input type="text" name="code" id="customerCode" value="{{ customer.code|default:'' }}" placeholder="Leave blank to auto-generate">
+                    <div id="codeWarning" style="color:#dc3545; font-size:13px; margin-top:4px; display:none;"></div>
                 </div>
                 <!-- Type -->
                 <div class="form-group">

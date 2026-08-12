@@ -43,6 +43,82 @@
     }
 </style>
 
+    <script>
+        let searchTimeout = null;
+
+        function loadCustomers() {
+            const search = document.getElementById('instantSearch').value;
+            const type = document.getElementById('typeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const url = `/api/customers/search/?q=${encodeURIComponent(search)}&type=${type}&status=${status}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('customerTableBody');
+                    if (data.customers.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><span class="icon">👤</span>No customers found.</td></tr>`;
+                        return;
+                    }
+                    let html = '';
+                    data.customers.forEach(c => {
+                        const statusBadge = c.is_active ? '✅ Active' : '❌ Inactive';
+                        html += `
+                            <tr>
+                                <td><strong>${c.code}</strong></td>
+                                <td>${c.name}</td>
+                                <td>${c.customer_type}</td>
+                                <td>${c.phone || '-'}</td>
+                                <td style="font-weight:600;">Rs ${c.total_sales}</td>
+                                <td style="font-weight:600; ${c.outstanding > 0 ? 'color:#dc3545;' : 'color:#28a745;'}">
+                                    Rs ${c.outstanding}
+                                </td>
+                                <td>
+                                    <span class="badge-status ${c.is_active ? 'complete' : 'pending'}">
+                                        ${c.is_active ? '✅ Active' : '❌ Inactive'}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-icons">
+                                        <a href="/customer/detail/${c.id}/" class="view" title="View">👁️</a>
+                                        <a href="/customer/edit/${c.id}/" class="edit" title="Edit">✏️</a>
+                                        <a href="/customer/toggle/${c.id}/" class="${c.is_active ? 'delete' : 'pay'}" title="${c.is_active ? 'Deactivate' : 'Activate'}" onclick="return confirm('${c.is_active ? 'Deactivate' : 'Activate'} ${c.name}?')">
+                                            ${c.is_active ? '🔴' : '🟢'}
+                                        </a>
+                                        <a href="/customer/delete/${c.id}/" class="delete" title="Delete" onclick="return confirm('Delete ${c.name}?')">🗑️</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                })
+                .catch(() => {
+                    document.getElementById('customerTableBody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;">Error loading customers.</td></tr>`;
+                });
+        }
+
+        // Event listeners for instant search
+        document.getElementById('instantSearch').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(loadCustomers, 300);
+        });
+
+        document.getElementById('typeFilter').addEventListener('change', loadCustomers);
+        document.getElementById('statusFilter').addEventListener('change', loadCustomers);
+
+        document.getElementById('clearFilters').addEventListener('click', function() {
+            document.getElementById('instantSearch').value = '';
+            document.getElementById('typeFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            loadCustomers();
+        });
+
+        // Initial load
+        loadCustomers();
+    </script>
+
 <div class="container">
     <div class="page-title">
         <div>
@@ -73,44 +149,29 @@
     </div>
 
     <!-- Filter Bar -->
-    <form method="GET" class="filter-bar">
+    <div class="filter-bar">
         <div class="filter-group" style="flex:2;">
-            <label>Search</label>
-            <input type="text" name="search" placeholder="Name, Code, Phone..." value="{{ search }}">
+            <label>Search Customer</label>
+            <input type="text" id="instantSearch" placeholder="Type to search by name, code, or phone..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
         </div>
         <div class="filter-group">
             <label>Type</label>
-            <select name="customer_type">
+            <select id="typeFilter" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
                 <option value="">All Types</option>
                 {% for key, value in customer_types %}
-                    <option value="{{ key }}" {% if selected_type == key %}selected{% endif %}>
-                        {{ value }}
-                    </option>
+                    <option value="{{ key }}">{{ value }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="filter-group">
             <label>Status</label>
-            <select name="status">
+            <select id="statusFilter" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
                 <option value="">All</option>
-                <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
-                <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
             </select>
         </div>
-        <div class="filter-group">
-            <label>Credit</label>
-            <select name="credit_filter">
-                <option value="">All</option>
-                <option value="has_credit" {% if selected_credit_filter == 'has_credit' %}selected{% endif %}>Has Outstanding</option>
-                <option value="no_credit" {% if selected_credit_filter == 'no_credit' %}selected{% endif %}>No Outstanding</option>
-            </select>
-        </div>
-        <button type="submit" class="btn-filter">🔍 Filter</button>
-        <a href="/customers/" class="btn-clear">Clear</a>
-    </form>
-
-    <div class="result-count">
-        Found <strong>{{ customers|length }}</strong> customer{{ customers|pluralize }}
+        <button type="button" class="btn-filter" id="clearFilters" style="background:#6c757d;">Clear</button>
     </div>
 
     <!-- Table -->
@@ -118,14 +179,14 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width:12%;">Code</th>
-                    <th style="width:20%;">Name</th>
-                    <th style="width:12%;">Type</th>
-                    <th style="width:15%;">Phone</th>
-                    <th style="width:12%;">Total Sales</th>
-                    <th style="width:12%;">Outstanding</th>
-                    <th style="width:8%;">Status</th>
-                    <th style="width:9%;">Actions</th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Phone</th>
+                    <th>Total Sales</th>
+                    <th>Outstanding</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -154,7 +215,7 @@
                             <a href="/customer/delete/{{ customer.id }}/" class="delete" title="Delete" onclick="return confirm('Delete {{ customer.name }}?')">🗑️</a>
                         </div>
                     </td>
-                </tr>
+                </tr>  
                 {% empty %}
                 <tr>
                     <td colspan="8" class="empty-state">

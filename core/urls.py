@@ -105,5 +105,7 @@ urlpatterns = [
     path('reports/purchase-products/', views.purchase_products_report, name='purchase_products_report'),
     path('reports/purchase-foc/', views.purchase_foc_report, name='purchase_foc_report'),
     path('reports/monthly-purchase/', views.monthly_purchase_report, name='monthly_purchase_report'),
+    path('api/customers/search/', views.customer_search_api, name='customer_search_api'),
+    path('api/customers/check-duplicate/', views.customer_check_duplicate, name='customer_check_duplicate'),
     
 ]
