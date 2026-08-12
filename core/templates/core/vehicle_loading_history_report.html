@@ -182,17 +182,6 @@
     }
 </style>
 
-{% extends 'core/base.html' %}
-{% load static %}
-
-{% block title %}Vehicle Loading History - LALANTHA DISTRIBUTORS{% endblock %}
-
-{% block content %}
-
-<style>
-    /* same as before */
-</style>
-
 <div class="report-container">
     <div class="header-box">
         <div>
@@ -244,28 +233,28 @@
         <h3>📋 Load Details</h3>
         <div class="table-container">
             <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Vehicle</th>
-                        <th>Product</th>
-                        <th style="text-align:right;">Quantity</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for load in loads %}
-                    <tr>
-                        <td>{{ load.loaded_at|date:"Y-m-d H:i" }}</td>
-                        <td>{{ load.vehicle.vehicle_number }}</td>
-                        <td>{{ load.product.name }}</td>
-                        <td style="text-align:right;">{{ load.quantity|floatformat:0 }}</td>
-                        <td>{{ load.notes|default:"-" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No load records found.</td></tr>
-                    {% endfor %}
-                </tbody>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Vehicle</th>
+                            <th>Product</th>
+                            <th style="text-align:right;">Quantity</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for load in loads %}
+                        <tr>
+                            <td>{{ load.loaded_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ load.vehicle.vehicle_number }}</td>
+                            <td>{{ load.product.name }}</td>
+                            <td style="text-align:right;">{{ load.quantity|floatformat:0 }}</td>
+                            <td>{{ load.notes|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No load records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
             </table>
         </div>
     </div>

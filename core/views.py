@@ -5271,7 +5271,6 @@ def vehicle_loading_history_report(request):
         start_date_obj = today
         end_date_obj = today
     
-    # Remove `loaded_by` from select_related if it doesn't exist
     loads = VehicleLoad.objects.filter(
         loaded_at__date__gte=start_date_obj,
         loaded_at__date__lte=end_date_obj
