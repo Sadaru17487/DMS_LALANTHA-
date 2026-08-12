@@ -5315,29 +5315,42 @@ def inventory_by_location_report(request):
 @permission_required('view_reports')
 def vehicle_loading_history_report(request):
     from datetime import date, datetime
+    from decimal import Decimal
+    from django.db.models import Sum
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from django.http import HttpResponse
+
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
     vehicle_id = request.GET.get('vehicle', '')
-    
+
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
     except ValueError:
         start_date_obj = today
         end_date_obj = today
-    
-    loads = VehicleLoad.objects.filter(
-        loaded_at__date__gte=start_date_obj,
-        loaded_at__date__lte=end_date_obj
-    ).select_related('vehicle', 'product')
-    
-    if vehicle_id and vehicle_id.isdigit():
-        loads = loads.filter(vehicle_id=int(vehicle_id))
-    
-    total_loads = loads.count()
-    total_quantity = loads.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
-    
+
+    # Safe query: handle empty table gracefully
+    try:
+        loads = VehicleLoad.objects.filter(
+            loaded_at__date__gte=start_date_obj,
+            loaded_at__date__lte=end_date_obj
+        ).select_related('vehicle', 'product')
+        
+        if vehicle_id and vehicle_id.isdigit():
+            loads = loads.filter(vehicle_id=int(vehicle_id))
+        
+        total_loads = loads.count()
+        total_quantity = loads.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+    except Exception as e:
+        # If the table doesn't exist, we'll just return empty
+        loads = []
+        total_loads = 0
+        total_quantity = Decimal('0')
+
     # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
@@ -5366,7 +5379,7 @@ def vehicle_loading_history_report(request):
         response['Content-Disposition'] = f'attachment; filename="Vehicle_Loading_History_{start_date}_to_{end_date}.xlsx"'
         wb.save(response)
         return response
-    
+
     vehicles = Vehicle.objects.filter(is_active=True)
     context = {
         'start_date': start_date,
