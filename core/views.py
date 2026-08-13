@@ -6187,3 +6187,151 @@ def expense_by_vehicle_summary_report(request):
     return render(request, 'core/expense_by_vehicle_summary_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def expense_by_employee_summary_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    category_filter = request.GET.get('category', '')
+
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+
+    # Base queryset
+    expenses = Expense.objects.filter(
+        date__gte=start_date_obj,
+        date__lte=end_date_obj
+    )
+
+    if category_filter:
+        expenses = expenses.filter(category=category_filter)
+
+    # Get all employees with expenses
+    employee_ids = expenses.values_list('employee_id', flat=True).distinct()
+    employees = Employee.objects.filter(id__in=employee_ids)
+
+    # Build employee-wise data
+    employee_data = []
+    total_expenses = Decimal('0')
+    expense_categories = set()
+
+    for employee in employees:
+        emp_expenses = expenses.filter(employee=employee)
+        emp_total = emp_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        total_expenses += emp_total
+
+        # Category breakdown for this employee
+        category_breakdown = {}
+        for cat in Expense.CATEGORY_CHOICES:
+            cat_key = cat[0]
+            cat_total = emp_expenses.filter(category=cat_key).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            if cat_total > 0:
+                category_breakdown[cat_key] = cat_total
+                expense_categories.add(cat_key)
+
+        employee_data.append({
+            'employee': employee,
+            'total': emp_total,
+            'categories': category_breakdown,
+        })
+
+    # Also include expenses with no employee (unassigned)
+    unassigned_expenses = expenses.filter(employee__isnull=True)
+    if unassigned_expenses.exists():
+        emp_total = unassigned_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        total_expenses += emp_total
+        category_breakdown = {}
+        for cat in Expense.CATEGORY_CHOICES:
+            cat_key = cat[0]
+            cat_total = unassigned_expenses.filter(category=cat_key).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            if cat_total > 0:
+                category_breakdown[cat_key] = cat_total
+                expense_categories.add(cat_key)
+        employee_data.append({
+            'employee': None,  # Unassigned
+            'total': emp_total,
+            'categories': category_breakdown,
+        })
+
+    # Sort by total descending
+    employee_data.sort(key=lambda x: x['total'], reverse=True)
+
+    # Category totals across all employees
+    category_totals = {}
+    for cat in expense_categories:
+        cat_total = expenses.filter(category=cat).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        category_totals[cat] = cat_total
+
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Expense by Employee Summary"
+
+        # Headers
+        headers = ['Employee', 'Position']
+        sorted_categories = sorted(expense_categories)
+        for cat in sorted_categories:
+            display_name = dict(Expense.CATEGORY_CHOICES).get(cat, cat)
+            headers.append(display_name)
+        headers.append('Total')
+
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+
+        # Data rows
+        for item in employee_data:
+            emp_name = item['employee'].name if item['employee'] else 'Unassigned'
+            emp_position = item['employee'].get_position_display() if item['employee'] else ''
+            row = [emp_name, emp_position]
+            for cat in sorted_categories:
+                row.append(float(item['categories'].get(cat, 0)))
+            row.append(float(item['total']))
+            ws.append(row)
+
+        # Grand total row
+        total_row = ['GRAND TOTAL', '']
+        for cat in sorted_categories:
+            total_row.append(float(category_totals.get(cat, 0)))
+        total_row.append(float(total_expenses))
+        ws.append(total_row)
+        for col in range(1, len(total_row) + 1):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Expense_by_Employee_Summary_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+
+    # All categories for filter dropdown
+    categories = Expense.CATEGORY_CHOICES
+
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'employee_data': employee_data,
+        'category_totals': category_totals,
+        'total_expenses': total_expenses,
+        'expense_categories': sorted(expense_categories),
+        'categories': categories,
+        'selected_category': category_filter,
+        'total_employees': len(employee_data),
+        'today': today,
+    }
+    return render(request, 'core/expense_by_employee_summary_report.html', context)
