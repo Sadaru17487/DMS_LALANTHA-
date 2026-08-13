@@ -169,17 +169,6 @@
     }
     table td:last-child, table th:last-child { text-align: right; }
 
-    .reason-badge {
-        display: inline-block;
-        padding: 2px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .reason-badge.damaged { background: #f8d7da; color: #721c24; }
-    .reason-badge.expired { background: #fff3cd; color: #856404; }
-    .reason-badge.other { background: #e2e3e5; color: #383d41; }
-
     .footer {
         text-align: center;
         margin-top: 25px;
@@ -218,7 +207,6 @@
             <label>To Date</label>
             <input type="date" name="end_date" value="{{ end_date }}">
         </div>
-        <!-- Return Type filter removed to avoid errors -->
         <button type="submit" class="btn-filter">🔍 Get Report</button>
         <a href="/reports/return-report/" class="btn-clear">Clear</a>
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
@@ -243,22 +231,6 @@
         </div>
     </div>
 
-    <!-- Return Type Breakdown -->
-    {% if reason_breakdown %}
-    <div class="card">
-        <h3>📊 Return Breakdown by Reason</h3>
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:15px;">
-            {% for reason, data in reason_breakdown.items %}
-            <div style="background:#f8f9fc; padding:15px; border-radius:8px; text-align:center;">
-                <span style="font-size:14px; color:#888;">{{ reason|title }}</span>
-                <div style="font-size:24px; font-weight:700; color:#dc3545;">{{ data.count }}</div>
-                <div style="font-size:16px; color:#dc3545;">Rs {{ data.value|floatformat:2 }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Detailed Transactions -->
     <div class="card">
         <h3>📋 Return Details</h3>
@@ -275,7 +247,6 @@
                         <th style="text-align:right;">Qty</th>
                         <th style="text-align:right;">Rate</th>
                         <th style="text-align:right;">Total</th>
-                        <th>Reason</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -290,14 +261,9 @@
                         <td style="text-align:right; color:#dc3545;">{{ item.quantity|floatformat:0 }}</td>
                         <td style="text-align:right;">Rs {{ item.rate|floatformat:2 }}</td>
                         <td style="text-align:right; color:#dc3545; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
-                        <td>
-                            <span class="reason-badge {{ item.bill.return_reason|default:'other'|lower }}">
-                                {{ item.bill.return_reason|default:"Other"|title }}
-                            </span>
-                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="10" style="text-align:center;color:#999;padding:20px;">No returns found for this period.</td></tr>
+                    <tr><td colspan="9" style="text-align:center;color:#999;padding:20px;">No returns found for this period.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
