@@ -5665,30 +5665,30 @@ def purchase_foc_report(request):
 @login_required
 @permission_required('view_reports')
 def monthly_purchase_report(request):
+    from datetime import date
+    from decimal import Decimal
+    from django.db.models import Sum
+
     today = date.today()
     year = request.GET.get('year', str(today.year))
     supplier_id = request.GET.get('supplier', '')
     category_id = request.GET.get('category', '')
-    
+
     try:
         year_int = int(year)
     except ValueError:
         year_int = today.year
-    
-    # Base queryset for purchases in that year
+
     purchases = Purchase.objects.filter(
         purchase_date__year=year_int,
-        status__in=['RECEIVED', 'COMPLETED']  # Only completed/received purchases
+        status__in=['RECEIVED', 'COMPLETED']
     ).select_related('supplier')
-    
+
     if supplier_id and supplier_id.isdigit():
         purchases = purchases.filter(supplier_id=int(supplier_id))
-    
-    # Category filter applies to items, so we need to filter through items
     if category_id and category_id.isdigit():
         purchases = purchases.filter(items__product__category_id=int(category_id)).distinct()
-    
-    # Group by month
+
     monthly_data = []
     for month in range(1, 13):
         month_purchases = purchases.filter(purchase_date__month=month)
@@ -5699,35 +5699,26 @@ def monthly_purchase_report(request):
             foc_value = PurchaseItem.objects.filter(purchase__in=month_purchases, is_foc=True).aggregate(total=Sum('total'))['total'] or Decimal('0')
             invoices = month_purchases.count()
             suppliers = month_purchases.values('supplier_id').distinct().count()
-            avg_cost_per_invoice = total_cost / invoices if invoices > 0 else Decimal('0')
-            
-            monthly_data.append({
-                'month': month,
-                'invoices': invoices,
-                'total_qty': total_qty,
-                'total_cost': total_cost,
-                'foc_qty': foc_qty,
-                'foc_value': foc_value,
-                'suppliers': suppliers,
-                'avg_cost_per_invoice': avg_cost_per_invoice,
-            })
+            avg_cost = total_cost / invoices if invoices > 0 else Decimal('0')
         else:
-            monthly_data.append({
-                'month': month,
-                'invoices': 0,
-                'total_qty': Decimal('0'),
-                'total_cost': Decimal('0'),
-                'foc_qty': Decimal('0'),
-                'foc_value': Decimal('0'),
-                'suppliers': 0,
-                'avg_cost_per_invoice': Decimal('0'),
-            })
-    
-    # Totals
+            total_qty = total_cost = foc_qty = foc_value = avg_cost = Decimal('0')
+            invoices = suppliers = 0
+
+        monthly_data.append({
+            'month': month,
+            'invoices': invoices,
+            'total_qty': total_qty,
+            'total_cost': total_cost,
+            'foc_qty': foc_qty,
+            'foc_value': foc_value,
+            'suppliers': suppliers,
+            'avg_cost': avg_cost,
+        })
+
     total_invoices = sum(m['invoices'] for m in monthly_data)
     total_cost_all = sum(m['total_cost'] for m in monthly_data)
     total_foc_value_all = sum(m['foc_value'] for m in monthly_data)
-    
+
     # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
@@ -5737,7 +5728,6 @@ def monthly_purchase_report(request):
         ws.append(headers)
         for col in range(1, 9):
             ws.cell(row=1, column=col).font = Font(bold=True)
-        
         for data in monthly_data:
             ws.append([
                 f"{year_int}-{data['month']:02d}",
@@ -5747,12 +5737,10 @@ def monthly_purchase_report(request):
                 float(data['foc_qty']),
                 float(data['foc_value']),
                 data['suppliers'],
-                float(data['avg_cost_per_invoice']),
+                float(data['avg_cost']),
             ])
-        
         ws.append([])
         ws.append(['TOTAL', total_invoices, '', float(total_cost_all), '', float(total_foc_value_all), '', ''])
-        
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
@@ -5760,19 +5748,16 @@ def monthly_purchase_report(request):
                 if cell.value:
                     max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-        
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Monthly_Purchase_Report_{year_int}.xlsx"'
         wb.save(response)
         return response
-    
+
     suppliers = Supplier.objects.filter(is_active=True)
     categories = Category.objects.filter(is_active=True)
-    
-    # Get list of years available for filter
     years = Purchase.objects.dates('purchase_date', 'year').values_list('purchase_date__year', flat=True).distinct()
     years = sorted(list(years), reverse=True)
-    
+
     context = {
         'year': year_int,
         'years': years,
