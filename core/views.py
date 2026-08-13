@@ -5948,3 +5948,106 @@ def sales_credit_report(request):
     return render(request, 'core/sales_credit_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def credit_purchase_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    supplier_id = request.GET.get('supplier', '')
+
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+
+    # Get all purchases with payment status = CREDIT (not fully paid)
+    purchases = Purchase.objects.filter(
+        purchase_date__gte=start_date_obj,
+        purchase_date__lte=end_date_obj,
+        payment_status='CREDIT',
+        status__in=['RECEIVED', 'COMPLETED']
+    ).select_related('supplier', 'rep')
+
+    if supplier_id and supplier_id.isdigit():
+        purchases = purchases.filter(supplier_id=int(supplier_id))
+
+    # Calculate outstanding for each purchase
+    purchase_data = []
+    total_credit_amount = Decimal('0')
+    total_paid_amount = Decimal('0')
+    total_outstanding = Decimal('0')
+
+    for purchase in purchases:
+        outstanding = purchase.total - purchase.paid_amount
+        purchase_data.append({
+            'purchase': purchase,
+            'outstanding': outstanding,
+        })
+        total_credit_amount += purchase.total
+        total_paid_amount += purchase.paid_amount
+        total_outstanding += outstanding
+
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Credit Purchase Report"
+
+        headers = ['Date', 'Invoice No', 'Supplier', 'PO Number', 'Total Amount', 'Paid', 'Outstanding', 'Due Date']
+        ws.append(headers)
+        for col in range(1, 9):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+
+        for item in purchase_data:
+            p = item['purchase']
+            ws.append([
+                p.purchase_date.strftime('%Y-%m-%d'),
+                p.invoice_no,
+                p.supplier.name,
+                p.po_number or '',
+                float(p.total),
+                float(p.paid_amount),
+                float(item['outstanding']),
+                p.due_date.strftime('%Y-%m-%d') if p.due_date else '',
+            ])
+
+        # Add total row
+        ws.append([])
+        ws.append(['TOTALS', '', '', '', float(total_credit_amount), float(total_paid_amount), float(total_outstanding), ''])
+        for col in range(1, 9):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Credit_Purchase_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+
+    # Suppliers for filter
+    suppliers = Supplier.objects.filter(is_active=True)
+
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'suppliers': suppliers,
+        'selected_supplier': supplier_id,
+        'purchase_data': purchase_data,
+        'total_credit_amount': total_credit_amount,
+        'total_paid_amount': total_paid_amount,
+        'total_outstanding': total_outstanding,
+        'total_purchases': len(purchase_data),
+        'today': today,
+    }
+    return render(request, 'core/credit_purchase_report.html', context)
