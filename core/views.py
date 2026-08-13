@@ -4802,92 +4802,107 @@ def sales_by_rep_report(request):
 @login_required
 @permission_required('view_reports')
 def return_report(request):
-    from datetime import datetime, date
-    from decimal import Decimal
-    from django.db.models import Sum
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
-    from django.http import HttpResponse
-    import logging
-    logger = logging.getLogger(__name__)
+
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
 
     try:
-        today = date.today()
-        start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
-        end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
 
-        try:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-        except ValueError:
-            start_date_obj = today
-            end_date_obj = today
+    # Get all sales items with negative quantity (returns) from completed bills in date range
+    items = SalesItem.objects.filter(
+        quantity__lt=0,
+        bill__status='COMPLETED',
+        bill__date__gte=start_date_obj,
+        bill__date__lte=end_date_obj
+    ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep')
 
-        # Get all return items (negative quantities) from completed bills
-        return_items = SalesItem.objects.filter(
-            quantity__lt=0,
-            bill__status='COMPLETED',
-            bill__date__gte=start_date_obj,
-            bill__date__lte=end_date_obj
-        ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep')
+    # Ensure we don't filter on any missing fields
+    # All calculations done in Python
+    total_qty = 0
+    total_value = Decimal('0')
+    invoices_set = set()
+    products_set = set()
+    reason_dict = {}
 
-        total_return_qty = abs(return_items.aggregate(total=Sum('quantity'))['total'] or Decimal('0'))
-        total_return_value = abs(return_items.aggregate(total=Sum('total'))['total'] or Decimal('0'))
-        total_invoices = return_items.values('bill_id').distinct().count()
-        unique_products = return_items.values('product_id').distinct().count()
+    for item in items:
+        qty = abs(item.quantity)
+        value = abs(item.total)
+        total_qty += qty
+        total_value += value
+        invoices_set.add(item.bill.id)
+        products_set.add(item.product.id)
+        reason = getattr(item.bill, 'return_reason', 'OTHER')
+        if reason not in reason_dict:
+            reason_dict[reason] = {'count': 0, 'value': Decimal('0')}
+        reason_dict[reason]['count'] += 1
+        reason_dict[reason]['value'] += value
 
-        # No reason breakdown to avoid missing field errors
+    total_return_qty = Decimal(total_qty)
+    total_return_value = total_value
+    total_invoices = len(invoices_set)
+    unique_products = len(products_set)
 
-        # Excel export
-        if request.GET.get('export') == 'xlsx':
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Return Report"
-            headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Qty Returned', 'Rate', 'Total Value']
-            ws.append(headers)
-            for col in range(1, 10):
-                ws.cell(row=1, column=col).font = Font(bold=True)
-            for item in return_items:
-                ws.append([
-                    item.bill.date.strftime('%Y-%m-%d'),
-                    item.bill.invoice_no,
-                    item.bill.shop_name or 'N/A',
-                    item.bill.vehicle.vehicle_number if item.bill.vehicle else 'N/A',
-                    item.bill.rep.name if item.bill.rep else 'N/A',
-                    item.product.name,
-                    float(abs(item.quantity)),
-                    float(item.rate),
-                    float(abs(item.total)),
-                ])
-            for col in ws.columns:
-                max_len = 0
-                col_letter = col[0].column_letter
-                for cell in col:
-                    if cell.value:
-                        max_len = max(max_len, len(str(cell.value)))
-                ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="Return_Report_{start_date}_to_{end_date}.xlsx"'
-            wb.save(response)
-            return response
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Return Report"
+        headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Qty Returned', 'Rate', 'Total Value', 'Reason']
+        ws.append(headers)
+        for col in range(1, 11):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+        for item in items:
+            reason = getattr(item.bill, 'return_reason', 'Other')
+            ws.append([
+                item.bill.date.strftime('%Y-%m-%d'),
+                item.bill.invoice_no,
+                item.bill.shop_name or 'N/A',
+                item.bill.vehicle.vehicle_number if item.bill.vehicle else 'N/A',
+                item.bill.rep.name if item.bill.rep else 'N/A',
+                item.product.name,
+                float(abs(item.quantity)),
+                float(item.rate),
+                float(abs(item.total)),
+                reason or 'Other',
+            ])
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Return_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
 
-        context = {
-            'start_date': start_date,
-            'end_date': end_date,
-            'start_date_obj': start_date_obj,
-            'end_date_obj': end_date_obj,
-            'return_items': return_items,
-            'total_return_qty': total_return_qty,
-            'total_return_value': total_return_value,
-            'total_invoices': total_invoices,
-            'unique_products': unique_products,
-            'today': today,
-        }
-        return render(request, 'core/return_report.html', context)
-    except Exception as e:
-        logger.error(f"Return Report error: {e}")
-        messages.error(request, f"Error generating return report: {e}")
-        return redirect('core:reports_dashboard')
+    return_types = [
+        ('DAMAGED', 'Damaged'),
+        ('EXPIRED', 'Expired'),
+        ('OTHER', 'Other'),
+    ]
+
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'return_items': items,
+        'total_return_qty': total_return_qty,
+        'total_return_value': total_return_value,
+        'total_invoices': total_invoices,
+        'unique_products': unique_products,
+        'reason_breakdown': reason_dict,
+        'today': today,
+    }
+    return render(request, 'core/return_report.html', context)
 
 
 @login_required
