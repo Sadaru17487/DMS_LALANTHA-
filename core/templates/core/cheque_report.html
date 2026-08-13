@@ -7,7 +7,6 @@
 
 <style>
     .report-container { max-width: 1400px; margin: 0 auto; }
-    
     .header-box {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
         color: white;
@@ -29,7 +28,6 @@
         font-size: 14px;
         color: #a0c4ff;
     }
-
     .filter-box {
         background: white;
         padding: 20px;
@@ -126,7 +124,6 @@
     .summary-card.deposited { border-top-color: #007bff; }
     .summary-card.cleared { border-top-color: #28a745; }
     .summary-card.bounced { border-top-color: #dc3545; }
-    
     .summary-card .label {
         font-size: 12px;
         color: #888;
@@ -213,7 +210,6 @@
 </style>
 
 <div class="report-container">
-    <!-- Header -->
     <div class="header-box">
         <div>
             <h1>🏦 Cheque Report</h1>
@@ -224,7 +220,6 @@
         </div>
     </div>
 
-    <!-- Filter Form -->
     <form method="GET" class="filter-box">
         <div class="filter-group">
             <label>From Date</label>
@@ -250,7 +245,6 @@
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
     </form>
 
-    <!-- Summary Cards -->
     <div class="summary-grid">
         <div class="summary-card pending">
             <div class="label">Pending</div>
@@ -274,7 +268,6 @@
         </div>
     </div>
 
-    <!-- Additional Summary -->
     <div class="summary-grid" style="margin-top: -5px;">
         <div class="summary-card" style="border-top-color: #6f42c1;">
             <div class="label">Total Received</div>
@@ -288,7 +281,6 @@
         </div>
     </div>
 
-    <!-- Detailed Transactions -->
     <div class="card">
         <h3>📋 Cheque Details</h3>
         <div class="table-container">
