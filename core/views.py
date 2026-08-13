@@ -6051,3 +6051,139 @@ def credit_purchase_report(request):
         'today': today,
     }
     return render(request, 'core/credit_purchase_report.html', context)
+
+
+@login_required
+@permission_required('view_reports')
+def expense_by_vehicle_summary_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    category_filter = request.GET.get('category', '')
+
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+
+    # Base queryset
+    expenses = Expense.objects.filter(
+        date__gte=start_date_obj,
+        date__lte=end_date_obj
+    )
+
+    if category_filter:
+        expenses = expenses.filter(category=category_filter)
+
+    # Get all vehicles with expenses
+    vehicle_ids = expenses.values_list('vehicle_id', flat=True).distinct()
+    vehicles = Vehicle.objects.filter(id__in=vehicle_ids)
+
+    # Build vehicle-wise data
+    vehicle_data = []
+    total_expenses = Decimal('0')
+    expense_categories = set()
+
+    for vehicle in vehicles:
+        veh_expenses = expenses.filter(vehicle=vehicle)
+        veh_total = veh_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        total_expenses += veh_total
+
+        # Category breakdown for this vehicle
+        category_breakdown = {}
+        for cat in Expense.CATEGORY_CHOICES:
+            cat_key = cat[0]
+            cat_total = veh_expenses.filter(category=cat_key).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            if cat_total > 0:
+                category_breakdown[cat_key] = cat_total
+                expense_categories.add(cat_key)
+
+        vehicle_data.append({
+            'vehicle': vehicle,
+            'total': veh_total,
+            'categories': category_breakdown,
+        })
+
+    # Sort by total descending
+    vehicle_data.sort(key=lambda x: x['total'], reverse=True)
+
+    # Category totals across all vehicles
+    category_totals = {}
+    for cat in expense_categories:
+        cat_total = expenses.filter(category=cat).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        category_totals[cat] = cat_total
+
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Expense by Vehicle Summary"
+
+        # Headers
+        headers = ['Vehicle', 'Driver']
+        sorted_categories = sorted(expense_categories)
+        for cat in sorted_categories:
+            # Get the display name
+            display_name = dict(Expense.CATEGORY_CHOICES).get(cat, cat)
+            headers.append(display_name)
+        headers.append('Total')
+
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            ws.cell(row=1, column=col).font = Font(bold=True)
+
+        # Data rows
+        for item in vehicle_data:
+            row = [
+                item['vehicle'].vehicle_number,
+                item['vehicle'].driver_name,
+            ]
+            for cat in sorted_categories:
+                row.append(float(item['categories'].get(cat, 0)))
+            row.append(float(item['total']))
+            ws.append(row)
+
+        # Grand total row
+        total_row = ['GRAND TOTAL', '']
+        for cat in sorted_categories:
+            total_row.append(float(category_totals.get(cat, 0)))
+        total_row.append(float(total_expenses))
+        ws.append(total_row)
+        for col in range(1, len(total_row) + 1):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Expense_by_Vehicle_Summary_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+
+    # All categories for filter dropdown
+    categories = Expense.CATEGORY_CHOICES
+
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'vehicle_data': vehicle_data,
+        'category_totals': category_totals,
+        'total_expenses': total_expenses,
+        'expense_categories': sorted(expense_categories),
+        'categories': categories,
+        'selected_category': category_filter,
+        'total_vehicles': len(vehicle_data),
+        'today': today,
+    }
+    return render(request, 'core/expense_by_vehicle_summary_report.html', context)
+
+

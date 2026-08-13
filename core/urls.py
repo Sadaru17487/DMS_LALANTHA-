@@ -109,5 +109,6 @@ urlpatterns = [
     path('api/customers/check-duplicate/', views.customer_check_duplicate, name='customer_check_duplicate'),
     path('reports/sales-credit/', views.sales_credit_report, name='sales_credit_report'),
     path('reports/credit-purchase/', views.credit_purchase_report, name='credit_purchase_report'),
+    path('reports/expense-by-vehicle-summary/', views.expense_by_vehicle_summary_report, name='expense_by_vehicle_summary_report'),
     
 ]
