@@ -1,0 +1,357 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sales Credit Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-container { max-width: 1400px; margin: 0 auto; }
+    .header-box {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 25px 30px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .header-box h1 { font-size: 28px; font-weight: 400; margin: 0; }
+    .header-box .sub { color: #8aa3c9; font-size: 14px; }
+    .header-box .date-badge {
+        background: rgba(255,255,255,0.1);
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 14px;
+        color: #a0c4ff;
+    }
+    .filter-box {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: end;
+    }
+    .filter-box .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filter-box .filter-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .filter-box .filter-group input,
+    .filter-box .filter-group select {
+        padding: 8px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        min-width: 150px;
+        background: #fafbfc;
+    }
+    .filter-box .filter-group input:focus,
+    .filter-box .filter-group select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+    .filter-box .btn-filter {
+        background: #007bff;
+        color: white;
+        padding: 8px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        height: 42px;
+    }
+    .filter-box .btn-filter:hover { background: #0056b3; }
+    .filter-box .btn-clear {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .filter-box .btn-clear:hover { background: #5a6268; }
+    .filter-box .btn-excel {
+        background: #28a745;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        margin-left: auto;
+    }
+    .filter-box .btn-excel:hover { background: #218838; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    .summary-card {
+        background: white;
+        padding: 18px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        text-align: center;
+        border-top: 4px solid #007bff;
+    }
+    .summary-card .label {
+        font-size: 12px;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .summary-card .value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a2634;
+        margin-top: 5px;
+    }
+    .summary-card .value.blue { color: #007bff; }
+    .summary-card .value.green { color: #28a745; }
+    .summary-card .value.orange { color: #fd7e14; }
+    .summary-card .value.red { color: #dc3545; }
+    .summary-card .value.purple { color: #6f42c1; }
+
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-bottom: 25px;
+    }
+    .card h3 {
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e8ecf2;
+        padding-bottom: 10px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    table th {
+        background: #f8f9fc;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #edf1f7;
+        color: #333;
+    }
+    table td:last-child, table th:last-child { text-align: right; }
+
+    .badge-status {
+        padding: 3px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-status.pending { background: #fff3cd; color: #856404; }
+    .badge-status.taken { background: #cce5ff; color: #004085; }
+    .badge-status.collected { background: #d4edda; color: #155724; }
+    .badge-status.not_collected { background: #f8d7da; color: #721c24; }
+
+    .footer {
+        text-align: center;
+        margin-top: 25px;
+        padding: 15px;
+        color: #999;
+        font-size: 13px;
+        border-top: 1px solid #e0e4eb;
+    }
+
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+        .filter-box { flex-direction: column; align-items: stretch; }
+        .filter-box .filter-group input,
+        .filter-box .filter-group select { min-width: 100%; }
+        .filter-box .btn-excel { margin-left: 0; }
+    }
+</style>
+
+<div class="report-container">
+    <div class="header-box">
+        <div>
+            <h1>💳 Sales Credit Report</h1>
+            <div class="sub">Credit sales summary with vehicle filter</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }} - {{ v.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/sales-credit/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Credit Sales</div>
+            <div class="value blue">Rs {{ total_credit_sales|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #28a745;">
+            <div class="label">Total Paid</div>
+            <div class="value green">Rs {{ total_paid|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #dc3545;">
+            <div class="label">Total Outstanding</div>
+            <div class="value red">Rs {{ total_outstanding|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #fd7e14;">
+            <div class="label">Total Bills</div>
+            <div class="value orange">{{ total_bills }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #6f42c1;">
+            <div class="label">Customers with Credit</div>
+            <div class="value purple">{{ total_customers }}</div>
+        </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="card">
+        <h3>
+            {% if show_detail %}
+                📋 Credit Bills for {{ selected_vehicle_obj.vehicle_number|default:"Selected Vehicle" }}
+            {% else %}
+                📊 Summary by Vehicle
+            {% endif %}
+        </h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    {% if show_detail %}
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th style="text-align:right;">Total Amount</th>
+                        <th style="text-align:right;">Paid</th>
+                        <th style="text-align:right;">Outstanding</th>
+                        <th>Collection Status</th>
+                        <th>Rep</th>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <th>Vehicle</th>
+                        <th style="text-align:right;">Bills</th>
+                        <th style="text-align:right;">Total Sales</th>
+                        <th style="text-align:right;">Total Paid</th>
+                        <th style="text-align:right;">Total Outstanding</th>
+                        <th style="text-align:right;">Collection Rate</th>
+                        <th>Actions</th>
+                    </tr>
+                    {% endif %}
+                </thead>
+                <tbody>
+                    {% if show_detail %}
+                        {% for item in bill_data %}
+                        <tr>
+                            <td><a href="/sales-detail/{{ item.bill.id }}/" style="color:#007bff; text-decoration:none;">{{ item.bill.invoice_no }}</a></td>
+                            <td>{{ item.bill.date|date:"Y-m-d" }}</td>
+                            <td>{{ item.bill.shop_name|default:"-" }}</td>
+                            <td>{{ item.bill.vehicle.vehicle_number|default:"-" }}</td>
+                            <td style="text-align:right; font-weight:600;">Rs {{ item.bill.net_total|floatformat:2 }}</td>
+                            <td style="text-align:right; color:#28a745;">Rs {{ item.paid|floatformat:2 }}</td>
+                            <td style="text-align:right; color:#dc3545;">Rs {{ item.outstanding|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge-status {{ item.collection_status|lower }}">
+                                    {{ item.collection_status }}
+                                </span>
+                            </td>
+                            <td>{{ item.collection_rep|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        {% for item in vehicle_summary_list %}
+                        {% with rate=item.total_paid|div:item.total_sales|mul:100 %}
+                        <tr>
+                            <td>
+                                <a href="?start_date={{ start_date }}&end_date={{ end_date }}&vehicle={{ item.vehicle.id }}" style="color:#007bff; text-decoration:none;">
+                                    {{ item.vehicle.vehicle_number|default:"Unassigned" }}
+                                </a>
+                            </td>
+                            <td style="text-align:right;">{{ item.total_bills }}</td>
+                            <td style="text-align:right; font-weight:600;">Rs {{ item.total_sales|floatformat:2 }}</td>
+                            <td style="text-align:right; color:#28a745;">Rs {{ item.total_paid|floatformat:2 }}</td>
+                            <td style="text-align:right; color:#dc3545;">Rs {{ item.total_outstanding|floatformat:2 }}</td>
+                            <td style="text-align:right;">{{ rate|floatformat:1 }}%</td>
+                            <td>
+                                <a href="?start_date={{ start_date }}&end_date={{ end_date }}&vehicle={{ item.vehicle.id }}" class="btn btn-sm btn-primary" style="padding:4px 12px; background:#007bff; color:white; border-radius:4px; text-decoration:none;">View Bills</a>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% endfor %}
+                    {% endif %}
+                    {% if not bill_data %}
+                    <tr><td colspan="{% if show_detail %}9{% else %}7{% endif %}" style="text-align:center;color:#999;padding:20px;">No credit sales found for this period.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% if show_detail %}
+        <div style="margin-top:15px;">
+            <a href="?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-sm btn-secondary" style="padding:6px 16px; background:#6c757d; color:white; border-radius:4px; text-decoration:none;">← Back to Summary</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

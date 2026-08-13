@@ -5788,3 +5788,163 @@ def monthly_purchase_report(request):
     return render(request, 'core/monthly_purchase_report.html', context)
 
 
+@login_required
+@permission_required('view_reports')
+def sales_credit_report(request):
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    vehicle_id = request.GET.get('vehicle', '')
+
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+
+    # Get all bills that have Credit payments
+    credit_bill_ids = Payment.objects.filter(
+        type='Credit',
+        bill__date__gte=start_date_obj,
+        bill__date__lte=end_date_obj,
+        bill__status='COMPLETED'
+    ).values_list('bill_id', flat=True).distinct()
+
+    bills = SalesBill.objects.filter(id__in=credit_bill_ids).select_related('vehicle', 'rep')
+    
+    if vehicle_id and vehicle_id.isdigit():
+        bills = bills.filter(vehicle_id=int(vehicle_id))
+
+    # Process bills: compute paid, outstanding, collection status
+    bill_data = []
+    total_credit_sales = Decimal('0')
+    total_outstanding = Decimal('0')
+    total_paid = Decimal('0')
+    customers_set = set()
+
+    for bill in bills:
+        paid_amount = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        outstanding = bill.net_total - paid_amount
+        total_credit_sales += bill.net_total
+        total_outstanding += outstanding
+        total_paid += paid_amount
+        customers_set.add(bill.shop_name or bill.shop_code)
+
+        # Collection status
+        collection = CreditCollection.objects.filter(sales_bill=bill).first()
+        collection_status = collection.status if collection else 'PENDING'
+        collection_rep = collection.rep.name if collection and collection.rep else None
+
+        bill_data.append({
+            'bill': bill,
+            'paid': paid_amount,
+            'outstanding': outstanding,
+            'collection_status': collection_status,
+            'collection_rep': collection_rep,
+        })
+
+    total_customers = len(customers_set)
+
+    # Group by vehicle
+    vehicle_summary = {}
+    for item in bill_data:
+        vehicle = item['bill'].vehicle
+        v_key = vehicle.id if vehicle else None
+        if v_key not in vehicle_summary:
+            vehicle_summary[v_key] = {
+                'vehicle': vehicle,
+                'total_bills': 0,
+                'total_sales': Decimal('0'),
+                'total_paid': Decimal('0'),
+                'total_outstanding': Decimal('0'),
+                'bills': [],
+            }
+        vehicle_summary[v_key]['total_bills'] += 1
+        vehicle_summary[v_key]['total_sales'] += item['bill'].net_total
+        vehicle_summary[v_key]['total_paid'] += item['paid']
+        vehicle_summary[v_key]['total_outstanding'] += item['outstanding']
+        vehicle_summary[v_key]['bills'].append(item)
+
+    # Convert to list for template, sort by sales descending
+    vehicle_summary_list = sorted(vehicle_summary.values(), key=lambda x: x['total_sales'], reverse=True)
+
+    # If a specific vehicle is selected, show detailed bills instead of summary
+    show_detail = bool(vehicle_id and vehicle_id.isdigit())
+
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Sales Credit Report"
+
+        if show_detail:
+            # Detailed report
+            headers = ['Invoice', 'Date', 'Customer', 'Vehicle', 'Total Amount', 'Paid', 'Outstanding', 'Collection Status']
+            ws.append(headers)
+            for col in range(1, 9):
+                ws.cell(row=1, column=col).font = Font(bold=True)
+            for item in bill_data:
+                ws.append([
+                    item['bill'].invoice_no,
+                    item['bill'].date.strftime('%Y-%m-%d'),
+                    item['bill'].shop_name or 'N/A',
+                    item['bill'].vehicle.vehicle_number if item['bill'].vehicle else 'N/A',
+                    float(item['bill'].net_total),
+                    float(item['paid']),
+                    float(item['outstanding']),
+                    item['collection_status'],
+                ])
+        else:
+            # Summary by vehicle
+            headers = ['Vehicle', 'Total Bills', 'Total Sales', 'Total Paid', 'Total Outstanding', 'Collection Rate %']
+            ws.append(headers)
+            for col in range(1, 7):
+                ws.cell(row=1, column=col).font = Font(bold=True)
+            for item in vehicle_summary_list:
+                rate = (item['total_paid'] / item['total_sales'] * 100) if item['total_sales'] > 0 else 0
+                ws.append([
+                    item['vehicle'].vehicle_number if item['vehicle'] else 'Unassigned',
+                    item['total_bills'],
+                    float(item['total_sales']),
+                    float(item['total_paid']),
+                    float(item['total_outstanding']),
+                    float(rate),
+                ])
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Sales_Credit_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+
+    # Vehicles for filter
+    vehicles = Vehicle.objects.filter(is_active=True)
+
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'vehicles': vehicles,
+        'selected_vehicle': vehicle_id,
+        'show_detail': show_detail,
+        'bill_data': bill_data,
+        'vehicle_summary_list': vehicle_summary_list,
+        'total_credit_sales': total_credit_sales,
+        'total_outstanding': total_outstanding,
+        'total_paid': total_paid,
+        'total_customers': total_customers,
+        'total_bills': len(bill_data),
+        'today': today,
+    }
+    return render(request, 'core/sales_credit_report.html', context)
+
+

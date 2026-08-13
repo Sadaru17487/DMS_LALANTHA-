@@ -107,5 +107,6 @@ urlpatterns = [
     path('reports/monthly-purchase/', views.monthly_purchase_report, name='monthly_purchase_report'),
     path('api/customers/search/', views.customer_search_api, name='customer_search_api'),
     path('api/customers/check-duplicate/', views.customer_check_duplicate, name='customer_check_duplicate'),
+    path('reports/sales-credit/', views.sales_credit_report, name='sales_credit_report'),
     
 ]
