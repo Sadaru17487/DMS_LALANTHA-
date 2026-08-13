@@ -6358,16 +6358,3 @@ def expense_by_employee_summary_report(request):
         'today': today,
     }
     return render(request, 'core/expense_by_employee_summary_report.html', context)
-
-
-vehicle_summary_list = []
-for key, data in vehicle_summary.items():
-    rate = (data['total_paid'] / data['total_sales'] * 100) if data['total_sales'] > 0 else 0
-    vehicle_summary_list.append({
-        'vehicle': data['vehicle'],
-        'total_bills': data['total_bills'],
-        'total_sales': data['total_sales'],
-        'total_paid': data['total_paid'],
-        'total_outstanding': data['total_outstanding'],
-        'rate': rate,
-    })
