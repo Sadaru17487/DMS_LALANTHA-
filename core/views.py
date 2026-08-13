@@ -5791,6 +5791,7 @@ def monthly_purchase_report(request):
 @login_required
 @permission_required('view_reports')
 def sales_credit_report(request):
+
     today = date.today()
     start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -5803,7 +5804,7 @@ def sales_credit_report(request):
         start_date_obj = today.replace(day=1)
         end_date_obj = today
 
-    # Get all bills that have Credit payments
+    # Base queryset: all credit payments
     credit_bill_ids = Payment.objects.filter(
         type='Credit',
         bill__date__gte=start_date_obj,
@@ -5815,6 +5816,14 @@ def sales_credit_report(request):
     
     if vehicle_id and vehicle_id.isdigit():
         bills = bills.filter(vehicle_id=int(vehicle_id))
+
+    # Get selected vehicle object for display
+    selected_vehicle_obj = None
+    if vehicle_id and vehicle_id.isdigit():
+        try:
+            selected_vehicle_obj = Vehicle.objects.get(id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            pass
 
     # Process bills: compute paid, outstanding, collection status
     bill_data = []
@@ -5829,7 +5838,7 @@ def sales_credit_report(request):
         total_credit_sales += bill.net_total
         total_outstanding += outstanding
         total_paid += paid_amount
-        customers_set.add(bill.shop_name or bill.shop_code)
+        customers_set.add(bill.shop_name or bill.shop_code or 'N/A')
 
         # Collection status
         collection = CreditCollection.objects.filter(sales_bill=bill).first()
@@ -5879,7 +5888,6 @@ def sales_credit_report(request):
         ws.title = "Sales Credit Report"
 
         if show_detail:
-            # Detailed report
             headers = ['Invoice', 'Date', 'Customer', 'Vehicle', 'Total Amount', 'Paid', 'Outstanding', 'Collection Status']
             ws.append(headers)
             for col in range(1, 9):
@@ -5896,7 +5904,6 @@ def sales_credit_report(request):
                     item['collection_status'],
                 ])
         else:
-            # Summary by vehicle
             headers = ['Vehicle', 'Total Bills', 'Total Sales', 'Total Paid', 'Total Outstanding', 'Collection Rate %']
             ws.append(headers)
             for col in range(1, 7):
@@ -5935,6 +5942,7 @@ def sales_credit_report(request):
         'end_date_obj': end_date_obj,
         'vehicles': vehicles,
         'selected_vehicle': vehicle_id,
+        'selected_vehicle_obj': selected_vehicle_obj,   # ✅ added
         'show_detail': show_detail,
         'bill_data': bill_data,
         'vehicle_summary_list': vehicle_summary_list,
