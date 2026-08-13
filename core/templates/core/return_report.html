@@ -218,17 +218,7 @@
             <label>To Date</label>
             <input type="date" name="end_date" value="{{ end_date }}">
         </div>
-        <div class="filter-group">
-            <label>Return Type</label>
-            <select name="return_type">
-                <option value="">All Types</option>
-                {% for key, value in return_types %}
-                    <option value="{{ key }}" {% if selected_return_type == key %}selected{% endif %}>
-                        {{ value }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
+        <!-- Return Type filter removed to avoid errors -->
         <button type="submit" class="btn-filter">🔍 Get Report</button>
         <a href="/reports/return-report/" class="btn-clear">Clear</a>
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>

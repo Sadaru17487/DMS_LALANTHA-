@@ -4802,10 +4802,17 @@ def sales_by_rep_report(request):
 @login_required
 @permission_required('view_reports')
 def return_report(request):
+    from datetime import datetime, date
+    from decimal import Decimal
+    from django.db.models import Sum, Q
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from django.http import HttpResponse
+
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
-    return_type = request.GET.get('return_type', '')
+    # return_type filter removed to avoid field errors
 
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -4822,25 +4829,18 @@ def return_report(request):
         bill__date__lte=end_date_obj
     ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep')
 
-    # Filter by return type (using bill.return_reason)
-    if return_type:
-        return_items = return_items.filter(bill__return_reason=return_type)
-
-    # Calculate summary
     total_return_qty = abs(return_items.aggregate(total=Sum('quantity'))['total'] or Decimal('0'))
     total_return_value = abs(return_items.aggregate(total=Sum('total'))['total'] or Decimal('0'))
     total_invoices = return_items.values('bill_id').distinct().count()
     unique_products = return_items.values('product_id').distinct().count()
 
-    # Reason breakdown
+    # Simple reason breakdown (safe)
     reason_breakdown = {}
     for item in return_items:
-        reason = item.bill.return_reason or 'OTHER'
+        # Use a fallback if return_reason doesn't exist
+        reason = getattr(item.bill, 'return_reason', None) or 'OTHER'
         if reason not in reason_breakdown:
-            reason_breakdown[reason] = {
-                'count': 0,
-                'value': Decimal('0'),
-            }
+            reason_breakdown[reason] = {'count': 0, 'value': Decimal('0')}
         reason_breakdown[reason]['count'] += 1
         reason_breakdown[reason]['value'] += abs(item.total)
 
@@ -4854,6 +4854,7 @@ def return_report(request):
         for col in range(1, 11):
             ws.cell(row=1, column=col).font = Font(bold=True)
         for item in return_items:
+            reason = getattr(item.bill, 'return_reason', 'Other')
             ws.append([
                 item.bill.date.strftime('%Y-%m-%d'),
                 item.bill.invoice_no,
@@ -4864,7 +4865,7 @@ def return_report(request):
                 float(abs(item.quantity)),
                 float(item.rate),
                 float(abs(item.total)),
-                item.bill.return_reason or 'Other',
+                reason or 'Other',
             ])
         for col in ws.columns:
             max_len = 0
@@ -4889,7 +4890,7 @@ def return_report(request):
         'end_date': end_date,
         'start_date_obj': start_date_obj,
         'end_date_obj': end_date_obj,
-        'selected_return_type': return_type,
+        'selected_return_type': '',  # No filter, all returns shown
         'return_types': return_types,
         'return_items': return_items,
         'total_return_qty': total_return_qty,
