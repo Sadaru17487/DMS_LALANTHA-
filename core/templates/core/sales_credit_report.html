@@ -264,10 +264,10 @@
     <!-- Main Table -->
     <div class="card">
         <h3>
-            {% if selected_vehicle_obj %}
-                {{ selected_vehicle_obj.vehicle_number }}
+            {% if show_detail %}
+                📋 Credit Bills for {{ selected_vehicle_obj.vehicle_number|default:"Selected Vehicle" }}
             {% else %}
-                Selected Vehicle
+                📊 Summary by Vehicle
             {% endif %}
         </h3>
         <div class="table-container">
@@ -318,7 +318,6 @@
                         {% endfor %}
                     {% else %}
                         {% for item in vehicle_summary_list %}
-                        {% with rate=item.total_paid|div:item.total_sales|mul:100 %}
                         <tr>
                             <td>
                                 <a href="?start_date={{ start_date }}&end_date={{ end_date }}&vehicle={{ item.vehicle.id }}" style="color:#007bff; text-decoration:none;">
@@ -329,12 +328,11 @@
                             <td style="text-align:right; font-weight:600;">Rs {{ item.total_sales|floatformat:2 }}</td>
                             <td style="text-align:right; color:#28a745;">Rs {{ item.total_paid|floatformat:2 }}</td>
                             <td style="text-align:right; color:#dc3545;">Rs {{ item.total_outstanding|floatformat:2 }}</td>
-                            <td style="text-align:right;">{{ rate|floatformat:1 }}%</td>
+                            <td style="text-align:right;">{{ item.rate|floatformat:1 }}%</td>
                             <td>
                                 <a href="?start_date={{ start_date }}&end_date={{ end_date }}&vehicle={{ item.vehicle.id }}" class="btn btn-sm btn-primary" style="padding:4px 12px; background:#007bff; color:white; border-radius:4px; text-decoration:none;">View Bills</a>
                             </td>
                         </tr>
-                        {% endwith %}
                         {% endfor %}
                     {% endif %}
                     {% if not bill_data %}
@@ -355,4 +353,3 @@
     </div>
 </div>
 {% endblock %}
-
