@@ -5574,33 +5574,34 @@ def purchase_foc_report(request):
     supplier_id = request.GET.get('supplier', '')
     product_id = request.GET.get('product', '')
     category_id = request.GET.get('category', '')
-    
+
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
     except ValueError:
         start_date_obj = today.replace(day=1)
         end_date_obj = today
-    
+
     # Only FOC items
     items = PurchaseItem.objects.filter(
         is_foc=True,
         purchase__purchase_date__gte=start_date_obj,
         purchase__purchase_date__lte=end_date_obj
     ).select_related('purchase', 'purchase__supplier', 'product', 'product__category')
-    
+
     if supplier_id and supplier_id.isdigit():
         items = items.filter(purchase__supplier_id=int(supplier_id))
     if product_id and product_id.isdigit():
         items = items.filter(product_id=int(product_id))
     if category_id and category_id.isdigit():
         items = items.filter(product__category_id=int(category_id))
-    
+
     total_foc_qty = items.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
     total_foc_value = items.aggregate(total=Sum('total'))['total'] or Decimal('0')
     suppliers_with_foc = items.values('purchase__supplier_id').distinct().count()
     unique_foc_products = items.values('product_id').distinct().count()
-    
+
+    # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
         ws = wb.active
@@ -5609,7 +5610,6 @@ def purchase_foc_report(request):
         ws.append(headers)
         for col in range(1, 9):
             ws.cell(row=1, column=col).font = Font(bold=True)
-        
         for item in items:
             ws.append([
                 item.purchase.purchase_date.strftime('%Y-%m-%d'),
@@ -5621,7 +5621,6 @@ def purchase_foc_report(request):
                 float(item.cost_price),
                 float(item.total),
             ])
-        
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
@@ -5629,19 +5628,20 @@ def purchase_foc_report(request):
                 if cell.value:
                     max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-        
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="FOC_Products_Received_{start_date}_to_{end_date}.xlsx"'
         wb.save(response)
         return response
-    
+
     suppliers = Supplier.objects.filter(is_active=True)
     products = Product.objects.filter(is_active=True)
     categories = Category.objects.filter(is_active=True)
-    
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
         'items': items,
         'total_foc_qty': total_foc_qty,
         'total_foc_value': total_foc_value,
