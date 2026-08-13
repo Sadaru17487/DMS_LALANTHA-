@@ -5402,27 +5402,27 @@ def vehicle_transfer_history_report(request):
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
     source_vehicle_id = request.GET.get('source_vehicle', '')
     dest_vehicle_id = request.GET.get('dest_vehicle', '')
-    
+
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
     except ValueError:
         start_date_obj = today
         end_date_obj = today
-    
+
     transfers = StockTransfer.objects.filter(
         transfer_date__date__gte=start_date_obj,
         transfer_date__date__lte=end_date_obj
     ).select_related('source_vehicle', 'destination_vehicle', 'product', 'transferred_by')
-    
+
     if source_vehicle_id and source_vehicle_id.isdigit():
         transfers = transfers.filter(source_vehicle_id=int(source_vehicle_id))
     if dest_vehicle_id and dest_vehicle_id.isdigit():
         transfers = transfers.filter(destination_vehicle_id=int(dest_vehicle_id))
-    
+
     total_transfers = transfers.count()
     total_quantity = transfers.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
-    
+
     # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
@@ -5447,21 +5447,20 @@ def vehicle_transfer_history_report(request):
             max_len = 0
             col_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len:
-                        max_len = len(str(cell.value))
-                except:
-                    pass
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Vehicle_Transfer_History_{start_date}_to_{end_date}.xlsx"'
         wb.save(response)
         return response
-    
+
     vehicles = Vehicle.objects.filter(is_active=True)
     context = {
         'start_date': start_date,
         'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
         'transfers': transfers,
         'total_transfers': total_transfers,
         'total_quantity': total_quantity,
