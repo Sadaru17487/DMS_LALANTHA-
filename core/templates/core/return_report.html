@@ -6,8 +6,7 @@
 {% block content %}
 
 <style>
-    .report-container { max-width: 1200px; margin: 0 auto; }
-    
+    .report-container { max-width: 1400px; margin: 0 auto; }
     .header-box {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
         color: white;
@@ -29,7 +28,6 @@
         font-size: 14px;
         color: #a0c4ff;
     }
-
     .filter-box {
         background: white;
         padding: 20px;
@@ -120,6 +118,7 @@
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
+        border-top: 4px solid #dc3545;
     }
     .summary-card .label {
         font-size: 12px;
@@ -144,6 +143,11 @@
         padding: 20px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         margin-bottom: 25px;
+    }
+    .card h3 {
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e8ecf2;
+        padding-bottom: 10px;
     }
     table {
         width: 100%;
@@ -195,7 +199,6 @@
 </style>
 
 <div class="report-container">
-    <!-- Header -->
     <div class="header-box">
         <div>
             <h1>↩️ Return Report</h1>
@@ -206,7 +209,6 @@
         </div>
     </div>
 
-    <!-- Filter Form -->
     <form method="GET" class="filter-box">
         <div class="filter-group">
             <label>From Date</label>
@@ -232,21 +234,20 @@
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
     </form>
 
-    <!-- Summary Cards -->
     <div class="summary-grid">
         <div class="summary-card">
             <div class="label">Total Items Returned</div>
             <div class="value red">{{ total_return_qty|floatformat:0 }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #dc3545;">
             <div class="label">Total Return Value</div>
             <div class="value red">Rs {{ total_return_value|floatformat:2 }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #007bff;">
             <div class="label">Invoices with Returns</div>
             <div class="value blue">{{ total_invoices }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #fd7e14;">
             <div class="label">Products Returned</div>
             <div class="value orange">{{ unique_products }}</div>
         </div>
@@ -300,8 +301,8 @@
                         <td style="text-align:right;">Rs {{ item.rate|floatformat:2 }}</td>
                         <td style="text-align:right; color:#dc3545; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
                         <td>
-                            <span class="reason-badge {{ item.return_reason|default:'other'|lower }}">
-                                {{ item.return_reason|default:"Other"|title }}
+                            <span class="reason-badge {{ item.bill.return_reason|default:'other'|lower }}">
+                                {{ item.bill.return_reason|default:"Other"|title }}
                             </span>
                         </td>
                     </tr>
