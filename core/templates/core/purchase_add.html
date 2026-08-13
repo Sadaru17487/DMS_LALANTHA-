@@ -21,7 +21,7 @@
     
     .item-row {
         display: grid;
-        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; /* removed retail column */
+        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr;
         gap: 8px;
         align-items: center;
         margin-bottom: 8px;
@@ -36,7 +36,7 @@
     
     .item-header {
         display: grid;
-        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; /* removed retail column */
+        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr;
         gap: 8px;
         font-weight: 600;
         color: #555;
@@ -254,6 +254,23 @@
         };
     {% endfor %}
     
+    // Function to auto-fill cost & wholesale when product is selected
+    function onProductSelect(index) {
+        const row = document.getElementById(`item_${index}`);
+        if (!row) return;
+        const select = row.querySelector('.product-select');
+        const productId = select.value;
+        if (productId && products[productId]) {
+            const product = products[productId];
+            const costInput = row.querySelector('.cost-input');
+            const wholesaleInput = row.querySelector('.wholesale-input');
+            if (costInput) costInput.value = product.cost;
+            if (wholesaleInput) wholesaleInput.value = product.wholesale;
+            // Recalculate totals to update amount
+            updateItemTotals(index);
+        }
+    }
+
     function addItemRow(isFoc) {
         const container = document.getElementById('itemsContainer');
         const row = document.createElement('div');
@@ -271,7 +288,7 @@
         row.style.marginBottom = '8px';
         
         row.innerHTML = `
-            <select name="product_${itemCount}" class="product-select" onchange="updateItemTotals(${itemCount})">
+            <select name="product_${itemCount}" class="product-select" onchange="onProductSelect(${itemCount})">
                 <option value="">-- Select Product --</option>
                 ${productOptions}
             </select>
@@ -295,6 +312,8 @@
         
         itemCount++;
         document.getElementById('itemCount').value = itemCount;
+        // Trigger initial fill if product is already selected (though it won't be)
+        onProductSelect(itemCount - 1);
         updateItemTotals(itemCount - 1);
         calculateTotals();
         
