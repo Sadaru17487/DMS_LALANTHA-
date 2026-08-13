@@ -6079,6 +6079,7 @@ def credit_purchase_report(request):
 @login_required
 @permission_required('view_reports')
 def expense_by_vehicle_summary_report(request):
+
     today = date.today()
     start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -6129,14 +6130,37 @@ def expense_by_vehicle_summary_report(request):
             'categories': category_breakdown,
         })
 
+    # Include unassigned expenses (vehicle=None)
+    unassigned_expenses = expenses.filter(vehicle__isnull=True)
+    if unassigned_expenses.exists():
+        veh_total = unassigned_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        total_expenses += veh_total
+        category_breakdown = {}
+        for cat in Expense.CATEGORY_CHOICES:
+            cat_key = cat[0]
+            cat_total = unassigned_expenses.filter(category=cat_key).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            if cat_total > 0:
+                category_breakdown[cat_key] = cat_total
+                expense_categories.add(cat_key)
+        vehicle_data.append({
+            'vehicle': None,
+            'total': veh_total,
+            'categories': category_breakdown,
+        })
+
     # Sort by total descending
     vehicle_data.sort(key=lambda x: x['total'], reverse=True)
 
-    # Category totals across all vehicles
+    # Build category totals for the footer
     category_totals = {}
     for cat in expense_categories:
         cat_total = expenses.filter(category=cat).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         category_totals[cat] = cat_total
+
+    # Prepare a list of categories for the template header
+    sorted_categories = sorted(expense_categories)
+    # Build a list of category display names
+    category_display_names = {cat[0]: cat[1] for cat in Expense.CATEGORY_CHOICES}
 
     # Excel export
     if request.GET.get('export') == 'xlsx':
@@ -6144,25 +6168,19 @@ def expense_by_vehicle_summary_report(request):
         ws = wb.active
         ws.title = "Expense by Vehicle Summary"
 
-        # Headers
         headers = ['Vehicle', 'Driver']
-        sorted_categories = sorted(expense_categories)
         for cat in sorted_categories:
-            # Get the display name
-            display_name = dict(Expense.CATEGORY_CHOICES).get(cat, cat)
-            headers.append(display_name)
+            headers.append(category_display_names.get(cat, cat))
         headers.append('Total')
 
         ws.append(headers)
         for col in range(1, len(headers) + 1):
             ws.cell(row=1, column=col).font = Font(bold=True)
 
-        # Data rows
         for item in vehicle_data:
-            row = [
-                item['vehicle'].vehicle_number,
-                item['vehicle'].driver_name,
-            ]
+            vehicle_name = item['vehicle'].vehicle_number if item['vehicle'] else 'Unassigned'
+            driver_name = item['vehicle'].driver_name if item['vehicle'] else ''
+            row = [vehicle_name, driver_name]
             for cat in sorted_categories:
                 row.append(float(item['categories'].get(cat, 0)))
             row.append(float(item['total']))
@@ -6190,21 +6208,31 @@ def expense_by_vehicle_summary_report(request):
         wb.save(response)
         return response
 
-    # All categories for filter dropdown
-    categories = Expense.CATEGORY_CHOICES
+    # For the template, we'll pass the data ready to display without custom filters
+    # We'll build a list of rows with category values in the same order as sorted_categories
+    vehicle_rows = []
+    for item in vehicle_data:
+        cat_values = []
+        for cat in sorted_categories:
+            cat_values.append(item['categories'].get(cat, 0))
+        vehicle_rows.append({
+            'vehicle': item['vehicle'],
+            'total': item['total'],
+            'cat_values': cat_values,
+        })
 
     context = {
         'start_date': start_date,
         'end_date': end_date,
         'start_date_obj': start_date_obj,
         'end_date_obj': end_date_obj,
-        'vehicle_data': vehicle_data,
-        'category_totals': category_totals,
+        'vehicle_rows': vehicle_rows,
+        'category_names': [category_display_names.get(cat, cat) for cat in sorted_categories],
+        'category_totals_values': [category_totals.get(cat, 0) for cat in sorted_categories],
         'total_expenses': total_expenses,
-        'expense_categories': sorted(expense_categories),
-        'categories': categories,
-        'selected_category': category_filter,
         'total_vehicles': len(vehicle_data),
+        'categories': Expense.CATEGORY_CHOICES,
+        'selected_category': category_filter,
         'today': today,
     }
     return render(request, 'core/expense_by_vehicle_summary_report.html', context)

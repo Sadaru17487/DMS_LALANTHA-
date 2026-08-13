@@ -252,42 +252,50 @@
                     <tr>
                         <th>Vehicle</th>
                         <th>Driver</th>
-                        {% for cat in expense_categories %}
-                            <th style="text-align:right;">{{ cat|title }}</th>
+                        {% for name in category_names %}
+                            <th style="text-align:right;">{{ name }}</th>
                         {% endfor %}
                         <th style="text-align:right;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in vehicle_data %}
+                    {% for row in vehicle_rows %}
                     <tr>
-                        <td><strong>{{ item.vehicle.vehicle_number }}</strong></td>
-                        <td>{{ item.vehicle.driver_name }}</td>
-                        {% for cat in expense_categories %}
+                        <td>
+                            {% if row.vehicle %}
+                                <strong>{{ row.vehicle.vehicle_number }}</strong>
+                            {% else %}
+                                <span style="color:#999;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.vehicle.driver_name|default:"-" }}</td>
+                        {% for val in row.cat_values %}
                             <td style="text-align:right;">
-                                {% with value=item.categories|get_item:cat %}
-                                    {% if value > 0 %}
-                                        Rs {{ value|floatformat:2 }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                {% endwith %}
+                                {% if val > 0 %}
+                                    Rs {{ val|floatformat:2 }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                         {% endfor %}
                         <td style="text-align:right; font-weight:700; color:#dc3545;">
-                            Rs {{ item.total|floatformat:2 }}
+                            Rs {{ row.total|floatformat:2 }}
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="{{ expense_categories|length|add:3 }}" style="text-align:center;color:#999;padding:20px;">No expenses found.</td></tr>
+                    <tr><td colspan="{{ category_names|length|add:3 }}" style="text-align:center;color:#999;padding:20px;">No expenses found.</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
                     <tr class="total-row">
                         <td colspan="2"><strong>GRAND TOTAL</strong></td>
-                        {% for cat in expense_categories %}
+                        {% for val in category_totals_values %}
                             <td style="text-align:right; color:#dc3545;">
-                                Rs {{ category_totals|get_item:cat|floatformat:2 }}
+                                {% if val > 0 %}
+                                    Rs {{ val|floatformat:2 }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                         {% endfor %}
                         <td style="text-align:right; color:#dc3545;">
