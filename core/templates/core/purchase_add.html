@@ -11,28 +11,39 @@
     .form-group label { font-weight: 600; color: #555; font-size: 14px; }
     .form-group label .required { color: #dc3545; }
     .form-group input, .form-group select, .form-group textarea {
-        padding: 10px 12px;
-        border: 2px solid #e0e4eb;
-        border-radius: 8px;
-        font-size: 14px;
-        background: #fafbfc;
-        transition: 0.2s;
-        width: 100%;
+        padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; transition: 0.2s; width: 100%;
     }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-        border-color: #007bff;
-        outline: none;
-        background: white;
+        border-color: #007bff; outline: none; background: white;
     }
     .form-group textarea { min-height: 60px; resize: vertical; }
     .full-width { grid-column: 1 / -1; }
     
-    .item-row { display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .item-row select, .item-row input { padding: 8px 10px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 13px; background: #fafbfc; width: 100%; }
-    .item-row .remove-btn { background: #fee; border: none; color: #dc3545; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .item-row {
+        display: grid;
+        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; /* removed retail column */
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .item-row select, .item-row input {
+        padding: 8px 10px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 13px; background: #fafbfc; width: 100%;
+    }
+    .item-row .remove-btn {
+        background: #fee; border: none; color: #dc3545; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    }
     .item-row .remove-btn:hover { background: #fcc; }
     
-    .item-header { display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; gap: 8px; font-weight: 600; color: #555; font-size: 12px; text-transform: uppercase; margin-bottom: 5px; }
+    .item-header {
+        display: grid;
+        grid-template-columns: 2fr 0.8fr 0.8fr 0.8fr 0.8fr 0.5fr; /* removed retail column */
+        gap: 8px;
+        font-weight: 600;
+        color: #555;
+        font-size: 12px;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+    }
     
     .summary-box {
         background: #f8f9fc;
@@ -54,7 +65,6 @@
     .btn-add-row:hover { background: #0056b3; }
     
     .foc-section { border-top: 2px dashed #fd7e14; padding-top: 15px; margin-top: 10px; }
-    
     .section-badge { font-size: 13px; font-weight: 600; color: #28a745; }
     .section-badge.foc { color: #fd7e14; }
     
@@ -133,7 +143,6 @@
                 <div class="item-header">
                     <span>Product</span>
                     <span>Cost Price</span>
-                    <span>Retail Price</span>
                     <span>Wholesale Price</span>
                     <span>Quantity</span>
                     <span>Amount</span>
@@ -241,7 +250,6 @@
             id: {{ p.id }},
             name: "{{ p.name|escapejs }}",
             cost: {{ p.cost_price|default:0 }},
-            retail: {{ p.selling_price }},
             wholesale: {{ p.selling_price|floatformat:2 }}
         };
     {% endfor %}
@@ -268,7 +276,6 @@
                 ${productOptions}
             </select>
             <input type="number" step="0.01" name="cost_${itemCount}" class="cost-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
-            <input type="number" step="0.01" name="retail_${itemCount}" class="retail-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
             <input type="number" step="0.01" name="wholesale_${itemCount}" class="wholesale-input" placeholder="0" oninput="updateItemTotals(${itemCount})">
             <input type="number" step="0.01" name="qty_${itemCount}" class="qty-input" value="1" placeholder="0" oninput="updateItemTotals(${itemCount})">
             <span class="item-amount" id="amount_${itemCount}">Rs 0.00</span>
@@ -278,7 +285,6 @@
         
         // Insert at the right place
         if (isFoc) {
-            // Insert before the "Add" buttons or into the FOC container
             const focContainer = document.getElementById('focItemsContainer');
             focContainer.style.display = 'block';
             focContainer.appendChild(row);
@@ -299,7 +305,6 @@
         const row = document.getElementById(`item_${index}`);
         if (row) {
             row.remove();
-            // Check if FOC container is empty, hide it
             const focContainer = document.getElementById('focItemsContainer');
             if (focContainer && focContainer.children.length === 0) {
                 focContainer.style.display = 'none';
@@ -346,25 +351,20 @@
         const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
         const taxAmount = (subtotal * taxRate) / 100;
         const grandTotalVal = subtotal + taxAmount;
-        const payableVal = grandTotalVal; // Supplier gets paid for all items (including FOC, but cost price is still for valuation)
-        // Actually, FOC items should NOT be paid to supplier. But since they have cost price for valuation,
-        // we need to track FOC separately. The "Payable" amount should be Subtotal - FOC_value + Tax.
-        // Let's adjust:
-        const regularSubtotal = subtotal - focTotalVal;
-        const payableAmountVal = regularSubtotal + taxAmount;
+        const payableVal = grandTotalVal - focTotalVal; // FOC items are not paid to supplier
         
         grandTotal = grandTotalVal;
-        payableAmount = payableAmountVal;
+        payableAmount = payableVal;
         
         document.getElementById('totalItemsDisplay').textContent = `${totalItems} Items`;
         document.getElementById('subtotalDisplay').textContent = `Rs ${subtotal.toFixed(2)}`;
         document.getElementById('focValueDisplay').textContent = `Rs ${focTotalVal.toFixed(2)}`;
         document.getElementById('taxDisplay').textContent = `Rs ${taxAmount.toFixed(2)} (${taxRate}%)`;
         document.getElementById('grandTotalDisplay').textContent = `Rs ${grandTotalVal.toFixed(2)}`;
-        document.getElementById('payableDisplay').textContent = `Rs ${payableAmountVal.toFixed(2)}`;
+        document.getElementById('payableDisplay').textContent = `Rs ${payableVal.toFixed(2)}`;
         
         // Update paid display
-        updatePaidDisplay(payableAmountVal);
+        updatePaidDisplay(payableVal);
         
         // Update FOC subtotal display
         document.getElementById('focSubtotalDisplay').textContent = focTotalVal.toFixed(2);
