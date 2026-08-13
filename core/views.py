@@ -5058,46 +5058,40 @@ def cheque_report(request):
 @login_required
 @permission_required('view_reports')
 def online_payment_report(request):
-    """Online Payment Report with date range and method filters"""
-    
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
     method_filter = request.GET.get('method', '')
-    
+
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
     except ValueError:
         start_date_obj = today
         end_date_obj = today
-    
-    # Get all online payments
+
     online_payments = OnlinePayment.objects.filter(
         created_at__date__gte=start_date_obj,
         created_at__date__lte=end_date_obj
     ).select_related('bill', 'bill__customer', 'bill__vehicle', 'bill__rep')
-    
+
     if method_filter:
         online_payments = online_payments.filter(payment_method=method_filter)
-    
-    # Calculate summary
+
     total_payments = online_payments.count()
     total_amount = online_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
-    # Method breakdown
+
     method_breakdown = online_payments.values('payment_method').annotate(
         count=Count('id'),
         total=Sum('amount')
     ).order_by('-total')
-    
+
     # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
         ws = wb.active
         ws.title = "Online Payment Report"
-        
-        # Summary
+
         ws.append(['Online Payment Report'])
         ws.append([])
         ws.append(['Total Payments', total_payments])
@@ -5106,19 +5100,19 @@ def online_payment_report(request):
         ws.append(['Payment Method', 'Count', 'Total Amount (Rs)'])
         for col in range(1, 4):
             ws.cell(row=5, column=col).font = Font(bold=True)
-        
+
         row = 6
         for item in method_breakdown:
             ws.append([item['payment_method'], item['count'], float(item['total'])])
             row += 1
-        
+
         ws.append([])
         ws.append(['Transaction Details'])
         headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Payment Method', 'Reference', 'Amount (Rs)']
         ws.append(headers)
         for col in range(1, 9):
             ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
-        
+
         for payment in online_payments:
             ws.append([
                 payment.created_at.strftime('%Y-%m-%d %H:%M'),
@@ -5130,31 +5124,28 @@ def online_payment_report(request):
                 payment.reference_no or 'N/A',
                 float(payment.amount),
             ])
-        
+
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len:
-                        max_len = len(str(cell.value))
-                except:
-                    pass
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-        
+
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Online_Payment_Report_{start_date}_to_{end_date}.xlsx"'
         wb.save(response)
         return response
-    
-    # Payment methods for filter
+
+    # Get payment methods for filter
     payment_methods = OnlinePayment.PAYMENT_METHODS if hasattr(OnlinePayment, 'PAYMENT_METHODS') else [
         ('Bank Transfer', 'Bank Transfer'),
         ('Mobile Wallet', 'Mobile Wallet'),
         ('Card', 'Card'),
         ('Other', 'Other'),
     ]
-    
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
@@ -5168,7 +5159,6 @@ def online_payment_report(request):
         'method_breakdown': method_breakdown,
         'today': today,
     }
-    
     return render(request, 'core/online_payment_report.html', context)
 
 

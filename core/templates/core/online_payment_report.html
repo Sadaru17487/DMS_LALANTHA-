@@ -7,7 +7,6 @@
 
 <style>
     .report-container { max-width: 1400px; margin: 0 auto; }
-    
     .header-box {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
         color: white;
@@ -29,7 +28,6 @@
         font-size: 14px;
         color: #a0c4ff;
     }
-
     .filter-box {
         background: white;
         padding: 20px;
@@ -120,7 +118,7 @@
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
-        border-top: 4px solid #ccc;
+        border-top: 4px solid #17a2b8;
     }
     .summary-card .label {
         font-size: 12px;
@@ -134,11 +132,6 @@
         font-weight: 700;
         color: #1a2634;
         margin-top: 5px;
-    }
-    .summary-card .sub-value {
-        font-size: 14px;
-        color: #666;
-        margin-top: 2px;
     }
     .summary-card .value.blue { color: #007bff; }
     .summary-card .value.purple { color: #6f42c1; }
@@ -206,7 +199,6 @@
 </style>
 
 <div class="report-container">
-    <!-- Header -->
     <div class="header-box">
         <div>
             <h1>🌐 Online Payment Report</h1>
@@ -217,7 +209,6 @@
         </div>
     </div>
 
-    <!-- Filter Form -->
     <form method="GET" class="filter-box">
         <div class="filter-group">
             <label>From Date</label>
@@ -243,19 +234,18 @@
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
     </form>
 
-    <!-- Summary Cards -->
     <div class="summary-grid">
         <div class="summary-card">
             <div class="label">Total Payments</div>
             <div class="value blue">{{ total_payments }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #6f42c1;">
             <div class="label">Total Amount</div>
             <div class="value purple">Rs {{ total_amount|floatformat:2 }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #28a745;">
             <div class="label">Average Payment</div>
-            <div class="value">
+            <div class="value green">
                 {% if total_payments > 0 %}
                     Rs {{ total_amount|divisibleby:total_payments|floatformat:2 }}
                 {% else %}
