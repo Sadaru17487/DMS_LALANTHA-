@@ -1,5 +1,6 @@
 from asyncio.log import logger
 import json
+import logging
 import random
 from decimal import Decimal
 from datetime import date, datetime, timedelta
@@ -29,7 +30,16 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from django.http import HttpResponse
 from django.http import JsonResponse
-
+from decimal import Decimal
+from django.db import transaction
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import Product, WarehouseStock, Vehicle, VehicleStock, VehicleLoad
+from .forms import VehicleLoadForm
+from .decorators import permission_required
+import logging
+logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
@@ -633,6 +643,7 @@ def toggle_user_status(request, user_id):
     return redirect('/admin-dashboard/')  # ✅ FIXED
 
 
+
 @login_required
 @permission_required('load_vehicle')
 def load_vehicle(request):
@@ -642,6 +653,9 @@ def load_vehicle(request):
     product_list = []
     for p in products:
         stock_obj = stock_dict.get(p.id)
+        if not stock_obj:
+            # Create WarehouseStock if missing (should not happen but safe)
+            stock_obj = WarehouseStock.objects.create(product=p, quantity=0)
         product_list.append({
             'product': p,
             'current_stock': stock_obj.quantity if stock_obj else 0
@@ -664,8 +678,11 @@ def load_vehicle(request):
                         quantity = Decimal('0')
                     
                     if quantity > 0:
-                        # Check warehouse stock
-                        warehouse_stock = WarehouseStock.objects.get(product=product)
+                        # Get or create WarehouseStock
+                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
+                            product=product,
+                            defaults={'quantity': 0}
+                        )
                         if warehouse_stock.quantity < quantity:
                             messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
                             return render(request, 'core/load_vehicle.html', {
@@ -685,16 +702,21 @@ def load_vehicle(request):
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
                         
-                        # Log the load (optional but useful)
-                        VehicleLoad.objects.create(
-                            vehicle=vehicle,
-                            product=product,
-                            quantity=quantity,
-                            notes=f"Loaded from warehouse"
-                        )
+                        # Log the load (optional - skip if model doesn't exist)
+                        try:
+                            VehicleLoad.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                notes=f"Loaded from warehouse"
+                            )
+                        except Exception as e:
+                            logger.warning(f"VehicleLoad logging failed: {e}")
                 
                 messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
                 return redirect('/load/')
+        else:
+            messages.error(request, 'Please select a valid vehicle.')
     else:
         form = VehicleLoadForm()
 

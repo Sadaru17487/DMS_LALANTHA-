@@ -1,5 +1,4 @@
-
-from django import forms  # type: ignore
+from django import forms
 from .models import Vehicle, SalesBill, Employee
 
 class VehicleLoadForm(forms.Form):
