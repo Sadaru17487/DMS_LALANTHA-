@@ -4341,51 +4341,48 @@ def sold_items_report(request):
 @login_required
 @permission_required('view_reports')
 def free_issue_report(request):
-    """Free Issue (FOC) Report – shows all FOC items given away"""
-    
+    from datetime import datetime, date
+    from decimal import Decimal
+    from django.db.models import Sum
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from django.http import HttpResponse
+
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
-    
-    # Parse dates
+
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
         end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
     except ValueError:
         start_date_obj = today
         end_date_obj = today
-    
-    # Get all FOC items from bills in date range
+
+    # Get all FOC items from completed bills
     foc_items = SalesItem.objects.filter(
         is_foc=True,
         bill__status='COMPLETED',
         bill__date__gte=start_date_obj,
         bill__date__lte=end_date_obj
     ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep')
-    
-    # Calculate summary
+
     total_foc_qty = foc_items.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
     total_foc_value = foc_items.aggregate(total=Sum('total'))['total'] or Decimal('0')
     total_invoices = foc_items.values('bill_id').distinct().count()
     unique_products = foc_items.values('product_id').distinct().count()
-    
-    # Group by product for detailed table
-    product_agg = foc_items.values('product_id', 'product__name', 'product__unit').annotate(
-        total_qty=Sum('quantity'),
-        total_value=Sum('total')
-    ).order_by('-total_value')
-    
+
     # Excel export
     if request.GET.get('export') == 'xlsx':
         wb = Workbook()
         ws = wb.active
         ws.title = "Free Issue Report"
-        
+
         headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Unit', 'Qty', 'Rate', 'Total Value']
         ws.append(headers)
         for col in range(1, 11):
             ws.cell(row=1, column=col).font = Font(bold=True)
-        
+
         for item in foc_items:
             ws.append([
                 item.bill.date.strftime('%Y-%m-%d'),
@@ -4399,26 +4396,31 @@ def free_issue_report(request):
                 float(item.rate),
                 float(item.total),
             ])
-        
+
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len:
-                        max_len = len(str(cell.value))
-                except:
-                    pass
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
-        
+
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Free_Issue_Report_{start_date}_to_{end_date}.xlsx"'
         wb.save(response)
         return response
-    
+
+    # Product-wise aggregation
+    product_agg = foc_items.values('product_id', 'product__name', 'product__unit').annotate(
+        total_qty=Sum('quantity'),
+        total_value=Sum('total')
+    ).order_by('-total_value')
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
         'foc_items': foc_items,
         'total_foc_qty': total_foc_qty,
         'total_foc_value': total_foc_value,

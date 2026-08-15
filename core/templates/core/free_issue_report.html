@@ -6,7 +6,7 @@
 {% block content %}
 
 <style>
-    .report-container { max-width: 1200px; margin: 0 auto; }
+    .report-container { max-width: 1400px; margin: 0 auto; }
     .header-box {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
         color: white;
@@ -116,6 +116,7 @@
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
+        border-top: 4px solid #fd7e14;
     }
     .summary-card .label {
         font-size: 12px;
@@ -131,8 +132,9 @@
         margin-top: 5px;
     }
     .summary-card .value.orange { color: #fd7e14; }
-    .summary-card .value.blue { color: #007bff; }
     .summary-card .value.purple { color: #6f42c1; }
+    .summary-card .value.blue { color: #007bff; }
+    .summary-card .value.green { color: #28a745; }
 
     .card {
         background: white;
@@ -140,6 +142,11 @@
         padding: 20px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         margin-bottom: 25px;
+    }
+    .card h3 {
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e8ecf2;
+        padding-bottom: 10px;
     }
     table {
         width: 100%;
@@ -179,7 +186,6 @@
 </style>
 
 <div class="report-container">
-    <!-- Header -->
     <div class="header-box">
         <div>
             <h1>🎁 Free Issue Report</h1>
@@ -190,7 +196,6 @@
         </div>
     </div>
 
-    <!-- Filter Form -->
     <form method="GET" class="filter-box">
         <div class="filter-group">
             <label>From Date</label>
@@ -205,23 +210,22 @@
         <a href="?export=xlsx&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-excel">📥 Excel</a>
     </form>
 
-    <!-- Summary Cards -->
     <div class="summary-grid">
         <div class="summary-card">
             <div class="label">Total FOC Items</div>
             <div class="value orange">{{ total_foc_qty|floatformat:0 }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #6f42c1;">
             <div class="label">Total FOC Value</div>
             <div class="value purple">Rs {{ total_foc_value|floatformat:2 }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #007bff;">
             <div class="label">Invoices with FOC</div>
             <div class="value blue">{{ total_invoices }}</div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card" style="border-top-color: #28a745;">
             <div class="label">Unique FOC Products</div>
-            <div class="value blue">{{ unique_products }}</div>
+            <div class="value green">{{ unique_products }}</div>
         </div>
     </div>
 
