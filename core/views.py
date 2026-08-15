@@ -636,7 +636,7 @@ def toggle_user_status(request, user_id):
 @login_required
 @permission_required('load_vehicle')
 def load_vehicle(request):
-    products = Product.objects.all()
+    products = Product.objects.filter(is_active=True)
     stock_dict = {stock.product_id: stock for stock in WarehouseStock.objects.all()}
     
     product_list = []
@@ -664,44 +664,44 @@ def load_vehicle(request):
                         quantity = Decimal('0')
                     
                     if quantity > 0:
+                        # Check warehouse stock
                         warehouse_stock = WarehouseStock.objects.get(product=product)
                         if warehouse_stock.quantity < quantity:
                             messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
                             return render(request, 'core/load_vehicle.html', {
-                                'form': form, 
+                                'form': form,
                                 'product_list': product_list
                             })
                         
+                        # Deduct from warehouse
                         warehouse_stock.quantity -= quantity
                         warehouse_stock.save()
                         
+                        # Add to vehicle stock
                         vehicle_stock, created = VehicleStock.objects.get_or_create(
                             vehicle=vehicle, 
                             product=product
                         )
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
+                        
+                        # Log the load (optional but useful)
+                        VehicleLoad.objects.create(
+                            vehicle=vehicle,
+                            product=product,
+                            quantity=quantity,
+                            notes=f"Loaded from warehouse"
+                        )
                 
                 messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
-                return redirect('/load/')  # ✅ FIXED (was 'load_vehicle')
+                return redirect('/load/')
     else:
         form = VehicleLoadForm()
-
-        VehicleLoad.objects.create(
-    vehicle=vehicle,
-    product=product,
-    quantity=quantity,
-    loaded_by=request.user,
-    notes=f"Loaded from warehouse"
-)
 
     return render(request, 'core/load_vehicle.html', {
         'form': form,
         'product_list': product_list
-
-        
     })
-
 
 @login_required
 @permission_required('view_reports')
@@ -4341,12 +4341,6 @@ def sold_items_report(request):
 @login_required
 @permission_required('view_reports')
 def free_issue_report(request):
-    from datetime import datetime, date
-    from decimal import Decimal
-    from django.db.models import Sum
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
-    from django.http import HttpResponse
 
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
