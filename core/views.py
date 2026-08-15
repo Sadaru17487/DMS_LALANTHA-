@@ -655,7 +655,10 @@ def load_vehicle(request):
         stock_obj = stock_dict.get(p.id)
         if not stock_obj:
             # Create WarehouseStock if missing (should not happen but safe)
-            stock_obj = WarehouseStock.objects.create(product=p, quantity=0)
+            try:
+                stock_obj = WarehouseStock.objects.create(product=p, quantity=0)
+            except:
+                stock_obj = None
         product_list.append({
             'product': p,
             'current_stock': stock_obj.quantity if stock_obj else 0
@@ -666,68 +669,70 @@ def load_vehicle(request):
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
             
-            with transaction.atomic():
-                for item in product_list:
-                    product = item['product']
-                    quantity_key = f'qty_{product.id}'
-                    quantity_str = request.POST.get(quantity_key, '0')
-                    
-                    try:
-                        quantity = Decimal(quantity_str)
-                    except ValueError:
-                        quantity = Decimal('0')
-                    
-                    if quantity > 0:
-                        # Get or create WarehouseStock
-                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
-                            product=product,
-                            defaults={'quantity': 0}
-                        )
+            try:
+                with transaction.atomic():
+                    loaded_count = 0
+                    for item in product_list:
+                        product = item['product']
+                        quantity_key = f'qty_{product.id}'
+                        quantity_str = request.POST.get(quantity_key, '0')
                         
-                        # Debug: Print current stock
-                        print(f"Product: {product.name}, Warehouse before: {warehouse_stock.quantity}, Quantity to load: {quantity}")
-                        logger.info(f"Product: {product.name}, Warehouse before: {warehouse_stock.quantity}, Qty: {quantity}")
-                        
-                        if warehouse_stock.quantity < quantity:
-                            messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
-                            return render(request, 'core/load_vehicle.html', {
-                                'form': form,
-                                'product_list': product_list
-                            })
-                        
-                        # Deduct from warehouse
-                        warehouse_stock.quantity -= quantity
-                        warehouse_stock.save()
-                        
-                        # Debug: Print after deduction
-                        print(f"Product: {product.name}, Warehouse after: {warehouse_stock.quantity}")
-                        
-                        # Add to vehicle stock
-                        vehicle_stock, created = VehicleStock.objects.get_or_create(
-                            vehicle=vehicle, 
-                            product=product
-                        )
-                        vehicle_stock.quantity += quantity
-                        vehicle_stock.save()
-                        
-                        # Debug: Print vehicle stock
-                        print(f"Product: {product.name}, Vehicle stock now: {vehicle_stock.quantity}")
-                        
-                        # Log the load (optional - skip if model doesn't exist)
                         try:
-                            VehicleLoad.objects.create(
-                                vehicle=vehicle,
+                            quantity = Decimal(quantity_str)
+                        except:
+                            quantity = Decimal('0')
+                        
+                        if quantity > 0:
+                            # Get or create WarehouseStock
+                            warehouse_stock, created = WarehouseStock.objects.get_or_create(
                                 product=product,
-                                quantity=quantity,
-                                notes=f"Loaded from warehouse"
+                                defaults={'quantity': 0}
                             )
-                            print(f"VehicleLoad logged for {product.name}")
-                        except Exception as e:
-                            logger.warning(f"VehicleLoad logging failed: {e}")
-                            print(f"VehicleLoad failed: {e}")
-                
-                messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
-                return redirect('/load/')
+                            
+                            if warehouse_stock.quantity < quantity:
+                                messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
+                                return render(request, 'core/load_vehicle.html', {
+                                    'form': form,
+                                    'product_list': product_list
+                                })
+                            
+                            # Deduct from warehouse
+                            warehouse_stock.quantity -= quantity
+                            warehouse_stock.save()
+                            
+                            # Add to vehicle stock
+                            vehicle_stock, created = VehicleStock.objects.get_or_create(
+                                vehicle=vehicle, 
+                                product=product
+                            )
+                            vehicle_stock.quantity += quantity
+                            vehicle_stock.save()
+                            
+                            # Log the load (skip if model doesn't exist)
+                            try:
+                                VehicleLoad.objects.create(
+                                    vehicle=vehicle,
+                                    product=product,
+                                    quantity=quantity,
+                                    notes=f"Loaded from warehouse"
+                                )
+                            except Exception as e:
+                                logger.warning(f"VehicleLoad logging failed: {e}")
+                            
+                            loaded_count += 1
+                    
+                    if loaded_count == 0:
+                        messages.warning(request, 'No products were loaded. Please enter quantities.')
+                    else:
+                        messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
+                    return redirect('/load/')
+            except Exception as e:
+                logger.error(f"Load Vehicle error: {e}")
+                messages.error(request, f'❌ Error loading vehicle: {str(e)}')
+                return render(request, 'core/load_vehicle.html', {
+                    'form': form,
+                    'product_list': product_list
+                })
         else:
             messages.error(request, 'Please select a valid vehicle.')
     else:

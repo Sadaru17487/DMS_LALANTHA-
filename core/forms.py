@@ -1,12 +1,14 @@
 from django import forms
 from .models import Vehicle, SalesBill, Employee
+from django import forms
+from .models import Vehicle
 
 class VehicleLoadForm(forms.Form):
     vehicle = forms.ModelChoiceField(
         queryset=Vehicle.objects.filter(is_active=True), 
         label="Select Vehicle / Driver",
         widget=forms.Select(attrs={'class': 'form-control'})
-    )
+    )    
 
 
 class SalesBillForm(forms.ModelForm):
