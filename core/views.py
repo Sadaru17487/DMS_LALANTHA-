@@ -683,6 +683,11 @@ def load_vehicle(request):
                             product=product,
                             defaults={'quantity': 0}
                         )
+                        
+                        # Debug: Print current stock
+                        print(f"Product: {product.name}, Warehouse before: {warehouse_stock.quantity}, Quantity to load: {quantity}")
+                        logger.info(f"Product: {product.name}, Warehouse before: {warehouse_stock.quantity}, Qty: {quantity}")
+                        
                         if warehouse_stock.quantity < quantity:
                             messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
                             return render(request, 'core/load_vehicle.html', {
@@ -694,6 +699,9 @@ def load_vehicle(request):
                         warehouse_stock.quantity -= quantity
                         warehouse_stock.save()
                         
+                        # Debug: Print after deduction
+                        print(f"Product: {product.name}, Warehouse after: {warehouse_stock.quantity}")
+                        
                         # Add to vehicle stock
                         vehicle_stock, created = VehicleStock.objects.get_or_create(
                             vehicle=vehicle, 
@@ -701,6 +709,9 @@ def load_vehicle(request):
                         )
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
+                        
+                        # Debug: Print vehicle stock
+                        print(f"Product: {product.name}, Vehicle stock now: {vehicle_stock.quantity}")
                         
                         # Log the load (optional - skip if model doesn't exist)
                         try:
@@ -710,8 +721,10 @@ def load_vehicle(request):
                                 quantity=quantity,
                                 notes=f"Loaded from warehouse"
                             )
+                            print(f"VehicleLoad logged for {product.name}")
                         except Exception as e:
                             logger.warning(f"VehicleLoad logging failed: {e}")
+                            print(f"VehicleLoad failed: {e}")
                 
                 messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
                 return redirect('/load/')
@@ -724,6 +737,7 @@ def load_vehicle(request):
         'form': form,
         'product_list': product_list
     })
+
 
 @login_required
 @permission_required('view_reports')
