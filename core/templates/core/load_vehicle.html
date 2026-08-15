@@ -8,12 +8,71 @@
 <style>
     .form-group { margin-bottom: 20px; }
     select, input[type="number"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 300px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th { background: #007bff; color: white; padding: 10px; text-align: left; }
-    td { padding: 10px; border-bottom: 1px solid #ddd; }
-    .stock-badge { background: #28a745; color: white; padding: 3px 10px; border-radius: 12px; font-size: 14px; }
-    .btn { background: #007bff; color: white; padding: 12px 30px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; }
+    
+    .search-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin: 20px 0 15px;
+    }
+    .search-bar input {
+        flex: 1;
+        padding: 10px 16px;
+        border: 2px solid #e0e4eb;
+        border-radius: 30px;
+        font-size: 15px;
+        background: #f8f9fc;
+        transition: 0.2s;
+        max-width: 400px;
+    }
+    .search-bar input:focus {
+        border-color: #007bff;
+        outline: none;
+        background: white;
+    }
+    .search-bar .icon {
+        font-size: 20px;
+        color: #888;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+    th {
+        background: #007bff;
+        color: white;
+        padding: 10px;
+        text-align: left;
+    }
+    td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+    .stock-badge {
+        background: #28a745;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+    .btn {
+        background: #007bff;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+    }
     .btn:hover { background: #0056b3; }
+    .no-results {
+        text-align: center;
+        color: #999;
+        padding: 20px;
+        display: none;
+    }
 </style>
 
 <div class="container">
@@ -34,32 +93,44 @@
             </div>
 
             <h3>📦 Products & Current Warehouse Stock</h3>
+
+            <!-- 🔍 Search Bar -->
+            <div class="search-bar">
+                <span class="icon">🔍</span>
+                <input type="text" id="productSearch" placeholder="Search products by name..." onkeyup="filterProducts()">
+            </div>
+
             <div class="table-container">
-                <table>
-                    <tr>
-                        <th>Product Name</th>
-                        <th>Unit</th>
-                        <th>Warehouse Stock</th>
-                        <th>Quantity to Load</th>
-                    </tr>
-                    {% for item in product_list %}
-                    <tr>
-                        <td>{{ item.product.name }}</td>
-                        <td>{{ item.product.unit }}</td>
-                        <td><span class="stock-badge">{{ item.current_stock }}</span></td>
-                        <td>
-                            <input type="number" 
-                                   name="qty_{{ item.product.id }}" 
-                                   min="0" 
-                                   step="0.01" 
-                                   value="0"
-                                   style="width: 100px;">
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">No products found. Please add products in the Admin panel first.</td></tr>
-                    {% endfor %}
+                <table id="productTable">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Unit</th>
+                            <th>Warehouse Stock</th>
+                            <th>Quantity to Load</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productTableBody">
+                        {% for item in product_list %}
+                        <tr class="product-row" data-name="{{ item.product.name|lower }}">
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.product.unit }}</td>
+                            <td><span class="stock-badge">{{ item.current_stock }}</span></td>
+                            <td>
+                                <input type="number" 
+                                       name="qty_{{ item.product.id }}" 
+                                       min="0" 
+                                       step="0.01" 
+                                       value="0"
+                                       style="width: 100px;">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">No products found. Please add products in the Admin panel first.</td></tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
+                <div id="noResults" class="no-results">No products match your search.</div>
             </div>
 
             <button type="submit" class="btn">✅ Load Vehicle</button>
@@ -70,4 +141,31 @@
         &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
     </div>
 </div>
+
+<script>
+    function filterProducts() {
+        const input = document.getElementById('productSearch');
+        const filter = input.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#productTableBody .product-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            if (name.includes(filter)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const noResults = document.getElementById('noResults');
+        if (visibleCount === 0 && rows.length > 0) {
+            noResults.style.display = 'block';
+        } else {
+            noResults.style.display = 'none';
+        }
+    }
+</script>
+
 {% endblock %}
