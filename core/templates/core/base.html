@@ -487,6 +487,9 @@
                 <a href="/unload/" class="{% if request.path == '/unload/' %}active{% endif %}">
                     <i class="fas fa-undo-alt"></i> Unload Vehicle
                 </a>
+                <a href="/stock-movement-log/" class="{% if 'stock-movement-log' in request.path %}active{% endif %}">
+                    <i class="fas fa-history"></i> Stock Movements
+                </a>
             
         <div class="nav-section">Reports</div>
 

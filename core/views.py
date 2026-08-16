@@ -39,6 +39,7 @@ from .models import Product, WarehouseStock, Vehicle, VehicleStock, VehicleLoad
 from .forms import VehicleLoadForm
 from .decorators import permission_required
 import logging
+from .models import StockMovementLog
 logger = logging.getLogger(__name__)
 
 @login_required
@@ -701,9 +702,21 @@ def load_vehicle(request):
                             vehicle=vehicle, 
                             product=product
                         )
+                        # Add to vehicle stock
+                        vehicle_stock, created = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
-                        
+
+                        # Log the load
+                        StockMovementLog.objects.create(
+                            vehicle=vehicle,
+                            product=product,
+                            quantity=quantity,
+                            movement_type='LOAD',
+                            performed_by=request.user,
+                            notes=f"Loaded from warehouse"
+                        )
+
                         loaded_count += 1
                 
                 if loaded_count == 0:
@@ -6424,6 +6437,15 @@ def unload_vehicle(request):
                     )
                     warehouse_stock.quantity += quantity
                     warehouse_stock.save()
+
+                    StockMovementLog.objects.create(
+                        vehicle=vehicle,
+                        product=product,
+                        quantity=quantity,
+                        movement_type='UNLOAD',
+                        performed_by=request.user,
+                        notes=f"Unloaded to warehouse"
+                    )
                     
                     unloaded_count += 1
             
@@ -6438,5 +6460,22 @@ def unload_vehicle(request):
         'selected_vehicle': selected_vehicle,
         'product_list': product_list
     })
+
+
+@login_required
+@permission_required('view_vehicles')
+def stock_movement_log(request):
+    logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-created_at')
+    
+    vehicle_id = request.GET.get('vehicle')
+    if vehicle_id and vehicle_id.isdigit():
+        logs = logs.filter(vehicle_id=int(vehicle_id))
+    
+    context = {
+        'logs': logs,
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'selected_vehicle': vehicle_id,
+    }
+    return render(request, 'core/stock_movement_log.html', context)
 
 

@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Stock Movement Log - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .badge-load { background: #28a745; color: white; padding: 2px 12px; border-radius: 12px; }
+    .badge-unload { background: #dc3545; color: white; padding: 2px 12px; border-radius: 12px; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📋 Stock Movement Log</h2>
+            <span class="subtitle">History of loading & unloading</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <form method="GET" class="filter-box" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end;">
+            <div class="filter-group">
+                <label>Vehicle</label>
+                <select name="vehicle">
+                    <option value="">All Vehicles</option>
+                    {% for v in vehicles %}
+                        <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                            {{ v.vehicle_number }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-filter">🔍 Filter</button>
+            <a href="/stock-movement-log/" class="btn-clear">Clear</a>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Vehicle</th>
+                        <th>Product</th>
+                        <th style="text-align:right;">Quantity</th>
+                        <th>Type</th>
+                        <th>Performed By</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ log.vehicle.vehicle_number }}</td>
+                        <td>{{ log.product.name }}</td>
+                        <td style="text-align:right;">{{ log.quantity|floatformat:0 }}</td>
+                        <td>
+                            <span class="badge-load">{{ log.get_movement_type_display }}</span>
+                        </td>
+                        <td>{{ log.performed_by.username|default:"-" }}</td>
+                        <td>{{ log.notes|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">No stock movements found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+{% endblock %}

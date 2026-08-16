@@ -112,5 +112,6 @@ urlpatterns = [
     path('reports/expense-by-vehicle-summary/', views.expense_by_vehicle_summary_report, name='expense_by_vehicle_summary_report'),
     path('reports/expense-by-employee-summary/', views.expense_by_employee_summary_report, name='expense_by_employee_summary_report'),
     path('unload/', views.unload_vehicle, name='unload_vehicle'),
+    path('stock-movement-log/', views.stock_movement_log, name='stock_movement_log'),
     
 ]

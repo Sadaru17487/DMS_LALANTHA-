@@ -1034,3 +1034,61 @@ class VehicleLoad(models.Model):
 
     class Meta:
         ordering = ['-loaded_at']
+
+
+class StockMovement(models.Model):
+    MOVEMENT_TYPES = [
+        ('PURCHASE', 'Purchase Received'),
+        ('SALE', 'Sale'),
+        ('RETURN', 'Return'),
+        ('ADJUSTMENT', 'Stock Adjustment'),
+        ('LOAD', 'Vehicle Load'),
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    previous_stock = models.DecimalField(max_digits=15, decimal_places=2)
+    new_stock = models.DecimalField(max_digits=15, decimal_places=2)
+    reference = models.CharField(max_length=200, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='stock_movements_old'  # ✅ Changed
+    )
+    
+    def __str__(self):
+            return f"{self.vehicle.vehicle_number} - {self.movement_type} {self.product.name} x{self.quantity}"
+    
+    class Meta:
+            ordering = ['-created_at']
+
+
+class StockMovementLog(models.Model):
+    MOVEMENT_TYPES = [
+        ('LOAD', 'Load to Vehicle'),
+        ('UNLOAD', 'Unload from Vehicle'),
+    ]
+    
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='stock_movements')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
+    performed_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='stock_movement_logs'  # ✅ Changed
+    )
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+            return f"{self.vehicle.vehicle_number} - {self.movement_type} {self.product.name} x{self.quantity}"
+    
+    class Meta:
+            ordering = ['-created_at']
