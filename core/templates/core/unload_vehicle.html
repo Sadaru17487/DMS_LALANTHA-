@@ -91,12 +91,11 @@
     </div>
 
     <div class="card">
-        <form method="POST">
-            {% csrf_token %}
-            
+        <!-- Vehicle Selection Form (GET) -->
+        <form method="GET" id="vehicleForm">
             <div class="form-group">
                 <label>Select Vehicle</label>
-                <select name="vehicle" id="vehicleSelect" required>
+                <select name="vehicle" id="vehicleSelect" onchange="this.form.submit()">
                     <option value="">-- Select Vehicle --</option>
                     {% for v in vehicles %}
                         <option value="{{ v.id }}" {% if selected_vehicle.id == v.id %}selected{% endif %}>
@@ -105,11 +104,17 @@
                     {% endfor %}
                 </select>
             </div>
+        </form>
 
-            <div class="info-box">
-                💡 <strong>Note:</strong> Only products with stock on the vehicle will be shown.
-                You can unload any quantity up to the available stock.
-            </div>
+        <div class="info-box">
+            💡 <strong>Note:</strong> Only products with stock on the vehicle will be shown.
+            You can unload any quantity up to the available stock.
+        </div>
+
+        <!-- Unload Form (POST) -->
+        <form method="POST" id="unloadForm">
+            {% csrf_token %}
+            <input type="hidden" name="vehicle" value="{{ selected_vehicle.id }}">
 
             <!-- 🔍 Search Bar -->
             <div class="search-bar">
@@ -186,11 +191,6 @@
             noResults.style.display = 'none';
         }
     }
-
-    // Auto-submit when vehicle changes
-    document.getElementById('vehicleSelect').addEventListener('change', function() {
-        this.form.submit();
-    });
 </script>
 
 {% endblock %}

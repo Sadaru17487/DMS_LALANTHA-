@@ -6362,7 +6362,7 @@ def expense_by_employee_summary_report(request):
 @permission_required('load_vehicle')
 def unload_vehicle(request):
     vehicles = Vehicle.objects.filter(is_active=True)
-    selected_vehicle_id = request.GET.get('vehicle')
+    selected_vehicle_id = request.GET.get('vehicle') or request.POST.get('vehicle')
     
     # Get the selected vehicle's stock
     vehicle_stock_dict = {}
@@ -6389,6 +6389,7 @@ def unload_vehicle(request):
         })
 
     if request.method == 'POST':
+        # Only process unload if there's a vehicle selected and quantities are entered
         vehicle_id = request.POST.get('vehicle')
         if not vehicle_id or not vehicle_id.isdigit():
             messages.error(request, 'Please select a vehicle.')
@@ -6399,6 +6400,27 @@ def unload_vehicle(request):
             })
 
         vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+        
+        # Check if any quantities are entered
+        has_quantity = False
+        for item in product_list:
+            quantity_key = f'qty_{item["product"].id}'
+            quantity_str = request.POST.get(quantity_key, '0')
+            try:
+                quantity = Decimal(quantity_str)
+                if quantity > 0:
+                    has_quantity = True
+                    break
+            except:
+                pass
+        
+        if not has_quantity:
+            messages.warning(request, 'Please enter quantities to unload.')
+            return render(request, 'core/unload_vehicle.html', {
+                'vehicles': vehicles,
+                'selected_vehicle': vehicle,
+                'product_list': product_list
+            })
         
         with transaction.atomic():
             unloaded_count = 0
@@ -6437,24 +6459,28 @@ def unload_vehicle(request):
                     )
                     warehouse_stock.quantity += quantity
                     warehouse_stock.save()
-
-                    StockMovementLog.objects.create(
-                        vehicle=vehicle,
-                        product=product,
-                        quantity=quantity,
-                        movement_type='UNLOAD',
-                        performed_by=request.user,
-                        notes=f"Unloaded to warehouse"
-                    )
+                    
+                    # Log the unload
+                    try:
+                        StockMovementLog.objects.create(
+                            vehicle=vehicle,
+                            product=product,
+                            quantity=quantity,
+                            movement_type='UNLOAD',
+                            performed_by=request.user,
+                            notes=f"Unloaded to warehouse"
+                        )
+                    except Exception as e:
+                        pass
                     
                     unloaded_count += 1
             
-            if unloaded_count == 0:
-                messages.warning(request, 'No products were unloaded. Please enter quantities.')
-            else:
+            if unloaded_count > 0:
                 messages.success(request, f'✅ Successfully unloaded stock from {vehicle.vehicle_number} - {vehicle.driver_name}')
+            else:
+                messages.warning(request, 'No products were unloaded. Please enter quantities.')
             return redirect('/unload/')
-
+    
     return render(request, 'core/unload_vehicle.html', {
         'vehicles': vehicles,
         'selected_vehicle': selected_vehicle,
