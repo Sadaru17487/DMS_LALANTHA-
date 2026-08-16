@@ -6343,3 +6343,100 @@ def expense_by_employee_summary_report(request):
         'today': today,
     }
     return render(request, 'core/expense_by_employee_summary_report.html', context)
+
+
+@login_required
+@permission_required('load_vehicle')
+def unload_vehicle(request):
+    vehicles = Vehicle.objects.filter(is_active=True)
+    selected_vehicle_id = request.GET.get('vehicle')
+    
+    # Get the selected vehicle's stock
+    vehicle_stock_dict = {}
+    selected_vehicle = None
+    if selected_vehicle_id and selected_vehicle_id.isdigit():
+        try:
+            selected_vehicle = Vehicle.objects.get(id=selected_vehicle_id)
+            vehicle_stocks = VehicleStock.objects.filter(vehicle=selected_vehicle).select_related('product')
+            for vs in vehicle_stocks:
+                vehicle_stock_dict[vs.product_id] = {
+                    'product': vs.product,
+                    'quantity': vs.quantity
+                }
+        except Vehicle.DoesNotExist:
+            pass
+
+    product_list = []
+    for product in Product.objects.filter(is_active=True).order_by('name'):
+        stock_info = vehicle_stock_dict.get(product.id)
+        product_list.append({
+            'product': product,
+            'vehicle_stock': stock_info['quantity'] if stock_info else 0,
+            'is_on_vehicle': stock_info is not None and stock_info['quantity'] > 0
+        })
+
+    if request.method == 'POST':
+        vehicle_id = request.POST.get('vehicle')
+        if not vehicle_id or not vehicle_id.isdigit():
+            messages.error(request, 'Please select a vehicle.')
+            return render(request, 'core/unload_vehicle.html', {
+                'vehicles': vehicles,
+                'selected_vehicle': selected_vehicle,
+                'product_list': product_list
+            })
+
+        vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+        
+        with transaction.atomic():
+            unloaded_count = 0
+            for item in product_list:
+                product = item['product']
+                quantity_key = f'qty_{product.id}'
+                quantity_str = request.POST.get(quantity_key, '0')
+                
+                try:
+                    quantity = Decimal(quantity_str)
+                except:
+                    quantity = Decimal('0')
+                
+                if quantity > 0:
+                    # Check if vehicle has enough stock
+                    vehicle_stock = VehicleStock.objects.filter(vehicle=vehicle, product=product).first()
+                    if not vehicle_stock or vehicle_stock.quantity < quantity:
+                        messages.error(request, f'❌ Not enough stock on vehicle for {product.name}. Available: {vehicle_stock.quantity if vehicle_stock else 0}')
+                        return render(request, 'core/unload_vehicle.html', {
+                            'vehicles': vehicles,
+                            'selected_vehicle': vehicle,
+                            'product_list': product_list
+                        })
+                    
+                    # Deduct from vehicle
+                    vehicle_stock.quantity -= quantity
+                    if vehicle_stock.quantity == 0:
+                        vehicle_stock.delete()
+                    else:
+                        vehicle_stock.save()
+                    
+                    # Add to warehouse
+                    warehouse_stock, created = WarehouseStock.objects.get_or_create(
+                        product=product,
+                        defaults={'quantity': 0}
+                    )
+                    warehouse_stock.quantity += quantity
+                    warehouse_stock.save()
+                    
+                    unloaded_count += 1
+            
+            if unloaded_count == 0:
+                messages.warning(request, 'No products were unloaded. Please enter quantities.')
+            else:
+                messages.success(request, f'✅ Successfully unloaded stock from {vehicle.vehicle_number} - {vehicle.driver_name}')
+            return redirect('/unload/')
+
+    return render(request, 'core/unload_vehicle.html', {
+        'vehicles': vehicles,
+        'selected_vehicle': selected_vehicle,
+        'product_list': product_list
+    })
+
+
