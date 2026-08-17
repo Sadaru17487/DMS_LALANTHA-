@@ -67,6 +67,18 @@
         cursor: pointer;
     }
     .btn:hover { background: #c82333; }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-secondary:hover { background: #5a6268; }
     .no-results {
         text-align: center;
         color: #999;
@@ -91,8 +103,8 @@
     </div>
 
     <div class="card">
-        <!-- Vehicle Selection Form (GET) -->
-        <form method="GET" id="vehicleForm">
+        <!-- Filter Form: GET (for vehicle selection) -->
+        <form method="GET" id="filterForm">
             <div class="form-group">
                 <label>Select Vehicle</label>
                 <select name="vehicle" id="vehicleSelect" onchange="this.form.submit()">
@@ -106,15 +118,15 @@
             </div>
         </form>
 
-        <div class="info-box">
-            💡 <strong>Note:</strong> Only products with stock on the vehicle will be shown.
-            You can unload any quantity up to the available stock.
-        </div>
-
-        <!-- Unload Form (POST) -->
-        <form method="POST" id="unloadForm">
+        <!-- Unload Form: POST (for actual unloading) -->
+        <form method="POST" action="/unload/">
             {% csrf_token %}
             <input type="hidden" name="vehicle" value="{{ selected_vehicle.id }}">
+
+            <div class="info-box">
+                💡 <strong>Note:</strong> Only products with stock on the vehicle will be shown.
+                Enter quantities to unload back to the warehouse.
+            </div>
 
             <!-- 🔍 Search Bar -->
             <div class="search-bar">
@@ -158,7 +170,7 @@
             </div>
 
             <button type="submit" class="btn">🔄 Unload Vehicle</button>
-            <a href="/load/" class="btn btn-secondary" style="background:#6c757d; color:white; padding:12px 30px; border:none; border-radius:5px; text-decoration:none; margin-left:10px;">← Back to Loading</a>
+            <a href="/load/" class="btn-secondary">← Back to Loading</a>
         </form>
     </div>
     
