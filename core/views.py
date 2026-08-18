@@ -644,7 +644,6 @@ def toggle_user_status(request, user_id):
     return redirect('/admin-dashboard/')  # ✅ FIXED
 
 
-
 @login_required
 @permission_required('load_vehicle')
 def load_vehicle(request):
@@ -655,7 +654,6 @@ def load_vehicle(request):
     for p in products:
         stock_obj = stock_dict.get(p.id)
         if not stock_obj:
-            # Create WarehouseStock if missing
             stock_obj = WarehouseStock.objects.create(product=p, quantity=0)
         product_list.append({
             'product': p,
@@ -680,7 +678,6 @@ def load_vehicle(request):
                         quantity = Decimal('0')
                     
                     if quantity > 0:
-                        # Get or create WarehouseStock
                         warehouse_stock, created = WarehouseStock.objects.get_or_create(
                             product=product,
                             defaults={'quantity': 0}
@@ -693,30 +690,29 @@ def load_vehicle(request):
                                 'product_list': product_list
                             })
                         
-                        # Deduct from warehouse
                         warehouse_stock.quantity -= quantity
                         warehouse_stock.save()
                         
-                        # Add to vehicle stock
                         vehicle_stock, created = VehicleStock.objects.get_or_create(
                             vehicle=vehicle, 
                             product=product
                         )
-                        # Add to vehicle stock
-                        vehicle_stock, created = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
-
-                        # Log the load
-                        StockMovementLog.objects.create(
-                            vehicle=vehicle,
-                            product=product,
-                            quantity=quantity,
-                            movement_type='LOAD',
-                            performed_by=request.user,
-                            notes=f"Loaded from warehouse"
-                        )
-
+                        
+                        # Try to log (skip if fails)
+                        try:
+                            StockMovementLog.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                movement_type='LOAD',
+                                performed_by=request.user,
+                                notes="Loaded from warehouse"
+                            )
+                        except:
+                            pass
+                        
                         loaded_count += 1
                 
                 if loaded_count == 0:
@@ -6426,7 +6422,7 @@ def unload_vehicle(request):
                     warehouse_stock.quantity += quantity
                     warehouse_stock.save()
                     
-                    # Log the unload (optional)
+                    # Log
                     try:
                         StockMovementLog.objects.create(
                             vehicle=vehicle,
@@ -6436,7 +6432,7 @@ def unload_vehicle(request):
                             performed_by=request.user,
                             notes="Unloaded to warehouse"
                         )
-                    except Exception:
+                    except:
                         pass
                     
                     unloaded_count += 1
@@ -6460,13 +6456,19 @@ def stock_movement_log(request):
     logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-created_at')
     
     vehicle_id = request.GET.get('vehicle')
+    selected_vehicle = None
     if vehicle_id and vehicle_id.isdigit():
         logs = logs.filter(vehicle_id=int(vehicle_id))
+        try:
+            selected_vehicle = Vehicle.objects.get(id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            pass
     
     context = {
         'logs': logs,
         'vehicles': Vehicle.objects.filter(is_active=True),
-        'selected_vehicle': vehicle_id,
+        'selected_vehicle': selected_vehicle,
+        'selected_vehicle_id': vehicle_id,  # for template
     }
     return render(request, 'core/stock_movement_log.html', context)
 
