@@ -665,61 +665,67 @@ def load_vehicle(request):
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
             
-            with transaction.atomic():
-                loaded_count = 0
-                for item in product_list:
-                    product = item['product']
-                    quantity_key = f'qty_{product.id}'
-                    quantity_str = request.POST.get(quantity_key, '0')
-                    
-                    try:
-                        quantity = Decimal(quantity_str)
-                    except:
-                        quantity = Decimal('0')
-                    
-                    if quantity > 0:
-                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
-                            product=product,
-                            defaults={'quantity': 0}
-                        )
+            try:
+                with transaction.atomic():
+                    loaded_count = 0
+                    for item in product_list:
+                        product = item['product']
+                        quantity_key = f'qty_{product.id}'
+                        quantity_str = request.POST.get(quantity_key, '0')
                         
-                        if warehouse_stock.quantity < quantity:
-                            messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
-                            return render(request, 'core/load_vehicle.html', {
-                                'form': form,
-                                'product_list': product_list
-                            })
-                        
-                        warehouse_stock.quantity -= quantity
-                        warehouse_stock.save()
-                        
-                        vehicle_stock, created = VehicleStock.objects.get_or_create(
-                            vehicle=vehicle, 
-                            product=product
-                        )
-                        vehicle_stock.quantity += quantity
-                        vehicle_stock.save()
-                        
-                        # Try to log (skip if fails)
                         try:
+                            quantity = Decimal(quantity_str)
+                        except:
+                            quantity = Decimal('0')
+                        
+                        if quantity > 0:
+                            # 1. Deduct from warehouse
+                            warehouse_stock, created = WarehouseStock.objects.get_or_create(
+                                product=product,
+                                defaults={'quantity': 0}
+                            )
+                            if warehouse_stock.quantity < quantity:
+                                messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
+                                return render(request, 'core/load_vehicle.html', {
+                                    'form': form,
+                                    'product_list': product_list
+                                })
+                            
+                            warehouse_stock.quantity -= quantity
+                            warehouse_stock.save()
+                            
+                            # 2. Add to vehicle
+                            vehicle_stock, created = VehicleStock.objects.get_or_create(
+                                vehicle=vehicle, 
+                                product=product
+                            )
+                            vehicle_stock.quantity += quantity
+                            vehicle_stock.save()
+                            
+                            # 3. Log
                             StockMovementLog.objects.create(
                                 vehicle=vehicle,
                                 product=product,
                                 quantity=quantity,
                                 movement_type='LOAD',
                                 performed_by=request.user,
-                                notes="Loaded from warehouse"
+                                notes=f"Loaded from warehouse"
                             )
-                        except:
-                            pass
-                        
-                        loaded_count += 1
-                
-                if loaded_count == 0:
-                    messages.warning(request, 'No products were loaded. Please enter quantities.')
-                else:
-                    messages.success(request, f'✅ Successfully loaded stock to {vehicle.vehicle_number} - {vehicle.driver_name}')
-                return redirect('/load/')
+                            
+                            loaded_count += 1
+                    
+                    if loaded_count == 0:
+                        messages.warning(request, 'No products were loaded. Please enter quantities.')
+                    else:
+                        messages.success(request, f'✅ Successfully loaded {loaded_count} product(s) to {vehicle.vehicle_number} - {vehicle.driver_name}')
+                    return redirect('/load/')
+            except Exception as e:
+                logger.error(f"Load Vehicle error: {e}")
+                messages.error(request, f'❌ Error: {str(e)}')
+                return render(request, 'core/load_vehicle.html', {
+                    'form': form,
+                    'product_list': product_list
+                })
         else:
             messages.error(request, 'Please select a valid vehicle.')
     else:
@@ -6387,43 +6393,42 @@ def unload_vehicle(request):
 
         vehicle = get_object_or_404(Vehicle, id=vehicle_id)
         
-        with transaction.atomic():
-            unloaded_count = 0
-            for item in product_list:
-                product = item['product']
-                quantity_key = f'qty_{product.id}'
-                quantity_str = request.POST.get(quantity_key, '0')
-                
-                try:
-                    quantity = Decimal(quantity_str)
-                except:
-                    quantity = Decimal('0')
-                
-                if quantity > 0:
-                    vehicle_stock = VehicleStock.objects.filter(vehicle=vehicle, product=product).first()
-                    if not vehicle_stock or vehicle_stock.quantity < quantity:
-                        messages.error(request, f'❌ Not enough stock on vehicle for {product.name}. Available: {vehicle_stock.quantity if vehicle_stock else 0}')
-                        return render(request, 'core/unload_vehicle.html', {
-                            'vehicles': vehicles,
-                            'selected_vehicle': vehicle,
-                            'product_list': product_list
-                        })
+        try:
+            with transaction.atomic():
+                unloaded_count = 0
+                for item in product_list:
+                    product = item['product']
+                    quantity_key = f'qty_{product.id}'
+                    quantity_str = request.POST.get(quantity_key, '0')
                     
-                    vehicle_stock.quantity -= quantity
-                    if vehicle_stock.quantity == 0:
-                        vehicle_stock.delete()
-                    else:
-                        vehicle_stock.save()
-                    
-                    warehouse_stock, created = WarehouseStock.objects.get_or_create(
-                        product=product,
-                        defaults={'quantity': 0}
-                    )
-                    warehouse_stock.quantity += quantity
-                    warehouse_stock.save()
-                    
-                    # Log
                     try:
+                        quantity = Decimal(quantity_str)
+                    except:
+                        quantity = Decimal('0')
+                    
+                    if quantity > 0:
+                        vehicle_stock = VehicleStock.objects.filter(vehicle=vehicle, product=product).first()
+                        if not vehicle_stock or vehicle_stock.quantity < quantity:
+                            messages.error(request, f'❌ Not enough stock on vehicle for {product.name}. Available: {vehicle_stock.quantity if vehicle_stock else 0}')
+                            return render(request, 'core/unload_vehicle.html', {
+                                'vehicles': vehicles,
+                                'selected_vehicle': vehicle,
+                                'product_list': product_list
+                            })
+                        
+                        vehicle_stock.quantity -= quantity
+                        if vehicle_stock.quantity == 0:
+                            vehicle_stock.delete()
+                        else:
+                            vehicle_stock.save()
+                        
+                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
+                            product=product,
+                            defaults={'quantity': 0}
+                        )
+                        warehouse_stock.quantity += quantity
+                        warehouse_stock.save()
+                        
                         StockMovementLog.objects.create(
                             vehicle=vehicle,
                             product=product,
@@ -6432,16 +6437,22 @@ def unload_vehicle(request):
                             performed_by=request.user,
                             notes="Unloaded to warehouse"
                         )
-                    except:
-                        pass
-                    
-                    unloaded_count += 1
-            
-            if unloaded_count == 0:
-                messages.warning(request, 'No products were unloaded. Please enter quantities.')
-            else:
-                messages.success(request, f'✅ Successfully unloaded stock from {vehicle.vehicle_number} - {vehicle.driver_name}')
-            return redirect('/unload/')
+                        
+                        unloaded_count += 1
+                
+                if unloaded_count == 0:
+                    messages.warning(request, 'No products were unloaded. Please enter quantities.')
+                else:
+                    messages.success(request, f'✅ Successfully unloaded {unloaded_count} product(s) from {vehicle.vehicle_number} - {vehicle.driver_name}')
+                return redirect('/unload/')
+        except Exception as e:
+            logger.error(f"Unload Vehicle error: {e}")
+            messages.error(request, f'❌ Error: {str(e)}')
+            return render(request, 'core/unload_vehicle.html', {
+                'vehicles': vehicles,
+                'selected_vehicle': vehicle,
+                'product_list': product_list
+            })
 
     return render(request, 'core/unload_vehicle.html', {
         'vehicles': vehicles,
@@ -6456,19 +6467,13 @@ def stock_movement_log(request):
     logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-created_at')
     
     vehicle_id = request.GET.get('vehicle')
-    selected_vehicle = None
     if vehicle_id and vehicle_id.isdigit():
         logs = logs.filter(vehicle_id=int(vehicle_id))
-        try:
-            selected_vehicle = Vehicle.objects.get(id=vehicle_id)
-        except Vehicle.DoesNotExist:
-            pass
     
     context = {
         'logs': logs,
         'vehicles': Vehicle.objects.filter(is_active=True),
-        'selected_vehicle': selected_vehicle,
-        'selected_vehicle_id': vehicle_id,  # for template
+        'selected_vehicle': vehicle_id,
     }
     return render(request, 'core/stock_movement_log.html', context)
 
