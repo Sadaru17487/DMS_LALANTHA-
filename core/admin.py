@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, WarehouseStock, VehicleStock, SalesBill, SalesItem, Payment, UserProfile, Employee, Bank, ChequePayment, OnlinePayment, MultiPayment, Supplier, Purchase, PurchaseItem, StockMovement
+from .models import Product, WarehouseStock, VehicleStock, SalesBill, SalesItem, Payment, UserProfile, Employee, Bank, ChequePayment, OnlinePayment, MultiPayment, Supplier, Purchase, PurchaseItem, StockMovementLog
 from .models import Employee
 from .models import Category 
 from .models import Bank, Cheque
@@ -25,7 +25,7 @@ admin.site.register(Category)
 admin.site.register(Supplier)
 admin.site.register(Purchase)
 admin.site.register(PurchaseItem)
-admin.site.register(StockMovement)
+admin.site.register(StockMovementLog)
 admin.site.register(Cheque)
 admin.site.register(Customer)
 admin.site.register(Expense)

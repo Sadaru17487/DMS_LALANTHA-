@@ -36,6 +36,7 @@ class Product(models.Model):
         ('Other', 'Other'),
     ]
     
+    
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50, unique=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
