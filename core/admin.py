@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin  # pyright: ignore[reportMissingModuleSource]
 from .models import Product, WarehouseStock, VehicleStock, SalesBill, SalesItem, Payment, UserProfile, Employee, Bank, ChequePayment, OnlinePayment, MultiPayment, Supplier, Purchase, PurchaseItem, StockMovementLog
 from .models import Employee
 from .models import Category 

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path  # pyright: ignore[reportMissingModuleSource]
 from . import views
 
 app_name = 'core'

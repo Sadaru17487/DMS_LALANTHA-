@@ -1,7 +1,6 @@
 from django import forms
 from .models import Vehicle, SalesBill, Employee
-from django import forms
-from .models import Vehicle
+
 
 class VehicleLoadForm(forms.Form):
     vehicle = forms.ModelChoiceField(
