@@ -2222,47 +2222,34 @@ def customer_detail(request, customer_id):
 
 
 @login_required
-@permission_required('manage_customers')
 def customer_search_api(request):
-    query = request.GET.get('q', '')
-    customer_type = request.GET.get('type', '')
-    status = request.GET.get('status', '')
+    query = request.GET.get('q', '').strip()
     
-    customers = Customer.objects.all()
+    # If query is too short, return empty list (don't show all customers)
+    if len(query) < 2:
+        return JsonResponse({'customers': []})
     
-    if query and len(query) >= 2:
-        customers = customers.filter(
-            Q(name__icontains=query) | 
-            Q(code__icontains=query) |
-            Q(phone__icontains=query)
-        )
+    # Filter customers by name, code, or phone (case-insensitive)
+    customers = Customer.objects.filter(
+        Q(name__icontains=query) |
+        Q(code__icontains=query) |
+        Q(phone__icontains=query)
+    ).filter(is_active=True)[:20]  # Limit to 20 results
     
-    if customer_type:
-        customers = customers.filter(customer_type=customer_type)
+    data = [{
+        'id': c.id,
+        'code': c.code,
+        'name': c.name,
+        'phone': c.phone or '',
+        'address': c.address or '',
+        'city': c.city or '',
+        'customer_type': c.get_customer_type_display(),
+        'is_active': c.is_active,
+        'total_sales': float(c.get_total_sales()),
+        'outstanding': float(c.get_outstanding_balance()),
+    } for c in customers]
     
-    if status == 'active':
-        customers = customers.filter(is_active=True)
-    elif status == 'inactive':
-        customers = customers.filter(is_active=False)
-    
-    customers = customers[:50]
-    
-    data = []
-    for c in customers:
-        data.append({
-            'id': c.id,
-            'code': c.code,
-            'name': c.name,
-            'customer_type': c.get_customer_type_display(),
-            'phone': c.phone or '',
-            'address': c.address or '',
-            'city': c.city or '',
-            'is_active': c.is_active,
-            'total_sales': float(c.get_total_sales()),
-            'outstanding': float(c.get_outstanding_balance()),
-        })
     return JsonResponse({'customers': data})
-
 
 @login_required
 @permission_required('manage_customers')

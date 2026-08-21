@@ -1029,12 +1029,16 @@
     function setupCustomerSearch() {
         const searchInput = document.getElementById('customerSearchInput');
         if (!searchInput) return;
+        
         let timeoutId = null;
+        
         searchInput.addEventListener('input', function() {
             clearTimeout(timeoutId);
             const query = this.value.trim();
             timeoutId = setTimeout(() => searchCustomers(query), 300);
         });
+        
+        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             const results = document.getElementById('customerSearchResults');
             const searchBox = document.getElementById('customerSearchInput');
@@ -1042,38 +1046,68 @@
                 results.style.display = 'none';
             }
         });
+        
+        // Allow Enter key to select first result
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 const firstResult = document.querySelector('#customerSearchResults .search-result-item');
-                if (firstResult) { firstResult.click(); e.preventDefault(); }
+                if (firstResult) {
+                    firstResult.click();
+                    e.preventDefault();
+                }
             }
         });
     }
 
     function searchCustomers(query) {
         const resultsContainer = document.getElementById('customerSearchResults');
-        if (query.length < 2) { resultsContainer.style.display = 'none'; return; }
+        
+        // If query is too short, hide dropdown and return
+        if (!query || query.length < 2) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+        
+        // Show loading state
         resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
         resultsContainer.style.display = 'block';
-        fetch(`/api/customers/search/?query=${encodeURIComponent(query)}`)
+        
+        // Make API request with the query
+        fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 resultsContainer.innerHTML = '';
+                
                 if (data.customers.length === 0) {
-                    resultsContainer.innerHTML = `<div class="no-results">No customers found.<br><span style="font-size:12px;">Try a different search or click "+ New Customer"</span></div>`;
+                    resultsContainer.innerHTML = `
+                        <div class="no-results">
+                            No customers found.<br>
+                            <span style="font-size:12px;">Try a different search or click "+ New Customer"</span>
+                        </div>
+                    `;
                     resultsContainer.style.display = 'block';
                     return;
                 }
+                
+                // Render each customer as a dropdown item
                 data.customers.forEach(customer => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
                     div.innerHTML = `
-                        <div><div class="name">${customer.name}</div><div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div></div>
-                        <div class="info"><div class="phone">${customer.phone || ''}</div></div>
+                        <div>
+                            <div class="name">${customer.name}</div>
+                            <div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div>
+                        </div>
+                        <div class="info">
+                            <div class="phone">${customer.phone || ''}</div>
+                        </div>
                     `;
-                    div.addEventListener('click', function() { selectCustomer(customer); });
+                    div.addEventListener('click', function() {
+                        selectCustomer(customer);
+                    });
                     resultsContainer.appendChild(div);
                 });
+                
                 resultsContainer.style.display = 'block';
             })
             .catch(() => {
@@ -1081,7 +1115,6 @@
                 resultsContainer.style.display = 'block';
             });
     }
-
     function selectCustomer(customer) {
         document.getElementById('selectedCustomerId').value = customer.id;
         document.getElementById('shopNameHidden').value = customer.name;
@@ -1271,3 +1304,5 @@
     });
 </script>
 {% endblock %}
+
+searchCustomers

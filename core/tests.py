@@ -1,3 +1,3 @@
-from django.test import TestCase  # type: ignore[reportMissingModuleSource]
+from django.test import TestCase  
 
 # Create your tests here.

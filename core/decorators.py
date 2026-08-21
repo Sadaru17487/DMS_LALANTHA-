@@ -1,5 +1,5 @@
-from django.shortcuts import redirect  # pyright: ignore[reportMissingModuleSource]
-from django.contrib import messages  # pyright: ignore[reportMissingModuleSource]
+from django.shortcuts import redirect  
+from django.contrib import messages 
 from .models import UserProfile
 
 def permission_required(permission):
