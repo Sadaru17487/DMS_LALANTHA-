@@ -35,6 +35,34 @@ class Product(models.Model):
         ('Can', 'Can'),
         ('Other', 'Other'),
     ]
+
+    cost_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    selling_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    # ... other fields ...
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)  # Save first to get an ID
+        
+        if is_new:
+            # Create initial cost price if provided
+            if self.cost_price > 0:
+                ProductPrice.objects.create(
+                    product=self,
+                    price_type='cost',
+                    amount=self.cost_price,
+                    effective_date=date.today(),
+                    is_active=True
+                )
+            # Create initial selling price if provided
+            if self.selling_price > 0:
+                ProductPrice.objects.create(
+                    product=self,
+                    price_type='selling',
+                    amount=self.selling_price,
+                    effective_date=date.today(),
+                    is_active=True
+                )
     
     
     name = models.CharField(max_length=200)

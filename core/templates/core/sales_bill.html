@@ -414,6 +414,7 @@
                     <input type="hidden" name="qty_{{ forloop.counter }}" id="hidden_qty_{{ forloop.counter }}" value="0">
                     <input type="hidden" name="rate_{{ forloop.counter }}" id="hidden_rate_{{ forloop.counter }}" value="0">
                     <input type="hidden" name="is_foc_{{ forloop.counter }}" id="hidden_is_foc_{{ forloop.counter }}" value="false">
+                    <input type="hidden" name="price_id_{{ forloop.counter }}" id="hidden_price_id_{{ forloop.counter }}" value="">
                 {% endfor %}
             </div>
             <input type="hidden" name="bill_discount_type" id="hidden_bill_discount_type" value="">
@@ -510,799 +511,961 @@
     </div>
 </div>
 
-<script>
-    // ============================================================
-    // GLOBAL VARIABLES
-    // ============================================================
-    let cart = [];
-    let returnMode = false;
-    let selectedPayment = null;
-    let chequeData = null;
-    let multiPayData = null;
-    let manualInvoice = false;
-    let billDiscountType = '';
-    let billDiscountValue = 0;
-    let allProducts = [];
+    <script>
+        // ============================================================
+        // GLOBAL VARIABLES
+        // ============================================================
+        let cart = [];
+        let returnMode = false;
+        let selectedPayment = null;
+        let chequeData = null;
+        let multiPayData = null;
+        let manualInvoice = false;
+        let billDiscountType = '';
+        let billDiscountValue = 0;
+        let allProducts = [];
 
-    // ============================================================
-    // PRODUCT DATA (from Django)
-    // ============================================================
-    allProducts = [
-        {% for product in products %}
-        {
-            id: {{ product.id }},
-            name: "{{ product.name|escapejs }}",
-            code: "{{ product.code|escapejs }}",
-            price: {{ product.selling_price }},
-            stock: {{ product.vehicle_stock|floatformat:0 }},
-        },
-        {% endfor %}
-    ];
+        // ============================================================
+        // PRODUCT DATA (from Django)
+        // ============================================================
+        allProducts = [
+            {% for product in products %}
+            {
+                id: {{ product.id }},
+                name: "{{ product.name|escapejs }}",
+                code: "{{ product.code|escapejs }}",
+                price: {{ product.selling_price }},
+                stock: {{ product.vehicle_stock|floatformat:0 }},
+                {% if product.prices %}
+                prices: [
+                    {% for price in product.prices %}
+                    {
+                        id: {{ price.id }},
+                        amount: {{ price.amount }},
+                        effective_date: "{{ price.effective_date }}",
+                        is_active: {{ price.is_active|yesno:"true,false" }}
+                    },
+                    {% endfor %}
+                ],
+                {% else %}
+                prices: [],
+                {% endif %}
+            },
+            {% endfor %}
+        ];
 
-    // ============================================================
-    // PRODUCT SEARCH (filter products)
-    // ============================================================
-    function filterProducts() {
-        const query = document.getElementById('productSearch').value.toLowerCase().trim();
-        const resultsContainer = document.getElementById('productResults');
+        // ============================================================
+        // PRODUCT SEARCH (filter products)
+        // ============================================================
+        function filterProducts() {
+            const query = document.getElementById('productSearch').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('productResults');
 
-        if (query.length === 0) {
-            resultsContainer.innerHTML = `<div class="empty-results">Type to search for products...</div>`;
-            return;
-        }
+            if (query.length === 0) {
+                resultsContainer.innerHTML = `<div class="empty-results">Type to search for products...</div>`;
+                return;
+            }
 
-        const filtered = allProducts.filter(p =>
-            p.name.toLowerCase().includes(query) ||
-            p.code.toLowerCase().includes(query)
-        );
+            const filtered = allProducts.filter(p =>
+                p.name.toLowerCase().includes(query) ||
+                p.code.toLowerCase().includes(query)
+            );
 
-        if (filtered.length === 0) {
-            resultsContainer.innerHTML = `<div class="empty-results">No products found.</div>`;
-            return;
-        }
+            if (filtered.length === 0) {
+                resultsContainer.innerHTML = `<div class="empty-results">No products found.</div>`;
+                return;
+            }
 
-        let html = '';
-        filtered.forEach(product => {
-            const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
-            html += `
-                <div class="product-card" data-name="${product.name}">
-                    <span class="product-name">${product.name}</span>
-                    <span class="product-price">Rs ${product.price.toFixed(2)}</span>
-                    <span class="product-stock ${stockClass}">${product.stock}</span>
-                    <div class="product-actions">
-                        <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name}', ${product.price}, false)">🛒 Sale</button>
-                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name}', 0, true)">🎁 FOC</button>
+            let html = '';
+            filtered.forEach(product => {
+                const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
+                // Check if product has price versions
+                const hasPrices = product.prices && product.prices.length > 0;
+                const priceDisplay = hasPrices ? 
+                    `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')" style="cursor:pointer; color:#007bff; text-decoration:underline;">
+                        Rs ${product.price.toFixed(2)} <span style="font-size:10px;">▼</span>
+                    </span>` :
+                    `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
+                
+                html += `
+                    <div class="product-card" data-name="${product.name}" data-id="${product.id}">
+                        <span class="product-name">${product.name}</span>
+                        ${priceDisplay}
+                        <span class="product-stock ${stockClass}">${product.stock}</span>
+                        <div class="product-actions">
+                            <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, false, null)">🛒 Sale</button>
+                            <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', 0, true, null)">🎁 FOC</button>
+                        </div>
                     </div>
+                `;
+            });
+            resultsContainer.innerHTML = html;
+        }
+
+        // ============================================================
+        // PRICE SELECTOR (click on price to see versions)
+        // ============================================================
+        function showPriceSelector(productId, productName) {
+            // Find the product in allProducts
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                alert('Product not found.');
+                return;
+            }
+
+            const prices = product.prices || [];
+            if (prices.length === 0) {
+                alert('No price versions available for this product.');
+                return;
+            }
+
+            // Build modal HTML
+            let modalHtml = `
+                <div style="background:white; padding:25px; border-radius:12px; max-width:450px; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                    <h3 style="margin-top:0;">Select Price for ${productName}</h3>
+                    <p style="color:#888; font-size:13px;">Choose a price version to use for this sale.</p>
+                    <div style="margin:15px 0; max-height:300px; overflow-y:auto;">
+            `;
+
+            prices.forEach(p => {
+                const isActive = p.is_active;
+                const label = isActive ? ' ✅ Active' : '';
+                const borderColor = isActive ? '#28a745' : '#ddd';
+                modalHtml += `
+                    <div style="padding:12px; border:1px solid ${borderColor}; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:${isActive ? '#f0fff0' : 'white'};">
+                        <div>
+                            <strong style="font-size:16px;">Rs ${p.amount.toFixed(2)}</strong>
+                            <span style="font-size:12px; color:#888; margin-left:8px;">${p.effective_date}</span>
+                            ${isActive ? '<span style="font-size:12px; color:#28a745; margin-left:8px;">Active</span>' : ''}
+                        </div>
+                        <button type="button" onclick="selectProductPrice(${productId}, ${p.amount}, '${productName.replace(/'/g, "\\'")}', ${p.id})" 
+                                style="padding:6px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
+                            Use
+                        </button>
+                    </div>
+                `;
+            });
+
+            // Add custom price option
+            modalHtml += `
+                    </div>
+                    <div style="padding:12px; border:1px dashed #007bff; border-radius:8px; display:flex; gap:10px; align-items:center; margin-top:10px;">
+                        <span style="font-weight:600;">✏️ Custom</span>
+                        <input type="number" id="customPriceInput" step="0.01" placeholder="Enter amount" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                        <button type="button" onclick="selectCustomProductPrice(${productId}, '${productName.replace(/'/g, "\\'")}')" 
+                                style="padding:6px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
+                            Apply
+                        </button>
+                    </div>
+                    <button onclick="closePriceSelector()" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; margin-top:12px; width:100%;">
+                        Cancel
+                    </button>
                 </div>
             `;
-        });
-        resultsContainer.innerHTML = html;
-    }
 
-    // ============================================================
-    // TOGGLE RETURN MODE
-    // ============================================================
-    function toggleReturnMode() {
-        returnMode = document.getElementById('returnMode').checked;
-        const reasonSelect = document.getElementById('returnReason');
-        if (returnMode) {
-            reasonSelect.style.display = 'inline-block';
-            document.querySelector('.return-toggle label').style.color = '#dc3545';
-        } else {
-            reasonSelect.style.display = 'none';
-            document.querySelector('.return-toggle label').style.color = '#333';
-        }
-        renderCart();
-    }
+            // Show overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'priceSelectorOverlay';
+            overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center;';
+            overlay.innerHTML = modalHtml;
+            document.body.appendChild(overlay);
 
-    // ============================================================
-    // CART FUNCTIONS
-    // ============================================================
-    function addToCart(productId, productName, rate, isFoc) {
-        cart.push({
-            id: productId,
-            name: productName,
-            qty: 1,
-            rate: isFoc ? 0 : rate,
-            total: isFoc ? 0 : rate,
-            is_foc: isFoc
-        });
-        renderCart();
-    }
-
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        renderCart();
-    }
-
-    function updateCartItem(index, field, value) {
-        const val = parseFloat(value) || 0;
-        if (field === 'qty') {
-            cart[index].qty = val;
-        } else if (field === 'rate') {
-            cart[index].rate = val;
-        }
-        renderCart();
-    }
-
-    function renderCart() {
-        const regularItems = cart.filter(item => !item.is_foc);
-        const focItems = cart.filter(item => item.is_foc);
-
-        const regularBody = document.getElementById('regularCartBody');
-        const focBody = document.getElementById('focCartBody');
-        const regularTotalDisplay = document.getElementById('regularTotalDisplay');
-        const focTotalDisplay = document.getElementById('focTotalDisplay');
-        const subtotalDisplay = document.getElementById('subtotalDisplay');
-        const focValueDisplay = document.getElementById('focValueDisplay');
-        const netTotalDisplay = document.getElementById('netTotalDisplay');
-        const discountDisplay = document.getElementById('discountDisplay');
-
-        // Regular items
-        if (regularItems.length === 0) {
-            regularBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>`;
-            regularTotalDisplay.textContent = '0.00';
-        } else {
-            let html = '';
-            let regularTotal = 0;
-            regularItems.forEach((item, idx) => {
-                const index = cart.indexOf(item);
-                const total = item.qty * item.rate;
-                regularTotal += total;
-                const sign = returnMode ? '-' : '';
-                html += `
-                    <tr>
-                        <td><strong>${item.name}</strong></td>
-                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
-                        <td><input type="number" step="0.01" value="${item.rate}" style="width:80px;" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
-                        <td>${sign} Rs ${total.toFixed(2)}</td>
-                        <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
-                    </tr>
-                `;
-            });
-            regularBody.innerHTML = html;
-            regularTotalDisplay.textContent = regularTotal.toFixed(2);
+            // Focus the custom price input
+            setTimeout(() => {
+                const input = document.getElementById('customPriceInput');
+                if (input) input.focus();
+            }, 100);
         }
 
-        // FOC items
-        if (focItems.length === 0) {
-            focBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>`;
-            focTotalDisplay.textContent = '0.00';
-        } else {
-            let html = '';
-            let focTotal = 0;
-            focItems.forEach((item, idx) => {
-                const index = cart.indexOf(item);
-                const total = item.qty * item.rate;
-                focTotal += total;
-                const sign = returnMode ? '-' : '';
-                html += `
-                    <tr>
-                        <td><strong>${item.name}</strong></td>
-                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
-                        <td>${item.rate.toFixed(2)}</td>
-                        <td>${sign} Rs ${total.toFixed(2)}</td>
-                        <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
-                    </tr>
-                `;
-            });
-            focBody.innerHTML = html;
-            focTotalDisplay.textContent = focTotal.toFixed(2);
+        function closePriceSelector() {
+            const overlay = document.getElementById('priceSelectorOverlay');
+            if (overlay) overlay.remove();
         }
 
-        // Totals
-        const regularTotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-        const focTotal = focItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-        subtotalDisplay.textContent = `Rs ${regularTotal.toFixed(2)}`;
-        focValueDisplay.textContent = `Rs ${focTotal.toFixed(2)}`;
-        updateBillDiscount();
-    }
-
-    // ============================================================
-    // BILL DISCOUNT
-    // ============================================================
-    function updateBillDiscount() {
-        const discountType = document.getElementById('billDiscountType').value;
-        const discountValue = parseFloat(document.getElementById('billDiscountValue').value) || 0;
-
-        const regularItems = cart.filter(item => !item.is_foc);
-        const subtotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-
-        let discountAmount = 0;
-        if (discountType === 'PERCENTAGE' && discountValue > 0) {
-            discountAmount = (subtotal * discountValue) / 100;
-        } else if (discountType === 'FIXED' && discountValue > 0) {
-            discountAmount = Math.min(discountValue, subtotal);
+        function selectProductPrice(productId, price, productName, priceId) {
+            // Add to cart with selected price and price_id
+            addToCart(productId, productName, price, false, priceId);
+            closePriceSelector();
         }
 
-        const netTotal = subtotal - discountAmount;
+        function selectCustomProductPrice(productId, productName) {
+            const input = document.getElementById('customPriceInput');
+            const price = parseFloat(input.value);
+            if (!price || price <= 0) {
+                alert('Please enter a valid price.');
+                return;
+            }
+            // Custom price has no price_id (null)
+            addToCart(productId, productName, price, false, null);
+            closePriceSelector();
+        }
 
-        document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
-        document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
-
-        billDiscountType = discountType;
-        billDiscountValue = discountValue;
-    }
-
-    // ============================================================
-    // CLEAR CART
-    // ============================================================
-    function clearCart() {
-        if (cart.length === 0) return;
-        if (confirm('Clear all items from this bill?')) {
-            cart = [];
+        // ============================================================
+        // TOGGLE RETURN MODE
+        // ============================================================
+        function toggleReturnMode() {
+            returnMode = document.getElementById('returnMode').checked;
+            const reasonSelect = document.getElementById('returnReason');
+            if (returnMode) {
+                reasonSelect.style.display = 'inline-block';
+                document.querySelector('.return-toggle label').style.color = '#dc3545';
+            } else {
+                reasonSelect.style.display = 'none';
+                document.querySelector('.return-toggle label').style.color = '#333';
+            }
             renderCart();
-            resetPayment();
-            document.getElementById('billDiscountType').value = '';
-            document.getElementById('billDiscountValue').value = '0';
+        }
+
+        // ============================================================
+        // CART FUNCTIONS (with price_id support)
+        // ============================================================
+        function addToCart(productId, productName, rate, isFoc, priceId) {
+            // Check if product already in cart (if same product and same price_id)
+            const existingIndex = cart.findIndex(item => 
+                item.id === productId && 
+                item.price_id === priceId && 
+                item.is_foc === isFoc
+            );
+            
+            if (existingIndex !== -1) {
+                // Increment quantity instead of adding new entry
+                cart[existingIndex].qty += 1;
+                cart[existingIndex].total = cart[existingIndex].qty * cart[existingIndex].rate;
+            } else {
+                // Add new item
+                cart.push({
+                    id: productId,
+                    name: productName,
+                    qty: 1,
+                    rate: isFoc ? 0 : rate,
+                    total: isFoc ? 0 : rate,
+                    is_foc: isFoc,
+                    price_id: priceId  // Store which price version was selected
+                });
+            }
+            renderCart();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function updateCartItem(index, field, value) {
+            const val = parseFloat(value) || 0;
+            if (field === 'qty') {
+                cart[index].qty = val;
+            } else if (field === 'rate') {
+                cart[index].rate = val;
+                cart[index].price_id = null; // Custom rate, no price version
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const regularItems = cart.filter(item => !item.is_foc);
+            const focItems = cart.filter(item => item.is_foc);
+
+            const regularBody = document.getElementById('regularCartBody');
+            const focBody = document.getElementById('focCartBody');
+            const regularTotalDisplay = document.getElementById('regularTotalDisplay');
+            const focTotalDisplay = document.getElementById('focTotalDisplay');
+            const subtotalDisplay = document.getElementById('subtotalDisplay');
+            const focValueDisplay = document.getElementById('focValueDisplay');
+            const netTotalDisplay = document.getElementById('netTotalDisplay');
+            const discountDisplay = document.getElementById('discountDisplay');
+
+            // Regular items
+            if (regularItems.length === 0) {
+                regularBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>`;
+                regularTotalDisplay.textContent = '0.00';
+            } else {
+                let html = '';
+                let regularTotal = 0;
+                regularItems.forEach((item, idx) => {
+                    const index = cart.indexOf(item);
+                    const total = item.qty * item.rate;
+                    regularTotal += total;
+                    const sign = returnMode ? '-' : '';
+                    // Show price version indicator
+                    const priceLabel = item.price_id ? '🔹' : '';
+                    html += `
+                        <tr>
+                            <td><strong>${item.name}</strong> ${priceLabel}</td>
+                            <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                            <td><input type="number" step="0.01" value="${item.rate}" style="width:80px;" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
+                            <td>${sign} Rs ${total.toFixed(2)}</td>
+                            <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
+                        </tr>
+                    `;
+                });
+                regularBody.innerHTML = html;
+                regularTotalDisplay.textContent = regularTotal.toFixed(2);
+            }
+
+            // FOC items
+            if (focItems.length === 0) {
+                focBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>`;
+                focTotalDisplay.textContent = '0.00';
+            } else {
+                let html = '';
+                let focTotal = 0;
+                focItems.forEach((item, idx) => {
+                    const index = cart.indexOf(item);
+                    const total = item.qty * item.rate;
+                    focTotal += total;
+                    const sign = returnMode ? '-' : '';
+                    html += `
+                        <tr>
+                            <td><strong>${item.name}</strong></td>
+                            <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                            <td>${item.rate.toFixed(2)}</td>
+                            <td>${sign} Rs ${total.toFixed(2)}</td>
+                            <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
+                        </tr>
+                    `;
+                });
+                focBody.innerHTML = html;
+                focTotalDisplay.textContent = focTotal.toFixed(2);
+            }
+
+            // Totals
+            const regularTotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const focTotal = focItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            subtotalDisplay.textContent = `Rs ${regularTotal.toFixed(2)}`;
+            focValueDisplay.textContent = `Rs ${focTotal.toFixed(2)}`;
             updateBillDiscount();
         }
-    }
 
-    // ============================================================
-    // VEHICLE STOCK UPDATE (when vehicle changes)
-    // ============================================================
-    function updateVehicleStock() {
-        const vehicleSelect = document.getElementById('vehicleSelect');
-        const vehicleId = vehicleSelect ? vehicleSelect.value : '';
-        if (!vehicleId) {
-            // Reset all stock badges to 0
-            document.querySelectorAll('.product-card .product-stock').forEach(badge => {
-                badge.textContent = '0';
-                badge.className = 'product-stock';
-            });
-            return;
+        // ============================================================
+        // BILL DISCOUNT
+        // ============================================================
+        function updateBillDiscount() {
+            const discountType = document.getElementById('billDiscountType').value;
+            const discountValue = parseFloat(document.getElementById('billDiscountValue').value) || 0;
+
+            const regularItems = cart.filter(item => !item.is_foc);
+            const subtotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+
+            let discountAmount = 0;
+            if (discountType === 'PERCENTAGE' && discountValue > 0) {
+                discountAmount = (subtotal * discountValue) / 100;
+            } else if (discountType === 'FIXED' && discountValue > 0) {
+                discountAmount = Math.min(discountValue, subtotal);
+            }
+
+            const netTotal = subtotal - discountAmount;
+
+            document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
+            document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
+
+            billDiscountType = discountType;
+            billDiscountValue = discountValue;
         }
-        fetch(`/api/vehicle-stock/?vehicle=${vehicleId}`)
-            .then(response => response.json())
-            .then(data => {
-                const stocks = data.stocks || {};
-                document.querySelectorAll('.product-card').forEach(card => {
-                    const saleBtn = card.querySelector('.btn-sale');
-                    if (saleBtn) {
-                        const match = saleBtn.getAttribute('onclick').match(/\d+/);
-                        if (match) {
-                            const productId = match[0];
-                            const quantity = stocks[productId] || 0;
-                            const badge = card.querySelector('.product-stock');
-                            if (badge) {
-                                badge.textContent = quantity.toFixed(0);
-                                badge.className = 'product-stock';
-                                if (quantity <= 0) badge.classList.add('low');
-                                else if (quantity < 10) badge.classList.add('medium');
-                                else badge.classList.add('high');
-                            }
-                        }
-                    }
+
+        // ============================================================
+        // CLEAR CART
+        // ============================================================
+        function clearCart() {
+            if (cart.length === 0) return;
+            if (confirm('Clear all items from this bill?')) {
+                cart = [];
+                renderCart();
+                resetPayment();
+                document.getElementById('billDiscountType').value = '';
+                document.getElementById('billDiscountValue').value = '0';
+                updateBillDiscount();
+            }
+        }
+
+        // ============================================================
+        // VEHICLE STOCK UPDATE (when vehicle changes)
+        // ============================================================
+        function updateVehicleStock() {
+            const vehicleSelect = document.getElementById('vehicleSelect');
+            const vehicleId = vehicleSelect ? vehicleSelect.value : '';
+            if (!vehicleId) {
+                document.querySelectorAll('.product-card .product-stock').forEach(badge => {
+                    badge.textContent = '0';
+                    badge.className = 'product-stock';
                 });
-            })
-            .catch(error => console.error('Error fetching vehicle stock:', error));
-    }
-
-    // ============================================================
-    // REP CODE INVOICE GENERATION
-    // ============================================================
-    function updateInvoiceFromRep() {
-        const repSelect = document.getElementById('repSelect');
-        const invoiceInput = document.getElementById('invoiceNoInput');
-        if (!repSelect || !invoiceInput) return;
-        if (manualInvoice) return;
-        const selectedOption = repSelect.options[repSelect.selectedIndex];
-        const repCode = selectedOption ? selectedOption.getAttribute('data-rep-code') : '';
-        if (repCode) {
-            invoiceInput.value = repCode;
-        } else {
-            invoiceInput.value = '';
-        }
-    }
-
-    // ============================================================
-    // PAYMENT METHODS
-    // ============================================================
-    function selectPayment(method) {
-        resetPayment();
-        selectedPayment = method;
-        document.getElementById('paymentMethod').value = method;
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.pay-btn').forEach(b => {
-            if (b.textContent.trim().toLowerCase().includes(method)) b.classList.add('active');
-        });
-        const details = document.getElementById('paymentDetails');
-        details.classList.add('show');
-        if (method === 'cash') {
-            details.innerHTML = `
-                <div class="form-row">
-                    <div class="form-group" style="flex:1;">
-                        <label>Cash Amount *</label>
-                        <input type="number" step="0.01" id="cashAmount" name="cash_amount" placeholder="Enter amount" oninput="updateCashTotal()">
-                    </div>
-                    <div style="padding:5px 0; font-weight:600; color:#28a745;">Total: <span id="cashTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
-            updatePaymentInputs();
-        } else if (method === 'credit') {
-            details.innerHTML = `
-                <div class="form-row">
-                    <div class="form-group" style="flex:1;">
-                        <label>Credit Amount *</label>
-                        <input type="number" step="0.01" id="creditAmount" name="credit_amount" placeholder="Enter amount" oninput="updateCreditTotal()">
-                    </div>
-                    <div style="padding:5px 0; font-weight:600; color:#fd7e14;">Total: <span id="creditTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
-            updatePaymentInputs();
-        } else if (method === 'online') {
-            details.innerHTML = `
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Payment Method *</label>
-                        <select id="onlineMethod" name="online_method" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="Mobile Wallet">Mobile Wallet</option>
-                            <option value="Card">Card</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Reference No</label>
-                        <input type="text" id="onlineRef" name="online_ref" placeholder="Optional reference">
-                    </div>
-                    <div class="form-group">
-                        <label>Amount *</label>
-                        <input type="number" step="0.01" id="onlineAmount" name="online_amount" placeholder="Enter amount" oninput="updateOnlineTotal()">
-                    </div>
-                    <div style="padding:5px 0; font-weight:600; color:#17a2b8;">Total: <span id="onlineTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
-        }
-    }
-
-    function resetPayment() {
-        selectedPayment = null;
-        document.getElementById('paymentMethod').value = '';
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('paymentDetails').classList.remove('show');
-        chequeData = null;
-        multiPayData = null;
-    }
-
-    function updateCashTotal() {
-        const val = parseFloat(document.getElementById('cashAmount').value) || 0;
-        document.getElementById('cashTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
-    }
-    function updateCreditTotal() {
-        const val = parseFloat(document.getElementById('creditAmount').value) || 0;
-        document.getElementById('creditTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
-    }
-    function updateOnlineTotal() {
-        const val = parseFloat(document.getElementById('onlineAmount').value) || 0;
-        document.getElementById('onlineTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
-    }
-
-    function updatePaymentInputs() {
-        const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
-        const netTotal = parseFloat(netText) || 0;
-        if (selectedPayment === 'cash') {
-            const cashInput = document.getElementById('cashAmount');
-            if (cashInput) { cashInput.value = netTotal.toFixed(2); updateCashTotal(); }
-        }
-        if (selectedPayment === 'credit') {
-            const creditInput = document.getElementById('creditAmount');
-            if (creditInput) { creditInput.value = netTotal.toFixed(2); updateCreditTotal(); }
-        }
-        if (selectedPayment === 'online') {
-            const onlineInput = document.getElementById('onlineAmount');
-            if (onlineInput) { onlineInput.value = netTotal.toFixed(2); updateOnlineTotal(); }
-        }
-    }
-
-    // ============================================================
-    // CHEQUE MODAL
-    // ============================================================
-    function openChequeModal() {
-        document.getElementById('chequeModal').classList.add('show');
-        document.getElementById('chequeDate').value = new Date().toISOString().split('T')[0];
-        const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
-        const netTotal = parseFloat(netText) || 0;
-        document.getElementById('chequeAmount').value = netTotal.toFixed(2);
-    }
-    function closeChequeModal() { document.getElementById('chequeModal').classList.remove('show'); }
-    function confirmCheque() {
-        const chequeNo = document.getElementById('chequeNo').value;
-        const chequeDate = document.getElementById('chequeDate').value;
-        const bank = document.getElementById('bankSelect').value;
-        const amount = parseFloat(document.getElementById('chequeAmount').value) || 0;
-        if (!chequeNo || !chequeDate || !bank || amount <= 0) {
-            alert('Please fill in all cheque details!');
-            return;
-        }
-        chequeData = { chequeNo, chequeDate, bank, amount };
-        selectedPayment = 'cheque';
-        document.getElementById('paymentMethod').value = 'cheque';
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.pay-btn').forEach(b => {
-            if (b.textContent.trim().toLowerCase().includes('cheque')) b.classList.add('active');
-        });
-        const details = document.getElementById('paymentDetails');
-        details.classList.add('show');
-        details.innerHTML = `
-            <div style="background:#f0f4ff; padding:15px; border-radius:8px;">
-                <p><strong>Cheque No:</strong> ${chequeNo}</p>
-                <p><strong>Date:</strong> ${chequeDate}</p>
-                <p><strong>Bank:</strong> ${document.getElementById('bankSelect').options[document.getElementById('bankSelect').selectedIndex].text}</p>
-                <p><strong>Amount:</strong> <strong style="color:#6f42c1;">Rs ${amount.toFixed(2)}</strong></p>
-            </div>
-            <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetCheque()">✕ Remove Cheque</button>
-        `;
-        closeChequeModal();
-    }
-    function resetCheque() {
-        chequeData = null;
-        if (selectedPayment === 'cheque') resetPayment();
-    }
-
-    // ============================================================
-    // ADD BANK MODAL
-    // ============================================================
-    function openAddBankModal() { document.getElementById('addBankModal').classList.add('show'); }
-    function closeAddBankModal() { document.getElementById('addBankModal').classList.remove('show'); document.getElementById('newBankName').value = ''; }
-    function confirmAddBank() {
-        const name = document.getElementById('newBankName').value.trim();
-        if (!name) { alert('Please enter a bank name.'); return; }
-        fetch('/api/add-bank/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
-            body: JSON.stringify({ name: name })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const select = document.getElementById('bankSelect');
-                const option = document.createElement('option');
-                option.value = data.id;
-                option.textContent = data.name;
-                select.appendChild(option);
-                select.value = data.id;
-                closeAddBankModal();
-                alert('Bank added successfully!');
-            } else {
-                alert(data.error || 'Failed to add bank.');
+                return;
             }
-        })
-        .catch(() => alert('Error adding bank.'));
-    }
-
-    // ============================================================
-    // MULTI PAY MODAL
-    // ============================================================
-    function openMultiPayModal() {
-        document.getElementById('multiPayModal').classList.add('show');
-        updateMultiTotal();
-    }
-    function closeMultiPayModal() { document.getElementById('multiPayModal').classList.remove('show'); }
-    function updateMultiTotal() {
-        const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
-        const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
-        document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
-    }
-    function confirmMultiPay() {
-        const type1 = document.getElementById('multiType1').value;
-        const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
-        const type2 = document.getElementById('multiType2').value;
-        const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
-        const total = amt1 + amt2;
-        if (type1 === type2) {
-            alert('Please select two different payment types.');
-            return;
-        }
-        if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
-            alert('Please enter valid amounts.');
-            return;
-        }
-        multiPayData = { type1, amt1, type2, amt2, total };
-        selectedPayment = 'multi';
-        document.getElementById('paymentMethod').value = 'multi';
-        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.pay-btn').forEach(b => {
-            if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
-        });
-        const details = document.getElementById('paymentDetails');
-        details.classList.add('show');
-        details.innerHTML = `
-            <div style="background:#f8f0ff; padding:15px; border-radius:8px;">
-                <p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}</p>
-                <p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}</p>
-                <p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>
-            </div>
-            <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>
-        `;
-        closeMultiPayModal();
-    }
-    function resetMulti() {
-        multiPayData = null;
-        if (selectedPayment === 'multi') resetPayment();
-    }
-
-    // ============================================================
-    // CUSTOMER SEARCH
-    // ============================================================
-    function setupCustomerSearch() {
-        const searchInput = document.getElementById('customerSearchInput');
-        if (!searchInput) return;
-        
-        let timeoutId = null;
-        
-        searchInput.addEventListener('input', function() {
-            clearTimeout(timeoutId);
-            const query = this.value.trim();
-            timeoutId = setTimeout(() => searchCustomers(query), 300);
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            const results = document.getElementById('customerSearchResults');
-            const searchBox = document.getElementById('customerSearchInput');
-            if (results && searchBox && !results.contains(e.target) && e.target !== searchBox) {
-                results.style.display = 'none';
-            }
-        });
-        
-        // Allow Enter key to select first result
-        searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const firstResult = document.querySelector('#customerSearchResults .search-result-item');
-                if (firstResult) {
-                    firstResult.click();
-                    e.preventDefault();
-                }
-            }
-        });
-    }
-
-    function searchCustomers(query) {
-        const resultsContainer = document.getElementById('customerSearchResults');
-        
-        // If query is too short, hide dropdown and return
-        if (!query || query.length < 2) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-        
-        // Show loading state
-        resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
-        resultsContainer.style.display = 'block';
-        
-        // Make API request with the query
-        fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-                resultsContainer.innerHTML = '';
-                
-                if (data.customers.length === 0) {
-                    resultsContainer.innerHTML = `
-                        <div class="no-results">
-                            No customers found.<br>
-                            <span style="font-size:12px;">Try a different search or click "+ New Customer"</span>
-                        </div>
-                    `;
-                    resultsContainer.style.display = 'block';
-                    return;
-                }
-                
-                // Render each customer as a dropdown item
-                data.customers.forEach(customer => {
-                    const div = document.createElement('div');
-                    div.className = 'search-result-item';
-                    div.innerHTML = `
-                        <div>
-                            <div class="name">${customer.name}</div>
-                            <div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div>
-                        </div>
-                        <div class="info">
-                            <div class="phone">${customer.phone || ''}</div>
-                        </div>
-                    `;
-                    div.addEventListener('click', function() {
-                        selectCustomer(customer);
-                    });
-                    resultsContainer.appendChild(div);
-                });
-                
-                resultsContainer.style.display = 'block';
-            })
-            .catch(() => {
-                resultsContainer.innerHTML = '<div class="no-results">Error searching. Please try again.</div>';
-                resultsContainer.style.display = 'block';
-            });
-    }
-    function selectCustomer(customer) {
-        document.getElementById('selectedCustomerId').value = customer.id;
-        document.getElementById('shopNameHidden').value = customer.name;
-        document.getElementById('shopCodeHidden').value = customer.code;
-        document.getElementById('selectedCustomerCode').textContent = customer.code || '-';
-        document.getElementById('selectedCustomerPhone').textContent = customer.phone || '-';
-        document.getElementById('selectedCustomerAddress').textContent = customer.address || '-';
-        document.getElementById('customerDetails').style.display = 'block';
-        document.getElementById('customerSearchInput').value = customer.name;
-        document.getElementById('customerSearchResults').style.display = 'none';
-    }
-
-    function openAddCustomer() {
-        const currentSearch = document.getElementById('customerSearchInput').value || '';
-        const url = `/customer/add/?return_to=1&q=${encodeURIComponent(currentSearch)}`;
-        const features = 'width=600,height=800,scrollbars=yes,resizable=yes';
-        const newWindow = window.open(url, '_blank', features);
-        if (newWindow) newWindow.focus();
-        else if (confirm('Pop-up blocked. Do you want to open in a new tab?')) window.open(url, '_blank');
-    }
-
-    function checkForNewCustomer() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const customerId = urlParams.get('customer_id');
-        if (customerId) {
-            fetch(`/api/customers/search/?query=${customerId}`)
+            fetch(`/api/vehicle-stock/?vehicle=${vehicleId}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.customers.length > 0) {
-                        const customer = data.customers.find(c => c.id == customerId);
-                        if (customer) selectCustomer(customer);
-                    }
+                    const stocks = data.stocks || {};
+                    document.querySelectorAll('.product-card').forEach(card => {
+                        const saleBtn = card.querySelector('.btn-sale');
+                        if (saleBtn) {
+                            const match = saleBtn.getAttribute('onclick').match(/\d+/);
+                            if (match) {
+                                const productId = match[0];
+                                const quantity = stocks[productId] || 0;
+                                const badge = card.querySelector('.product-stock');
+                                if (badge) {
+                                    badge.textContent = quantity.toFixed(0);
+                                    badge.className = 'product-stock';
+                                    if (quantity <= 0) badge.classList.add('low');
+                                    else if (quantity < 10) badge.classList.add('medium');
+                                    else badge.classList.add('high');
+                                }
+                            }
+                        }
+                    });
                 })
-                .catch(() => {});
-            const newUrl = window.location.pathname + window.location.search.replace(/[?&]customer_id=[^&]*/, '');
-            window.history.replaceState({}, document.title, newUrl);
-        }
-    }
-
-    // ============================================================
-    // FORM SUBMIT HANDLER
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        // Customer search
-        setupCustomerSearch();
-        checkForNewCustomer();
-
-        // Rep select listener for invoice
-        const repSelect = document.getElementById('repSelect');
-        if (repSelect) {
-            repSelect.addEventListener('change', function() {
-                updateInvoiceFromRep();
-                manualInvoice = false;
-            });
-            setTimeout(updateInvoiceFromRep, 300);
+                .catch(error => console.error('Error fetching vehicle stock:', error));
         }
 
-        // Invoice manual override
-        const invoiceInput = document.getElementById('invoiceNoInput');
-        if (invoiceInput) {
-            invoiceInput.addEventListener('input', function() {
-                manualInvoice = true;
-            });
-        }
-
-        // Vehicle select listener for stock update
-        const vehicleSelect = document.getElementById('vehicleSelect');
-        if (vehicleSelect) {
-            vehicleSelect.addEventListener('change', function() {
-                updateVehicleStock();
-                // Also auto-save the vehicle selection (handled by view)
-            });
-            // Initial stock load if vehicle pre-selected
-            setTimeout(updateVehicleStock, 500);
-        }
-
-        // Multi pay total update
-        document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
-        document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
-
-        renderCart();
-
-        // Form submit handler
-        document.getElementById('salesForm').addEventListener('submit', function(e) {
-            // Validate cart
-            if (cart.length === 0) {
-                e.preventDefault();
-                alert('❌ Please add at least one item to the bill!');
-                return;
-            }
-
-            // Validate customer
-            if (!document.getElementById('selectedCustomerId').value) {
-                e.preventDefault();
-                alert('❌ Please select a customer!');
-                return;
-            }
-
-            // Validate payment method
-            if (!selectedPayment) {
-                e.preventDefault();
-                alert('❌ Please select a payment method!');
-                return;
-            }
-
-            // Validate vehicle
-            const vehicleSelect = document.getElementById('vehicleSelect');
-            if (!vehicleSelect.value) {
-                e.preventDefault();
-                alert('❌ Please select a delivery vehicle!');
-                return;
-            }
-
-            // Validate invoice number
+        // ============================================================
+        // REP CODE INVOICE GENERATION
+        // ============================================================
+        function updateInvoiceFromRep() {
+            const repSelect = document.getElementById('repSelect');
             const invoiceInput = document.getElementById('invoiceNoInput');
-            if (!invoiceInput.value.trim()) {
-                e.preventDefault();
-                alert('❌ Please enter an invoice number!');
-                return;
+            if (!repSelect || !invoiceInput) return;
+            if (manualInvoice) return;
+            const selectedOption = repSelect.options[repSelect.selectedIndex];
+            const repCode = selectedOption ? selectedOption.getAttribute('data-rep-code') : '';
+            if (repCode) {
+                invoiceInput.value = repCode;
+            } else {
+                invoiceInput.value = '';
             }
+        }
 
-            // Validate payment amount matches net total
+        // ============================================================
+        // PAYMENT METHODS
+        // ============================================================
+        function selectPayment(method) {
+            resetPayment();
+            selectedPayment = method;
+            document.getElementById('paymentMethod').value = method;
+            document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.pay-btn').forEach(b => {
+                if (b.textContent.trim().toLowerCase().includes(method)) b.classList.add('active');
+            });
+            const details = document.getElementById('paymentDetails');
+            details.classList.add('show');
+            if (method === 'cash') {
+                details.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Cash Amount *</label>
+                            <input type="number" step="0.01" id="cashAmount" name="cash_amount" placeholder="Enter amount" oninput="updateCashTotal()">
+                        </div>
+                        <div style="padding:5px 0; font-weight:600; color:#28a745;">Total: <span id="cashTotalDisplay">Rs 0.00</span></div>
+                    </div>
+                `;
+                updatePaymentInputs();
+            } else if (method === 'credit') {
+                details.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Credit Amount *</label>
+                            <input type="number" step="0.01" id="creditAmount" name="credit_amount" placeholder="Enter amount" oninput="updateCreditTotal()">
+                        </div>
+                        <div style="padding:5px 0; font-weight:600; color:#fd7e14;">Total: <span id="creditTotalDisplay">Rs 0.00</span></div>
+                    </div>
+                `;
+                updatePaymentInputs();
+            } else if (method === 'online') {
+                details.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Payment Method *</label>
+                            <select id="onlineMethod" name="online_method" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Mobile Wallet">Mobile Wallet</option>
+                                <option value="Card">Card</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Reference No</label>
+                            <input type="text" id="onlineRef" name="online_ref" placeholder="Optional reference">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount *</label>
+                            <input type="number" step="0.01" id="onlineAmount" name="online_amount" placeholder="Enter amount" oninput="updateOnlineTotal()">
+                        </div>
+                        <div style="padding:5px 0; font-weight:600; color:#17a2b8;">Total: <span id="onlineTotalDisplay">Rs 0.00</span></div>
+                    </div>
+                `;
+            }
+        }
+
+        function resetPayment() {
+            selectedPayment = null;
+            document.getElementById('paymentMethod').value = '';
+            document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('paymentDetails').classList.remove('show');
+            chequeData = null;
+            multiPayData = null;
+        }
+
+        function updateCashTotal() {
+            const val = parseFloat(document.getElementById('cashAmount').value) || 0;
+            document.getElementById('cashTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+        }
+        function updateCreditTotal() {
+            const val = parseFloat(document.getElementById('creditAmount').value) || 0;
+            document.getElementById('creditTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+        }
+        function updateOnlineTotal() {
+            const val = parseFloat(document.getElementById('onlineAmount').value) || 0;
+            document.getElementById('onlineTotalDisplay').textContent = `Rs ${val.toFixed(2)}`;
+        }
+
+        function updatePaymentInputs() {
             const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
             const netTotal = parseFloat(netText) || 0;
-            let paidAmount = 0;
-            if (selectedPayment === 'cash') paidAmount = parseFloat(document.getElementById('cashAmount')?.value) || 0;
-            else if (selectedPayment === 'credit') paidAmount = parseFloat(document.getElementById('creditAmount')?.value) || 0;
-            else if (selectedPayment === 'cheque' && chequeData) paidAmount = chequeData.amount;
-            else if (selectedPayment === 'online') paidAmount = parseFloat(document.getElementById('onlineAmount')?.value) || 0;
-            else if (selectedPayment === 'multi' && multiPayData) paidAmount = multiPayData.total;
+            if (selectedPayment === 'cash') {
+                const cashInput = document.getElementById('cashAmount');
+                if (cashInput) { cashInput.value = netTotal.toFixed(2); updateCashTotal(); }
+            }
+            if (selectedPayment === 'credit') {
+                const creditInput = document.getElementById('creditAmount');
+                if (creditInput) { creditInput.value = netTotal.toFixed(2); updateCreditTotal(); }
+            }
+            if (selectedPayment === 'online') {
+                const onlineInput = document.getElementById('onlineAmount');
+                if (onlineInput) { onlineInput.value = netTotal.toFixed(2); updateOnlineTotal(); }
+            }
+        }
 
-            if (Math.abs(paidAmount - netTotal) > 0.01) {
-                e.preventDefault();
-                alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})! Please adjust.`);
+        // ============================================================
+        // CHEQUE MODAL (FIXED)
+        // ============================================================
+        function openChequeModal() {
+            document.getElementById('chequeModal').classList.add('show');
+            document.getElementById('chequeDate').value = new Date().toISOString().split('T')[0];
+            const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
+            const netTotal = parseFloat(netText) || 0;
+            document.getElementById('chequeAmount').value = netTotal.toFixed(2);
+        }
+        
+        function closeChequeModal() { 
+            document.getElementById('chequeModal').classList.remove('show'); 
+        }
+        
+        function confirmCheque() {
+            const chequeNo = document.getElementById('chequeNo').value;
+            const chequeDate = document.getElementById('chequeDate').value;
+            const bank = document.getElementById('bankSelect').value;
+            const amount = parseFloat(document.getElementById('chequeAmount').value) || 0;
+            
+            if (!chequeNo || !chequeDate || !bank || amount <= 0) {
+                alert('Please fill in all cheque details!');
                 return;
             }
+            
+            chequeData = { chequeNo, chequeDate, bank, amount };
+            selectedPayment = 'cheque';
+            document.getElementById('paymentMethod').value = 'cheque';
+            
+            // Remove existing cheque hidden fields
+            document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
+            
+            // Add new hidden fields
+            const form = document.getElementById('salesForm');
+            const fields = [
+                { name: 'cheque_amount', value: amount.toFixed(2) },
+                { name: 'cheque_no', value: chequeNo },
+                { name: 'cheque_date', value: chequeDate },
+                { name: 'cheque_bank', value: bank }
+            ];
+            fields.forEach(f => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = f.name;
+                input.value = f.value;
+                input.className = 'cheque-hidden';
+                form.appendChild(input);
+            });
+            
+            // Update UI
+            document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.pay-btn').forEach(b => {
+                if (b.textContent.trim().toLowerCase().includes('cheque')) b.classList.add('active');
+            });
+            
+            const details = document.getElementById('paymentDetails');
+            details.classList.add('show');
+            details.innerHTML = `
+                <div style="background:#f0f4ff; padding:15px; border-radius:8px;">
+                    <p><strong>Cheque No:</strong> ${chequeNo}</p>
+                    <p><strong>Date:</strong> ${chequeDate}</p>
+                    <p><strong>Bank:</strong> ${document.getElementById('bankSelect').options[document.getElementById('bankSelect').selectedIndex].text}</p>
+                    <p><strong>Amount:</strong> <strong style="color:#6f42c1;">Rs ${amount.toFixed(2)}</strong></p>
+                </div>
+                <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetCheque()">✕ Remove Cheque</button>
+            `;
+            closeChequeModal();
+        }
+        
+        function resetCheque() {
+            // Remove cheque hidden fields
+            document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
+            chequeData = null;
+            if (selectedPayment === 'cheque') resetPayment();
+        }
 
-            // Populate hidden fields for cart items
-            const maxItems = 20;
-            for (let i = 1; i <= maxItems; i++) {
-                const item = cart[i - 1];
-                const productField = document.getElementById(`hidden_product_${i}`);
-                const qtyField = document.getElementById(`hidden_qty_${i}`);
-                const rateField = document.getElementById(`hidden_rate_${i}`);
-                const focField = document.getElementById(`hidden_is_foc_${i}`);
-
-                if (item) {
-                    const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
-                    productField.value = item.id;
-                    qtyField.value = qty;
-                    rateField.value = item.rate;
-                    focField.value = item.is_foc ? 'true' : 'false';
+        // ============================================================
+        // ADD BANK MODAL
+        // ============================================================
+        function openAddBankModal() { 
+            document.getElementById('addBankModal').classList.add('show'); 
+        }
+        
+        function closeAddBankModal() { 
+            document.getElementById('addBankModal').classList.remove('show'); 
+            document.getElementById('newBankName').value = ''; 
+        }
+        
+        function confirmAddBank() {
+            const name = document.getElementById('newBankName').value.trim();
+            if (!name) { alert('Please enter a bank name.'); return; }
+            fetch('/api/add-bank/', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value 
+                },
+                body: JSON.stringify({ name: name })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('bankSelect');
+                    const option = document.createElement('option');
+                    option.value = data.id;
+                    option.textContent = data.name;
+                    select.appendChild(option);
+                    select.value = data.id;
+                    closeAddBankModal();
+                    alert('Bank added successfully!');
                 } else {
-                    productField.value = '';
-                    qtyField.value = '0';
-                    rateField.value = '0';
-                    focField.value = 'false';
+                    alert(data.error || 'Failed to add bank.');
                 }
+            })
+            .catch(() => alert('Error adding bank.'));
+        }
+
+        // ============================================================
+        // MULTI PAY MODAL
+        // ============================================================
+        function openMultiPayModal() {
+            document.getElementById('multiPayModal').classList.add('show');
+            updateMultiTotal();
+        }
+        
+        function closeMultiPayModal() { 
+            document.getElementById('multiPayModal').classList.remove('show'); 
+        }
+        
+        function updateMultiTotal() {
+            const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
+            const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
+            document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
+        }
+        
+        function confirmMultiPay() {
+            const type1 = document.getElementById('multiType1').value;
+            const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
+            const type2 = document.getElementById('multiType2').value;
+            const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
+            const total = amt1 + amt2;
+            if (type1 === type2) {
+                alert('Please select two different payment types.');
+                return;
+            }
+            if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
+                alert('Please enter valid amounts.');
+                return;
+            }
+            multiPayData = { type1, amt1, type2, amt2, total };
+            selectedPayment = 'multi';
+            document.getElementById('paymentMethod').value = 'multi';
+            document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.pay-btn').forEach(b => {
+                if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
+            });
+            const details = document.getElementById('paymentDetails');
+            details.classList.add('show');
+            details.innerHTML = `
+                <div style="background:#f8f0ff; padding:15px; border-radius:8px;">
+                    <p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}</p>
+                    <p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}</p>
+                    <p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>
+                </div>
+                <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>
+            `;
+            closeMultiPayModal();
+        }
+        
+        function resetMulti() {
+            multiPayData = null;
+            if (selectedPayment === 'multi') resetPayment();
+        }
+
+        // ============================================================
+        // CUSTOMER SEARCH (FIXED)
+        // ============================================================
+        function setupCustomerSearch() {
+            const searchInput = document.getElementById('customerSearchInput');
+            if (!searchInput) return;
+            
+            let timeoutId = null;
+            
+            searchInput.addEventListener('input', function() {
+                clearTimeout(timeoutId);
+                const query = this.value.trim();
+                timeoutId = setTimeout(() => searchCustomers(query), 300);
+            });
+            
+            document.addEventListener('click', function(e) {
+                const results = document.getElementById('customerSearchResults');
+                const searchBox = document.getElementById('customerSearchInput');
+                if (results && searchBox && !results.contains(e.target) && e.target !== searchBox) {
+                    results.style.display = 'none';
+                }
+            });
+            
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const firstResult = document.querySelector('#customerSearchResults .search-result-item');
+                    if (firstResult) {
+                        firstResult.click();
+                        e.preventDefault();
+                    }
+                }
+            });
+        }
+
+        function searchCustomers(query) {
+            const resultsContainer = document.getElementById('customerSearchResults');
+            
+            if (!query || query.length < 2) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
+            
+            resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
+            resultsContainer.style.display = 'block';
+            
+            fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    resultsContainer.innerHTML = '';
+                    
+                    if (data.customers.length === 0) {
+                        resultsContainer.innerHTML = `
+                            <div class="no-results">
+                                No customers found.<br>
+                                <span style="font-size:12px;">Try a different search or click "+ New Customer"</span>
+                            </div>
+                        `;
+                        resultsContainer.style.display = 'block';
+                        return;
+                    }
+                    
+                    data.customers.forEach(customer => {
+                        const div = document.createElement('div');
+                        div.className = 'search-result-item';
+                        div.innerHTML = `
+                            <div>
+                                <div class="name">${customer.name}</div>
+                                <div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div>
+                            </div>
+                            <div class="info">
+                                <div class="phone">${customer.phone || ''}</div>
+                            </div>
+                        `;
+                        div.addEventListener('click', function() {
+                            selectCustomer(customer);
+                        });
+                        resultsContainer.appendChild(div);
+                    });
+                    
+                    resultsContainer.style.display = 'block';
+                })
+                .catch(() => {
+                    resultsContainer.innerHTML = '<div class="no-results">Error searching. Please try again.</div>';
+                    resultsContainer.style.display = 'block';
+                });
+        }
+
+        function selectCustomer(customer) {
+            document.getElementById('selectedCustomerId').value = customer.id;
+            document.getElementById('shopNameHidden').value = customer.name;
+            document.getElementById('shopCodeHidden').value = customer.code;
+            document.getElementById('selectedCustomerCode').textContent = customer.code || '-';
+            document.getElementById('selectedCustomerPhone').textContent = customer.phone || '-';
+            document.getElementById('selectedCustomerAddress').textContent = customer.address || '-';
+            document.getElementById('customerDetails').style.display = 'block';
+            document.getElementById('customerSearchInput').value = customer.name;
+            document.getElementById('customerSearchResults').style.display = 'none';
+        }
+
+        function openAddCustomer() {
+            const currentSearch = document.getElementById('customerSearchInput').value || '';
+            const url = `/customer/add/?return_to=1&q=${encodeURIComponent(currentSearch)}`;
+            const features = 'width=600,height=800,scrollbars=yes,resizable=yes';
+            const newWindow = window.open(url, '_blank', features);
+            if (newWindow) newWindow.focus();
+            else if (confirm('Pop-up blocked. Do you want to open in a new tab?')) window.open(url, '_blank');
+        }
+
+        function checkForNewCustomer() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerId = urlParams.get('customer_id');
+            if (customerId) {
+                fetch(`/api/customers/search/?query=${customerId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.customers.length > 0) {
+                            const customer = data.customers.find(c => c.id == customerId);
+                            if (customer) selectCustomer(customer);
+                        }
+                    })
+                    .catch(() => {});
+                const newUrl = window.location.pathname + window.location.search.replace(/[?&]customer_id=[^&]*/, '');
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        }
+
+        // ============================================================
+        // FORM SUBMIT HANDLER (with price_id support)
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            setupCustomerSearch();
+            checkForNewCustomer();
+
+            const repSelect = document.getElementById('repSelect');
+            if (repSelect) {
+                repSelect.addEventListener('change', function() {
+                    updateInvoiceFromRep();
+                    manualInvoice = false;
+                });
+                setTimeout(updateInvoiceFromRep, 300);
             }
 
-            // Payment method
-            document.getElementById('paymentMethod').value = selectedPayment;
-
-            // Return mode
-            document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
-            if (returnMode) {
-                document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
+            const invoiceInput = document.getElementById('invoiceNoInput');
+            if (invoiceInput) {
+                invoiceInput.addEventListener('input', function() {
+                    manualInvoice = true;
+                });
             }
 
-            // Bill discount
-            document.getElementById('hidden_bill_discount_type').value = billDiscountType;
-            document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
+            const vehicleSelect = document.getElementById('vehicleSelect');
+            if (vehicleSelect) {
+                vehicleSelect.addEventListener('change', function() {
+                    updateVehicleStock();
+                });
+                setTimeout(updateVehicleStock, 500);
+            }
 
-            // Bill status already set to COMPLETED
+            document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
+            document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
 
-            // For cheque, we add cheque details via the addHiddenFields in confirmCheque
-            // but they are also added via hidden fields in the modal – we can also add them here.
-            // The confirmCheque function already adds them to the hidden container, but we also need to
-            // ensure they are in the form. We'll rely on the confirmCheque function to have added them.
-            // However, if the user uses the cheque modal, the fields are appended to the form directly.
-            // We'll just make sure the hidden container is in the form.
+            renderCart();
 
-            // For multi pay, confirmMultiPay already adds fields.
+            document.getElementById('salesForm').addEventListener('submit', function(e) {
+                // Validate cart
+                if (cart.length === 0) {
+                    e.preventDefault();
+                    alert('❌ Please add at least one item to the bill!');
+                    return;
+                }
 
-            // Proceed with submit.
+                if (!document.getElementById('selectedCustomerId').value) {
+                    e.preventDefault();
+                    alert('❌ Please select a customer!');
+                    return;
+                }
+
+                if (!selectedPayment) {
+                    e.preventDefault();
+                    alert('❌ Please select a payment method!');
+                    return;
+                }
+
+                const vehicleSelect = document.getElementById('vehicleSelect');
+                if (!vehicleSelect.value) {
+                    e.preventDefault();
+                    alert('❌ Please select a delivery vehicle!');
+                    return;
+                }
+
+                const invoiceInput = document.getElementById('invoiceNoInput');
+                if (!invoiceInput.value.trim()) {
+                    e.preventDefault();
+                    alert('❌ Please enter an invoice number!');
+                    return;
+                }
+
+                // Validate payment amount matches net total
+                const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
+                const netTotal = parseFloat(netText) || 0;
+                let paidAmount = 0;
+                if (selectedPayment === 'cash') paidAmount = parseFloat(document.getElementById('cashAmount')?.value) || 0;
+                else if (selectedPayment === 'credit') paidAmount = parseFloat(document.getElementById('creditAmount')?.value) || 0;
+                else if (selectedPayment === 'cheque' && chequeData) paidAmount = chequeData.amount;
+                else if (selectedPayment === 'online') paidAmount = parseFloat(document.getElementById('onlineAmount')?.value) || 0;
+                else if (selectedPayment === 'multi' && multiPayData) paidAmount = multiPayData.total;
+
+                if (Math.abs(paidAmount - netTotal) > 0.01) {
+                    e.preventDefault();
+                    alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})! Please adjust.`);
+                    return;
+                }
+
+                // Populate hidden fields for cart items (with price_id support)
+                const maxItems = 20;
+                for (let i = 1; i <= maxItems; i++) {
+                    const item = cart[i - 1];
+                    const productField = document.getElementById(`hidden_product_${i}`);
+                    const qtyField = document.getElementById(`hidden_qty_${i}`);
+                    const rateField = document.getElementById(`hidden_rate_${i}`);
+                    const focField = document.getElementById(`hidden_is_foc_${i}`);
+                    const priceIdField = document.getElementById(`hidden_price_id_${i}`);
+
+                    if (item) {
+                        const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
+                        productField.value = item.id;
+                        qtyField.value = qty;
+                        rateField.value = item.rate;
+                        focField.value = item.is_foc ? 'true' : 'false';
+                        if (priceIdField) {
+                            priceIdField.value = item.price_id || '';
+                        }
+                    } else {
+                        productField.value = '';
+                        qtyField.value = '0';
+                        rateField.value = '0';
+                        focField.value = 'false';
+                        if (priceIdField) {
+                            priceIdField.value = '';
+                        }
+                    }
+                }
+
+                // Payment method
+                document.getElementById('paymentMethod').value = selectedPayment;
+
+                // Return mode
+                document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
+                if (returnMode) {
+                    document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
+                }
+
+                // Bill discount
+                document.getElementById('hidden_bill_discount_type').value = billDiscountType;
+                document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
+            });
         });
-    });
-</script>
+    </script>
 {% endblock %}
 
-searchCustomers
+price_id
