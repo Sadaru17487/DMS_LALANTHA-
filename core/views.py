@@ -21,7 +21,7 @@ from . import views
 from .decorators import permission_required
 from .forms import VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
-    Category, Employee, Product, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
+    Category, Employee, Product, ProductPrice, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, 
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession
@@ -2785,7 +2785,14 @@ def create_sales_bill(request):
         'return_mode': False,
         'duplicate_error': False,
     }
-    return render(request, 'core/sales_bill.html', context)
+    try:
+        return render(request, 'core/sales_bill.html', context)
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        logger.error(f"create_sales_bill error: {e}\n{error_msg}")
+        # Return a simple error page with the message (for debugging)
+        return HttpResponse(f"<h1>Error</h1><pre>{error_msg}</pre>", status=500)
 
 
 @login_required
