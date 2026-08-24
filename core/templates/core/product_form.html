@@ -157,52 +157,34 @@
                     </p>
 
                     <!-- Cost Prices -->
-                    <h4 style="margin-top: 20px;">Cost Prices</h4>
-                    <div id="costPricesContainer">
-                        <table class="price-table">
-                            <thead>
-                                <tr>
-                                    <th>Amount (Rs)</th>
-                                    <th>Effective Date</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="costPricesBody">
-                                {% if product %}
-                                    {% for price in product.get_cost_prices %}
-                                    <tr>
-                                        <td><strong>Rs {{ price.amount|floatformat:2 }}</strong></td>
-                                        <td>{{ price.effective_date|date:"Y-m-d" }}</td>
-                                        <td>
-                                            {% if price.is_active %}
-                                                <span class="active-badge">✅ Active</span>
-                                            {% else %}
-                                                <span class="archived-badge">Archived</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if not price.is_active %}
-                                                <button type="button" class="btn-set-active" onclick="setActivePrice({{ price.id }})">Set Active</button>
-                                            {% else %}
-                                                <span style="color:#28a745;">Current</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr><td colspan="4" style="text-align:center;color:#999;">No cost prices added yet.</td></tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr><td colspan="4" style="text-align:center;color:#999;">Save the product first to add price versions.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% if product %}
-                        <button type="button" class="btn-add-price" onclick="openAddPriceModal('cost')">+ Add Cost Price</button>
-                    {% else %}
-                        <span style="color:#999; font-size:13px;">(Save product first to add prices)</span>
-                    {% endif %}
+                    <tbody id="costPricesBody">
+                        {% if product %}
+                            {% for price in product.get_cost_prices %}
+                            <tr>
+                                <td><strong>Rs {{ price.amount|floatformat:2 }}</strong></td>
+                                <td>{{ price.effective_date|date:"Y-m-d" }}</td>
+                                <td>
+                                    {% if price.is_active %}
+                                        <span class="active-badge">✅ Active</span>
+                                    {% else %}
+                                        <span class="archived-badge">Archived</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not price.is_active %}
+                                        <button type="button" class="btn-set-active" onclick="setActivePrice({{ price.id }})">Set Active</button>
+                                    {% else %}
+                                        <span style="color:#28a745;">Current</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" style="text-align:center;color:#999;">No cost prices added yet.</td></tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="4" style="text-align:center;color:#999;">Save the product first to add price versions.</td></tr>
+                        {% endif %}
+                    </tbody>
 
                     <!-- Selling Prices -->
                     <h4 style="margin-top: 30px;">Selling Prices</h4>

@@ -99,10 +99,12 @@ class Product(models.Model):
             return ((self.selling_price - self.cost_price) / self.cost_price) * 100
 
     def get_cost_prices(self):
-        return self.prices.filter(price_type='cost').order_by('-effective_date')
+        """Return all cost price versions (active first)."""
+        return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
 
     def get_selling_prices(self):
-        return self.prices.filter(price_type='selling').order_by('-effective_date')
+        """Return all selling price versions (active first)."""
+        return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
 
     def get_all_prices(self, price_type='selling'):
         return self.prices.filter(price_type=price_type).order_by('-effective_date')

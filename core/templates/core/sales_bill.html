@@ -558,8 +558,12 @@
         // PRODUCT SEARCH (filter products)
         // ============================================================
         function filterProducts() {
-            const query = document.getElementById('productSearch').value.toLowerCase().trim();
-            const resultsContainer = document.getElementById('productResults');
+            const hasPrices = product.prices && product.prices.length > 0;
+            const priceDisplay = hasPrices ?
+                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')" style="cursor:pointer; color:#007bff; text-decoration:underline;">
+                    Rs ${product.price.toFixed(2)} <span style="font-size:10px;">▼</span>
+                </span>` :
+                `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
 
             if (query.length === 0) {
                 resultsContainer.innerHTML = `<div class="empty-results">Type to search for products...</div>`;
@@ -606,10 +610,9 @@
         // PRICE SELECTOR (click on price to see versions)
         // ============================================================
         function showPriceSelector(productId, productName) {
-            // Find the product in allProducts
-            const product = allProducts.find(p => p.id === productId);
-            if (!product) {
-                alert('Product not found.');
+            const prices = product.prices || [];
+            if (prices.length === 0) {
+                alert('No price versions available for this product.');
                 return;
             }
 

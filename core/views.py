@@ -2712,9 +2712,7 @@ def create_sales_bill(request):
                 'cart_items': [],
                 'return_mode': False,
                 'duplicate_error': False,
-            }
-            return render(request, 'core/sales_bill.html', context)
-    
+            }  
     else:
         form = SalesBillForm()
     
@@ -2749,24 +2747,23 @@ def create_sales_bill(request):
     
     product_list = []
     for product in products:
-        # Get all selling prices for this product (for the price dropdown)
-        selling_prices = product.get_all_prices('selling')
-        price_options = [{
-            'id': p.id,
-            'amount': float(p.amount),
-            'effective_date': p.effective_date.strftime('%Y-%m-%d'),
-            'is_active': p.is_active
-        } for p in selling_prices]
-        
-        product_list.append({
-            'id': product.id,
-            'name': product.name,
-            'code': product.code,
-            'selling_price': product.selling_price,
-            'unit': product.unit,
-            'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
-            'prices': price_options,  # Add all price versions
-        })
+            selling_prices = product.get_selling_prices()  # Use the new method
+            price_options = [{
+                'id': p.id,
+                'amount': float(p.amount),
+                'effective_date': p.effective_date.strftime('%Y-%m-%d'),
+                'is_active': p.is_active
+            } for p in selling_prices]
+            
+            product_list.append({
+                'id': product.id,
+                'name': product.name,
+                'code': product.code,
+                'selling_price': product.selling_price,
+                'unit': product.unit,
+                'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
+                'prices': price_options,  # ✅ Always pass this, even if empty
+            })
     
     random_invoice = request.GET.get('invoice_no', '')
     context = {
