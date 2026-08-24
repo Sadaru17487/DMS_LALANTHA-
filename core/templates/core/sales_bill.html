@@ -270,7 +270,7 @@
                 <!-- Date -->
                 <div class="field-group">
                     <label>Date</label>
-                    <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}">
+                    <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
                 </div>
 
                 <div class="field-group" style="flex: 0.5; min-width: 80px;">
