@@ -170,7 +170,7 @@
                             </thead>
                             <tbody id="costPricesBody">
                                 {% if product %}
-                                    {% for price in product.get_all_prices 'cost' %}
+                                    {% for price in product.get_cost_prices %}
                                     <tr>
                                         <td><strong>Rs {{ price.amount|floatformat:2 }}</strong></td>
                                         <td>{{ price.effective_date|date:"Y-m-d" }}</td>
@@ -218,7 +218,7 @@
                             </thead>
                             <tbody id="sellingPricesBody">
                                 {% if product %}
-                                    {% for price in product.get_all_prices 'selling' %}
+                                    {% for price in product.get_selling_prices %}  
                                     <tr>
                                         <td><strong>Rs {{ price.amount|floatformat:2 }}</strong></td>
                                         <td>{{ price.effective_date|date:"Y-m-d" }}</td>
@@ -274,3 +274,4 @@
     </div>
 </div>
 {% endblock %}
+

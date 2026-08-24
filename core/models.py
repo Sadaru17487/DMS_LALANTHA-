@@ -97,7 +97,15 @@ class Product(models.Model):
         """Calculate profit margin percentage"""
         if self.cost_price and self.cost_price > 0:
             return ((self.selling_price - self.cost_price) / self.cost_price) * 100
-        return None
+
+    def get_cost_prices(self):
+        return self.prices.filter(price_type='cost').order_by('-effective_date')
+
+    def get_selling_prices(self):
+        return self.prices.filter(price_type='selling').order_by('-effective_date')
+
+    def get_all_prices(self, price_type='selling'):
+        return self.prices.filter(price_type=price_type).order_by('-effective_date')
 
 
 class ProductPrice(models.Model):
