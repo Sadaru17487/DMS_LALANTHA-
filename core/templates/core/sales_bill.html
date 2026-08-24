@@ -558,12 +558,8 @@
         // PRODUCT SEARCH (filter products)
         // ============================================================
         function filterProducts() {
-            const hasPrices = product.prices && product.prices.length > 0;
-            const priceDisplay = hasPrices ?
-                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')" style="cursor:pointer; color:#007bff; text-decoration:underline;">
-                    Rs ${product.price.toFixed(2)} <span style="font-size:10px;">▼</span>
-                </span>` :
-                `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
+            const query = document.getElementById('productSearch').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('productResults');
 
             if (query.length === 0) {
                 resultsContainer.innerHTML = `<div class="empty-results">Type to search for products...</div>`;
@@ -583,14 +579,13 @@
             let html = '';
             filtered.forEach(product => {
                 const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
-                // Check if product has price versions
                 const hasPrices = product.prices && product.prices.length > 0;
-                const priceDisplay = hasPrices ? 
+                const priceDisplay = hasPrices ?
                     `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')" style="cursor:pointer; color:#007bff; text-decoration:underline;">
                         Rs ${product.price.toFixed(2)} <span style="font-size:10px;">▼</span>
                     </span>` :
                     `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
-                
+
                 html += `
                     <div class="product-card" data-name="${product.name}" data-id="${product.id}">
                         <span class="product-name">${product.name}</span>
@@ -607,12 +602,12 @@
         }
 
         // ============================================================
-        // PRICE SELECTOR (click on price to see versions)
+        // PRICE SELECTOR
         // ============================================================
         function showPriceSelector(productId, productName) {
-            const prices = product.prices || [];
-            if (prices.length === 0) {
-                alert('No price versions available for this product.');
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                alert('Product not found.');
                 return;
             }
 
@@ -622,7 +617,6 @@
                 return;
             }
 
-            // Build modal HTML
             let modalHtml = `
                 <div style="background:white; padding:25px; border-radius:12px; max-width:450px; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
                     <h3 style="margin-top:0;">Select Price for ${productName}</h3>
@@ -632,7 +626,6 @@
 
             prices.forEach(p => {
                 const isActive = p.is_active;
-                const label = isActive ? ' ✅ Active' : '';
                 const borderColor = isActive ? '#28a745' : '#ddd';
                 modalHtml += `
                     <div style="padding:12px; border:1px solid ${borderColor}; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; background:${isActive ? '#f0fff0' : 'white'};">
@@ -649,7 +642,6 @@
                 `;
             });
 
-            // Add custom price option
             modalHtml += `
                     </div>
                     <div style="padding:12px; border:1px dashed #007bff; border-radius:8px; display:flex; gap:10px; align-items:center; margin-top:10px;">
@@ -666,18 +658,11 @@
                 </div>
             `;
 
-            // Show overlay
             const overlay = document.createElement('div');
             overlay.id = 'priceSelectorOverlay';
             overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; display:flex; align-items:center; justify-content:center;';
             overlay.innerHTML = modalHtml;
             document.body.appendChild(overlay);
-
-            // Focus the custom price input
-            setTimeout(() => {
-                const input = document.getElementById('customPriceInput');
-                if (input) input.focus();
-            }, 100);
         }
 
         function closePriceSelector() {
@@ -686,7 +671,6 @@
         }
 
         function selectProductPrice(productId, price, productName, priceId) {
-            // Add to cart with selected price and price_id
             addToCart(productId, productName, price, false, priceId);
             closePriceSelector();
         }
@@ -698,32 +682,14 @@
                 alert('Please enter a valid price.');
                 return;
             }
-            // Custom price has no price_id (null)
             addToCart(productId, productName, price, false, null);
             closePriceSelector();
         }
 
         // ============================================================
-        // TOGGLE RETURN MODE
-        // ============================================================
-        function toggleReturnMode() {
-            returnMode = document.getElementById('returnMode').checked;
-            const reasonSelect = document.getElementById('returnReason');
-            if (returnMode) {
-                reasonSelect.style.display = 'inline-block';
-                document.querySelector('.return-toggle label').style.color = '#dc3545';
-            } else {
-                reasonSelect.style.display = 'none';
-                document.querySelector('.return-toggle label').style.color = '#333';
-            }
-            renderCart();
-        }
-
-        // ============================================================
-        // CART FUNCTIONS (with price_id support)
+        // CART FUNCTIONS
         // ============================================================
         function addToCart(productId, productName, rate, isFoc, priceId) {
-            // Check if product already in cart (if same product and same price_id)
             const existingIndex = cart.findIndex(item => 
                 item.id === productId && 
                 item.price_id === priceId && 
@@ -731,11 +697,9 @@
             );
             
             if (existingIndex !== -1) {
-                // Increment quantity instead of adding new entry
                 cart[existingIndex].qty += 1;
                 cart[existingIndex].total = cart[existingIndex].qty * cart[existingIndex].rate;
             } else {
-                // Add new item
                 cart.push({
                     id: productId,
                     name: productName,
@@ -743,7 +707,7 @@
                     rate: isFoc ? 0 : rate,
                     total: isFoc ? 0 : rate,
                     is_foc: isFoc,
-                    price_id: priceId  // Store which price version was selected
+                    price_id: priceId
                 });
             }
             renderCart();
@@ -760,7 +724,7 @@
                 cart[index].qty = val;
             } else if (field === 'rate') {
                 cart[index].rate = val;
-                cart[index].price_id = null; // Custom rate, no price version
+                cart[index].price_id = null;
             }
             renderCart();
         }
@@ -790,7 +754,6 @@
                     const total = item.qty * item.rate;
                     regularTotal += total;
                     const sign = returnMode ? '-' : '';
-                    // Show price version indicator
                     const priceLabel = item.price_id ? '🔹' : '';
                     html += `
                         <tr>
@@ -832,7 +795,6 @@
                 focTotalDisplay.textContent = focTotal.toFixed(2);
             }
 
-            // Totals
             const regularTotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
             const focTotal = focItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
             subtotalDisplay.textContent = `Rs ${regularTotal.toFixed(2)}`;
@@ -882,7 +844,7 @@
         }
 
         // ============================================================
-        // VEHICLE STOCK UPDATE (when vehicle changes)
+        // VEHICLE STOCK UPDATE
         // ============================================================
         function updateVehicleStock() {
             const vehicleSelect = document.getElementById('vehicleSelect');
@@ -1047,29 +1009,29 @@
             const netTotal = parseFloat(netText) || 0;
             document.getElementById('chequeAmount').value = netTotal.toFixed(2);
         }
-        
-        function closeChequeModal() { 
-            document.getElementById('chequeModal').classList.remove('show'); 
+
+        function closeChequeModal() {
+            document.getElementById('chequeModal').classList.remove('show');
         }
-        
+
         function confirmCheque() {
             const chequeNo = document.getElementById('chequeNo').value;
             const chequeDate = document.getElementById('chequeDate').value;
             const bank = document.getElementById('bankSelect').value;
             const amount = parseFloat(document.getElementById('chequeAmount').value) || 0;
-            
+
             if (!chequeNo || !chequeDate || !bank || amount <= 0) {
                 alert('Please fill in all cheque details!');
                 return;
             }
-            
+
             chequeData = { chequeNo, chequeDate, bank, amount };
             selectedPayment = 'cheque';
             document.getElementById('paymentMethod').value = 'cheque';
-            
+
             // Remove existing cheque hidden fields
             document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
-            
+
             // Add new hidden fields
             const form = document.getElementById('salesForm');
             const fields = [
@@ -1086,13 +1048,13 @@
                 input.className = 'cheque-hidden';
                 form.appendChild(input);
             });
-            
+
             // Update UI
             document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.pay-btn').forEach(b => {
                 if (b.textContent.trim().toLowerCase().includes('cheque')) b.classList.add('active');
             });
-            
+
             const details = document.getElementById('paymentDetails');
             details.classList.add('show');
             details.innerHTML = `
@@ -1106,9 +1068,8 @@
             `;
             closeChequeModal();
         }
-        
+
         function resetCheque() {
-            // Remove cheque hidden fields
             document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
             chequeData = null;
             if (selectedPayment === 'cheque') resetPayment();
@@ -1117,23 +1078,23 @@
         // ============================================================
         // ADD BANK MODAL
         // ============================================================
-        function openAddBankModal() { 
-            document.getElementById('addBankModal').classList.add('show'); 
+        function openAddBankModal() {
+            document.getElementById('addBankModal').classList.add('show');
         }
-        
-        function closeAddBankModal() { 
-            document.getElementById('addBankModal').classList.remove('show'); 
-            document.getElementById('newBankName').value = ''; 
+
+        function closeAddBankModal() {
+            document.getElementById('addBankModal').classList.remove('show');
+            document.getElementById('newBankName').value = '';
         }
-        
+
         function confirmAddBank() {
             const name = document.getElementById('newBankName').value.trim();
             if (!name) { alert('Please enter a bank name.'); return; }
             fetch('/api/add-bank/', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                 },
                 body: JSON.stringify({ name: name })
             })
@@ -1162,17 +1123,17 @@
             document.getElementById('multiPayModal').classList.add('show');
             updateMultiTotal();
         }
-        
-        function closeMultiPayModal() { 
-            document.getElementById('multiPayModal').classList.remove('show'); 
+
+        function closeMultiPayModal() {
+            document.getElementById('multiPayModal').classList.remove('show');
         }
-        
+
         function updateMultiTotal() {
             const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
             const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
             document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
         }
-        
+
         function confirmMultiPay() {
             const type1 = document.getElementById('multiType1').value;
             const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
@@ -1206,7 +1167,7 @@
             `;
             closeMultiPayModal();
         }
-        
+
         function resetMulti() {
             multiPayData = null;
             if (selectedPayment === 'multi') resetPayment();
@@ -1218,15 +1179,15 @@
         function setupCustomerSearch() {
             const searchInput = document.getElementById('customerSearchInput');
             if (!searchInput) return;
-            
+
             let timeoutId = null;
-            
+
             searchInput.addEventListener('input', function() {
                 clearTimeout(timeoutId);
                 const query = this.value.trim();
                 timeoutId = setTimeout(() => searchCustomers(query), 300);
             });
-            
+
             document.addEventListener('click', function(e) {
                 const results = document.getElementById('customerSearchResults');
                 const searchBox = document.getElementById('customerSearchInput');
@@ -1234,7 +1195,7 @@
                     results.style.display = 'none';
                 }
             });
-            
+
             searchInput.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     const firstResult = document.querySelector('#customerSearchResults .search-result-item');
@@ -1248,20 +1209,20 @@
 
         function searchCustomers(query) {
             const resultsContainer = document.getElementById('customerSearchResults');
-            
+
             if (!query || query.length < 2) {
                 resultsContainer.style.display = 'none';
                 return;
             }
-            
+
             resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
             resultsContainer.style.display = 'block';
-            
+
             fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
                 .then(response => response.json())
                 .then(data => {
                     resultsContainer.innerHTML = '';
-                    
+
                     if (data.customers.length === 0) {
                         resultsContainer.innerHTML = `
                             <div class="no-results">
@@ -1272,7 +1233,7 @@
                         resultsContainer.style.display = 'block';
                         return;
                     }
-                    
+
                     data.customers.forEach(customer => {
                         const div = document.createElement('div');
                         div.className = 'search-result-item';
@@ -1290,7 +1251,7 @@
                         });
                         resultsContainer.appendChild(div);
                     });
-                    
+
                     resultsContainer.style.display = 'block';
                 })
                 .catch(() => {
@@ -1339,7 +1300,7 @@
         }
 
         // ============================================================
-        // FORM SUBMIT HANDLER (with price_id support)
+        // FORM SUBMIT HANDLER
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
             setupCustomerSearch();
@@ -1375,7 +1336,6 @@
             renderCart();
 
             document.getElementById('salesForm').addEventListener('submit', function(e) {
-                // Validate cart
                 if (cart.length === 0) {
                     e.preventDefault();
                     alert('❌ Please add at least one item to the bill!');
@@ -1408,7 +1368,6 @@
                     return;
                 }
 
-                // Validate payment amount matches net total
                 const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
                 const netTotal = parseFloat(netText) || 0;
                 let paidAmount = 0;
@@ -1424,7 +1383,6 @@
                     return;
                 }
 
-                // Populate hidden fields for cart items (with price_id support)
                 const maxItems = 20;
                 for (let i = 1; i <= maxItems; i++) {
                     const item = cart[i - 1];
@@ -1454,16 +1412,11 @@
                     }
                 }
 
-                // Payment method
                 document.getElementById('paymentMethod').value = selectedPayment;
-
-                // Return mode
                 document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
                 if (returnMode) {
                     document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
                 }
-
-                // Bill discount
                 document.getElementById('hidden_bill_discount_type').value = billDiscountType;
                 document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
             });
