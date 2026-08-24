@@ -100,6 +100,22 @@ class Product(models.Model):
         return None
 
 
+class ProductPrice(models.Model):
+    PRICE_TYPE_CHOICES = [
+        ('cost', 'Cost Price'),
+        ('selling', 'Selling Price'),
+    ]
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='price_history')
+    price_type = models.CharField(max_length=20, choices=PRICE_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    effective_date = models.DateField(default=date.today)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.price_type}: {self.amount}"
+
+
 class WarehouseStock(models.Model):
     """Tracks physical stock in the warehouse"""
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='stock')
