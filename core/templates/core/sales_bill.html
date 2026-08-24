@@ -604,15 +604,15 @@
         // ============================================================
         // PRICE SELECTOR
         // ============================================================
-        function showPriceSelector(productId, productName) {
+       function showPriceSelector(productId, productName) {
             const product = allProducts.find(p => p.id === productId);
             if (!product) {
                 alert('Product not found.');
                 return;
             }
 
-            const prices = product.prices || [];
-            if (prices.length === 0) {
+            const priceVersions = product.prices || [];  // ← Renamed from 'prices' to 'priceVersions'
+            if (priceVersions.length === 0) {
                 alert('No price versions available for this product.');
                 return;
             }
@@ -624,7 +624,7 @@
                     <div style="margin:15px 0; max-height:300px; overflow-y:auto;">
             `;
 
-            prices.forEach(p => {
+            priceVersions.forEach(p => {  // ← Use 'priceVersions' here
                 const isActive = p.is_active;
                 const borderColor = isActive ? '#28a745' : '#ddd';
                 modalHtml += `
