@@ -101,11 +101,8 @@ class Product(models.Model):
     def get_cost_prices(self):
         return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
 
-    def get_selling_prices(self):
-        try:
-            return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
-        except Exception:
-            return []  # Return empty list if something fails
+    def get_selling_prices(self):   
+        return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
 
     def get_all_prices(self, price_type='selling'):
         return self.prices.filter(price_type=price_type).order_by('-effective_date')
