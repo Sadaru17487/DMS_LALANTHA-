@@ -107,3 +107,7 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Session settings
+SESSION_COOKIE_AGE = 86400  # 24 hours (in seconds)
+SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on each request

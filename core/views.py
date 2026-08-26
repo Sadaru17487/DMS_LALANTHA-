@@ -2681,7 +2681,7 @@ def create_sales_bill(request):
                         
                         request.session.modified = True
                     except Exception as e:
-                        pass
+                        logger.warning(f"Failed to save session: {e}")
                     
                     # ✅ Success message and redirect
                     messages.success(request, f'✅ Bill {bill.invoice_no} saved successfully! Total: {bill.net_total}')
@@ -2786,7 +2786,19 @@ def create_sales_bill(request):
             'return_mode': False,
             'duplicate_error': False,
         }
+        # ===== VEHICLE & REP PERSISTENCE =====
+        # Try GET params first (if coming from a specific link)
+        selected_vehicle = request.GET.get('vehicle')
+        selected_rep = request.GET.get('rep')
+        
+        # If no GET params, load from session
+        if not selected_vehicle:
+            selected_vehicle = request.session.get('last_vehicle_id')
+        if not selected_rep:
+            selected_rep = request.session.get('last_rep_id')
+            
         return render(request, 'core/sales_bill.html', context)
+    
     except Exception as e:
         import traceback
         error_msg = traceback.format_exc()

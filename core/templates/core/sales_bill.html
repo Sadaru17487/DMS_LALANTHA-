@@ -231,7 +231,7 @@
                     <select name="rep" id="repSelect">
                         <option value="">-- Select Rep --</option>
                         {% for rep in reps %}
-                            <option value="{{ rep.id }}" data-rep-code="{{ rep.rep_code|default:'' }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                            <option value="{{ rep.id }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
                                 {{ rep.name }} ({{ rep.get_position_display }})
                             </option>
                         {% endfor %}
@@ -1424,4 +1424,3 @@
     </script>
 {% endblock %}
 
-price_id
