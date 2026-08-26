@@ -2772,7 +2772,7 @@ def create_sales_bill(request):
     vehicles = Vehicle.objects.filter(is_active=True)
     reps = Employee.objects.filter(position='Rep', is_active=True)
     banks = Bank.objects.filter(is_active=True)
-    
+
     # Get vehicle stock for the selected vehicle
     vehicle_stock_dict = {}
     if selected_vehicle:
@@ -2784,25 +2784,32 @@ def create_sales_bill(request):
                 vehicle_stock_dict[stock.product_id] = stock.quantity
         except (ValueError, TypeError, Vehicle.DoesNotExist):
             pass
-    
+
     product_list = []
     for product in products:
+        # Get selling prices safely
         selling_prices = product.get_selling_prices()
-        price_options = [{
-            'id': p.id,
-            'amount': float(p.amount),
-            'effective_date': p.effective_date.strftime('%Y-%m-%d'),
-            'is_active': p.is_active
-        } for p in selling_prices]
+        price_options = []
+        for p in selling_prices:
+            try:
+                price_options.append({
+                    'id': p.id,
+                    'amount': float(p.amount) if p.amount else 0,
+                    'effective_date': p.effective_date.strftime('%Y-%m-%d') if p.effective_date else '',
+                    'is_active': p.is_active
+                })
+            except Exception:
+                # Skip any problematic price records
+                continue
         
         product_list.append({
             'id': product.id,
-            'name': product.name,
-            'code': product.code,
-            'selling_price': product.selling_price,
-            'unit': product.unit,
-            'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
-            'prices': price_options,
+            'name': product.name or 'Unknown',
+            'code': product.code or '',
+            'selling_price': float(product.selling_price) if product.selling_price else 0,
+            'unit': product.unit or 'Pcs',
+            'vehicle_stock': float(vehicle_stock_dict.get(product.id, 0)),
+            'prices': price_options,  # Always an array
         })
     
     random_invoice = request.GET.get('invoice_no', '')

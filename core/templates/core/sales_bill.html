@@ -527,7 +527,7 @@
     let allProducts = [];
 
     // ============================================================
-    // PRODUCT DATA (from Django)
+    // PRODUCT DATA (from Django) – SAFE VERSION
     // ============================================================
     allProducts = [
         {% for product in products %}
@@ -535,15 +535,15 @@
             id: {{ product.id }},
             name: "{{ product.name|escapejs }}",
             code: "{{ product.code|escapejs }}",
-            price: {{ product.selling_price }},
-            stock: {{ product.vehicle_stock|floatformat:0 }},
+            price: {{ product.selling_price|floatformat:2|default:"0" }},
+            stock: {{ product.vehicle_stock|floatformat:0|default:"0" }},
             {% if product.prices %}
             prices: [
                 {% for price in product.prices %}
                 {
                     id: {{ price.id }},
-                    amount: {{ price.amount }},
-                    effective_date: "{{ price.effective_date }}",
+                    amount: {{ price.amount|floatformat:2|default:"0" }},
+                    effective_date: "{{ price.effective_date|date:'Y-m-d' }}",
                     is_active: {{ price.is_active|yesno:"true,false" }}
                 },
                 {% endfor %}
