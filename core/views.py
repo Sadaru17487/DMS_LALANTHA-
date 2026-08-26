@@ -5,6 +5,7 @@ import random
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from itertools import product
+from urllib import request
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -2796,6 +2797,10 @@ def create_sales_bill(request):
             selected_vehicle = request.session.get('last_vehicle_id')
         if not selected_rep:
             selected_rep = request.session.get('last_rep_id')
+
+            # bill.date is already set from the form
+            # If not, use the submitted value:
+            bill.date = request.POST.get('bill_date') or date.today()
             
         return render(request, 'core/sales_bill.html', context)
     
