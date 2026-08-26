@@ -11,19 +11,18 @@ class VehicleLoadForm(forms.Form):
 
 
 class SalesBillForm(forms.ModelForm):
-    # ✅ Override the field to make it optional
-    discount_total = forms.DecimalField(required=False, initial=0, max_digits=12, decimal_places=2)
-
     class Meta:
         model = SalesBill
-        fields = ['vehicle', 'shop_name', 'shop_code', 'invoice_no', 'discount_total']
+        fields = ['vehicle', 'date', 'invoice_no', ...]
         widgets = {
-            'vehicle': forms.Select(attrs={'class': 'form-control'}),
-            'shop_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., ABC Supermarket'}),
-            'shop_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional code'}),
-            'invoice_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., INV-001'}),
-            # ✅ Remove discount_total from widgets since we override it
+            'date': forms.DateInput(attrs={'type': 'date'}),
         }
+    
+    def clean_date(self):
+        date = self.cleaned_data.get('date')
+        # Allow any date (past, present, future)
+        # Remove any validation that restricts past dates
+        return date
 
 
 class EmployeeForm(forms.ModelForm):

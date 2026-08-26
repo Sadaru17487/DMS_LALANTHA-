@@ -258,7 +258,7 @@ class VehicleStock(models.Model):
 class SalesBill(models.Model):
     """Header of the sales bill"""
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='bills')
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField(default=date.today)  # ✅ No max/min restrictions
     shop_name = models.CharField(max_length=255)
     shop_code = models.CharField(max_length=50, blank=True, null=True)
     invoice_no = models.CharField(max_length=100, unique=True)
