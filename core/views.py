@@ -2534,16 +2534,21 @@ def create_sales_bill(request):
                     
                     # ===== PAYMENT PROCESSING =====
                     payment_method = request.POST.get('payment_method', '')
+                    cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
+
+                    logger.info(f"Payment method: {payment_method}, Cheque amount: {cheque_amount}")
                     
                     # ===== CHEQUE PAYMENT =====
-                    if payment_method == 'cheque':
-                        cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
+                    if payment_method == 'cheque' or cheque_amount > 0:
                         if cheque_amount > 0:
+                            # Create Payment with type='Cheque'
                             Payment.objects.create(
                                 bill=bill,
                                 type='Cheque',
                                 amount=cheque_amount
                             )
+                            
+                            # Create Cheque record
                             cheque_no = request.POST.get('cheque_no', '')
                             cheque_date = request.POST.get('cheque_date', '')
                             bank_id = request.POST.get('cheque_bank', '')
@@ -2560,8 +2565,11 @@ def create_sales_bill(request):
                                         status='PENDING',
                                         notes=f"Auto-created from invoice: {bill.invoice_no}"
                                     )
+                                    logger.info(f"Cheque record created for {bill.invoice_no}")
                                 except Bank.DoesNotExist:
-                                    pass
+                                    logger.warning(f"Bank {bank_id} not found for cheque")
+                            else:
+                                logger.warning(f"Cheque details missing: no={cheque_no}, date={cheque_date}, bank={bank_id}")
                         else:
                             messages.error(request, '❌ Cheque amount must be greater than 0.')
                             customers = Customer.objects.filter(is_active=True)

@@ -1066,6 +1066,10 @@
             form.appendChild(input);
         });
 
+        // 🔍 Log to verify
+        console.log('Cheque hidden fields added:', fields);
+        console.log('Payment method set to:', document.getElementById('paymentMethod').value);
+
         // Update UI
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pay-btn').forEach(b => {
