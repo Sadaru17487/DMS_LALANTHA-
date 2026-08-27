@@ -2870,7 +2870,7 @@ def create_sales_bill(request):
     }
     return render(request, 'core/sales_bill.html', context)
     
-
+selected_vehicle
 
 @login_required
 @permission_required('view_expenses')
