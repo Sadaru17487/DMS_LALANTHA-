@@ -594,7 +594,7 @@
                     <span class="product-stock ${stockClass}">${product.stock}</span>
                     <div class="product-actions">
                         <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, false, null)">🛒 Sale</button>
-                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', 0, true, null)">🎁 FOC</button>
+                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name}', 0, true, null)">🎁 FOC</button>
                     </div>
                 </div>
             `;

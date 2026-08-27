@@ -2355,19 +2355,21 @@ def create_sales_bill(request):
                         product = get_object_or_404(Product, id=product_id)
                         quantity = Decimal(quantity_str)
                         
-                        # Determine the rate to use
+                       # Determine the rate to use
                         rate = Decimal(rate_str)
-                        
+
                         # If a specific price version was selected, use it
                         if price_id and price_id.isdigit():
                             try:
                                 price = ProductPrice.objects.get(id=price_id, product=product)
                                 rate = price.amount
                             except ProductPrice.DoesNotExist:
-                                if rate == 0:
+                                # Only fallback if not FOC
+                                if not is_foc and rate == 0:
                                     rate = product.selling_price
                         else:
-                            if rate == 0:
+                            # Only fallback if not FOC
+                            if not is_foc and rate == 0:
                                 rate = product.selling_price
                         
                         discount_value = Decimal(discount_value_str) if discount_value_str else Decimal('0')
@@ -2532,11 +2534,44 @@ def create_sales_bill(request):
                             discount_value=item_data['discount_value'],
                         )
                     
-                    # ===== PAYMENT PROCESSING =====
+                    # ===== GET PAYMENT METHOD AND AMOUNTS =====
                     payment_method = request.POST.get('payment_method', '')
                     cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
+                    cash_amount = Decimal(request.POST.get('cash_amount', '0') or '0')
+                    credit_amount = Decimal(request.POST.get('credit_amount', '0') or '0')
+                    online_amount = Decimal(request.POST.get('online_amount', '0') or '0')
 
+                     # 🔍 Debug logging
                     logger.info(f"Payment method: {payment_method}, Cheque amount: {cheque_amount}")
+                    logger.info(f"Payment method: {payment_method}")
+                    logger.info(f"Cash: {cash_amount}, Credit: {credit_amount}, Cheque: {cheque_amount}, Online: {online_amount}")
+
+                    # ===== VALIDATE PAYMENT AMOUNT MATCHES NET TOTAL =====
+                    net_total = bill.net_total
+                    total_paid = cash_amount + credit_amount + cheque_amount + online_amount
+
+                    # If net_total is 0, we can accept any payment method (or no payment)
+                    # If net_total > 0, total_paid must match net_total
+                    if net_total > 0 and total_paid != net_total:
+                        messages.error(request, f'❌ Payment total ({total_paid}) does not match Bill Total ({net_total})!')
+                        return render(request, 'core/sales_bill.html', {
+                                                        'form': form,
+                                                        'products': Product.objects.filter(is_active=True),
+                                                        'customers': customers,
+                                                        'vehicles': Vehicle.objects.filter(is_active=True),
+                                                        'reps': Employee.objects.filter(position='Rep', is_active=True),
+                                                        'banks': Bank.objects.filter(is_active=True),
+                                                        'max_items': MAX_ITEMS,
+                                                        'selected_vehicle': selected_vehicle,
+                                                        'selected_rep': selected_rep,
+                                                        'today': date.today(),
+                                                    })
+                                            
+
+                    # ===== CREATE PAYMENTS BASED ON PAYMENT METHOD =====
+                    payment_created = False
+
+
                     
                     # ===== CHEQUE PAYMENT =====
                     if payment_method == 'cheque' or cheque_amount > 0:
