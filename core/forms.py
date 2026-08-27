@@ -19,7 +19,6 @@ class SalesBillForm(forms.ModelForm):
         fields = ['vehicle', 'rep', 'shop_name', 'shop_code', 'invoice_no', 'discount_total']
         widgets = {
             'vehicle': forms.Select(attrs={'class': 'form-control'}),
-            'rep': forms.Select(attrs={'class': 'form-control'}),
             'shop_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., ABC Supermarket'}),
             'shop_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optional code'}),
             'invoice_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., INV-001'}),
