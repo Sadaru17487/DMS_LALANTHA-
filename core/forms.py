@@ -1,5 +1,5 @@
 from django import forms
-from .models import Vehicle, SalesBill, Employee
+from .models import Product, Vehicle, SalesBill, Employee
 
 
 class VehicleLoadForm(forms.Form):
@@ -48,6 +48,16 @@ class EmployeeForm(forms.ModelForm):
             # If not Rep, rep_code should be empty
             if rep_code:
                 raise forms.ValidationError('Rep Code is only allowed for Sales Representatives.')
-        return rep_code        
+        return rep_code    
+
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ['name', 'code', 'category', 'unit', 'cost_price', 'selling_price', 'notes', 'description', 'is_active']
+        widgets = {
+            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Additional notes...'}),
+            'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Product description...'}),
+        }        
 
     

@@ -1886,7 +1886,7 @@ def cheque_clear(request, cheque_id):
 
 
 @login_required
-@permission_required('create_sales')
+@permission_required('manage_cheques')
 def cheque_bounce(request, cheque_id):
     cheque = get_object_or_404(Cheque, id=cheque_id)
     bill = cheque.sales_bill
@@ -1910,46 +1910,71 @@ def cheque_bounce(request, cheque_id):
             cheque.notes = notes
             cheque.save()
 
-            # 2. Reverse the payment (find the payment linked to this cheque)
+            # 2. Find the Cheque payment
             payment = Payment.objects.filter(
                 bill=bill,
                 type='Cheque',
                 amount=cheque.amount,
                 is_reversed=False
             ).first()
+
             if payment:
+                # 3. DELETE the Cheque payment (or mark reversed)
                 payment.is_reversed = True
                 payment.reversed_at = timezone.now()
                 payment.reversed_by = request.user
                 payment.reversed_cheque = cheque
                 payment.save()
+
+                # 4. CREATE a Credit payment for the same amount
+                # Check if a Credit payment already exists for this bill
+                credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
+                if credit_payment:
+                    # Add to existing Credit payment (if multiple credits)
+                    credit_payment.amount += cheque.amount
+                    credit_payment.save()
+                else:
+                    # Create new Credit payment
+                    Payment.objects.create(
+                        bill=bill,
+                        type='Credit',
+                        amount=cheque.amount
+                    )
             else:
-                # If no matching payment, create a reversal record manually? 
-                # We'll log a warning and continue.
                 messages.warning(request, 'Could not find a matching payment for this cheque.')
 
-            # 3. Restore outstanding balance (by reversing the payment)
-            # No need to manually adjust bill – outstanding is computed from payments.
+            # 5. Recalculate outstanding and update bill status
+            # Get total payments excluding Credit
+            non_credit_payments = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            credit_total = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            outstanding = bill.net_total - non_credit_payments - credit_total
 
-            # 4. Add bank charge expense if requested
+            # If outstanding > 0, mark bill as PENDING (so it appears in Credit List)
+            if outstanding > 0:
+                bill.status = 'PENDING'
+                bill.save()
+                logger.info(f"Bill {bill.invoice_no} set to PENDING with outstanding {outstanding}")
+            else:
+                # If outstanding is 0, keep as COMPLETED
+                bill.status = 'COMPLETED'
+                bill.save()
+
+            # 6. Add bank charge expense if requested
             if add_bank_charge and bank_charge_amount > 0:
-                # Get or create a default vehicle for bank charges? Use a system vehicle or None.
-                # We'll create an expense with no vehicle (optional).
                 expense = Expense.objects.create(
                     vehicle=None,
                     date=timezone.now().date(),
                     category='Bank Charges',
                     amount=bank_charge_amount,
                     note=f'Bank charge for bounced cheque {cheque.cheque_no} from {cheque.customer_name}',
-                    status='PAID',  # Assume immediately paid
+                    status='PAID',
                 )
                 cheque.bank_charge_amount = bank_charge_amount
                 cheque.bank_charge_expense = expense
                 cheque.save()
                 messages.success(request, f'Bank charge of Rs {bank_charge_amount} added as expense.')
 
-            # 5. Update Credit Collection status (if applicable)
-            # If there is a collection record, set it back to PENDING so it can be taken again.
+            # 7. Update Credit Collection status
             collection = CreditCollection.objects.filter(sales_bill=bill).first()
             if collection:
                 collection.status = 'PENDING'
@@ -1957,7 +1982,7 @@ def cheque_bounce(request, cheque_id):
                 collection.not_collected_reason = None
                 collection.save()
 
-        messages.success(request, f'Cheque {cheque.cheque_no} marked as BOUNCED. Bill {bill.invoice_no} outstanding restored.')
+        messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List.')
         return redirect('core:cheque_list')
 
     # GET request: show bounce form

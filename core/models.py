@@ -36,9 +36,17 @@ class Product(models.Model):
         ('Other', 'Other'),
     ]
 
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=50, unique=True)
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
+    unit = models.CharField(max_length=20)
     cost_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     selling_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    # ... other fields ...
+    notes = models.TextField(blank=True, null=True)  # ✅ Content field
+    description = models.TextField(blank=True, null=True)  # ✅ Additional content
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
