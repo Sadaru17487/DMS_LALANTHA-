@@ -190,9 +190,13 @@ def sales_list(request):
 def credit_list(request):
     """List all credit bills with outstanding balance > 0"""
     
-    # Get all bills that have Credit payments
+    # ===== GET BILLS WITH CREDIT PAYMENTS OR PENDING STATUS =====
     credit_bill_ids = Payment.objects.filter(type='Credit').values_list('bill_id', flat=True).distinct()
-    bills = SalesBill.objects.filter(id__in=credit_bill_ids).select_related('vehicle', 'rep').order_by('-date', '-created_at')
+    pending_bill_ids = SalesBill.objects.filter(status='PENDING').values_list('id', flat=True)
+    
+    bills = SalesBill.objects.filter(
+        Q(id__in=credit_bill_ids) | Q(id__in=pending_bill_ids)
+    ).select_related('vehicle', 'rep').order_by('-date', '-created_at')
     
     # ---------- FILTERS ----------
     search = request.GET.get('search', '')
@@ -257,7 +261,7 @@ def credit_list(request):
                 sales_bill=bill,
                 defaults={'status': 'PENDING'}
             )
-        except:
+        except Exception:
             collection = None
         
         # Apply collection status filter
@@ -281,7 +285,6 @@ def credit_list(request):
         
         display_customer = bill.shop_name or bill.shop_code or 'N/A'
         
-        # ✅ The SalesBill object is stored as 'bill'
         bill_list.append({
             'bill': bill,
             'credit_amount': credit_amount,
@@ -293,7 +296,12 @@ def credit_list(request):
             'collection': collection,
         })
     
-    status_choices = CreditCollection.STATUS_CHOICES if hasattr(CreditCollection, 'STATUS_CHOICES') else []
+    status_choices = CreditCollection.STATUS_CHOICES if hasattr(CreditCollection, 'STATUS_CHOICES') else [
+        ('PENDING', 'Pending'),
+        ('TAKEN', 'Taken'),
+        ('COLLECTED', 'Collected'),
+        ('NOT_COLLECTED', 'Not Collected'),
+    ]
     
     context = {
         'bills': bill_list,
