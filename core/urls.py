@@ -48,7 +48,6 @@ urlpatterns = [
     path('cheque/detail/<int:cheque_id>/', views.cheque_detail, name='cheque_detail'),
     path('cheque/deposit/<int:cheque_id>/', views.cheque_deposit, name='cheque_deposit'),
     path('cheque/clear/<int:cheque_id>/', views.cheque_clear, name='cheque_clear'),
-    path('cheque/bounce/<int:cheque_id>/', views.cheque_bounce, name='cheque_bounce'),
     path('reports/bounced-cheques/', views.bounced_cheque_report, name='bounced_cheque_report'),
     path('customers/', views.customer_list, name='customer_list'),
     path('customer/add/', views.customer_add, name='customer_add'),
@@ -113,5 +112,5 @@ urlpatterns = [
     path('reports/expense-by-employee-summary/', views.expense_by_employee_summary_report, name='expense_by_employee_summary_report'),
     path('unload/', views.unload_vehicle, name='unload_vehicle'),
     path('stock-movement-log/', views.stock_movement_log, name='stock_movement_log'),
-    
+    path('cheque/bounce/<int:cheque_id>/', views.bounce_cheque, name='bounce_cheque'),
 ]
