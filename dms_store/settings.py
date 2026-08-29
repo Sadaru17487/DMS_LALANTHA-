@@ -47,6 +47,7 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'core.context_processors.cache_version',
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -111,3 +112,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 hours (in seconds)
 SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on each request
+
+
+# Add this at the bottom
+CACHE_VERSION = '1.0.0'  # Increment this on every deployment
