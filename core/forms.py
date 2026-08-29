@@ -54,10 +54,13 @@ class EmployeeForm(forms.ModelForm):
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'code', 'category', 'unit', 'cost_price', 'selling_price', 'notes', 'description', 'is_active']
+        fields = [
+            'name', 'code', 'category', 'unit',
+            'cost_price', 'selling_price',
+            'description', 'notes', 'is_active'
+        ]
         widgets = {
-            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Additional notes...'}),
             'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Product description...'}),
-        }        
-
+            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Additional notes...'}),
+        }
     

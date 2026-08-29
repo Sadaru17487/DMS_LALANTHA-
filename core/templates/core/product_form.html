@@ -64,7 +64,7 @@
         <form method="POST" id="productForm">
             {% csrf_token %}
 
-           <!-- ===== MAIN PRODUCT FIELDS ===== -->
+            <!-- ===== MAIN PRODUCT FIELDS ===== -->
             <div class="form-grid">
                 <div class="form-group">
                     <label>Product Name <span class="required">*</span></label>
@@ -93,9 +93,7 @@
                     {{ form.selling_price }}
                 </div>
 
-                <!-- ============================================================ -->
-                <!-- ✅ ADD DESCRIPTION & NOTES HERE (BEFORE PRICE VERSIONS)       -->
-                <!-- ============================================================ -->
+                <!-- ===== DESCRIPTION & NOTES ===== -->
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label>Description</label>
                     {{ form.description }}
@@ -114,6 +112,7 @@
                     <span class="help-text">Inactive products won't appear in sales screens</span>
                 </div>
             </div>
+
             <!-- ===== PRICE VERSIONS SECTION ===== -->
             <div class="price-section">
                 <h3>💰 Price Versions</h3>
@@ -350,6 +349,3 @@
 </script>
 
 {% endblock %}
-
-
-Selling Price
