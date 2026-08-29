@@ -63,4 +63,3 @@ class ProductForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Product description...'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Additional notes...'}),
         }
-    
