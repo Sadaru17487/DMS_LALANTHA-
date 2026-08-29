@@ -55,11 +55,35 @@ class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = [
-            'name', 'code', 'category', 'unit',
-            'cost_price', 'selling_price',
-            'description', 'notes', 'is_active'
+            'name', 
+            'code', 
+            'category', 
+            'unit', 
+            'cost_price', 
+            'selling_price',
+            'description',  # ✅ ADD THIS
+            'notes',        # ✅ ADD THIS
+            'is_active'
         ]
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Product description...'}),
-            'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Additional notes...'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter product name'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter product code'}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'unit': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Pcs, Kg, Ltr'}),
+            'cost_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'selling_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'placeholder': 'Product description...'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'placeholder': 'Additional notes...'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'name': 'Product Name',
+            'code': 'Product Code',
+            'category': 'Category',
+            'unit': 'Unit',
+            'cost_price': 'Cost Price (Rs)',
+            'selling_price': 'Selling Price (Rs)',
+            'description': 'Description',
+            'notes': 'Notes',
+            'is_active': 'Active',
         }
