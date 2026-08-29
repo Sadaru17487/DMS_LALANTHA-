@@ -21,57 +21,31 @@ class Category(models.Model):
         verbose_name_plural = "Categories"
 
 
-class Product(models.Model):
-    UNIT_CHOICES = [
-        ('Pcs', 'Pieces'),
-        ('Kg', 'Kilogram'),
-        ('Ltr', 'Liter'),
-        ('Ml', 'Milliliter'),
-        ('Box', 'Box'),
-        ('Carton', 'Carton'),
-        ('Pack', 'Pack'),
-        ('Bag', 'Bag'),
-        ('Bottle', 'Bottle'),
-        ('Can', 'Can'),
-        ('Other', 'Other'),
-    ]
 
+class Product(models.Model):
     name = models.CharField(max_length=200)
     code = models.CharField(max_length=50, unique=True)
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
     unit = models.CharField(max_length=20)
     cost_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     selling_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    notes = models.TextField(blank=True, null=True)  # ✅ Content field
-    description = models.TextField(blank=True, null=True)  # ✅ Additional content
+    
+    # ✅ ADD THESE TWO FIELDS
+    description = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)  # Save first to get an ID
-        
-        if is_new:
-            # Create initial cost price if provided
-            if self.cost_price > 0:
-                ProductPrice.objects.create(
-                    product=self,
-                    price_type='cost',
-                    amount=self.cost_price,
-                    effective_date=date.today(),
-                    is_active=True
-                )
-            # Create initial selling price if provided
-            if self.selling_price > 0:
-                ProductPrice.objects.create(
-                    product=self,
-                    price_type='selling',
-                    amount=self.selling_price,
-                    effective_date=date.today(),
-                    is_active=True
-                )
+    def __str__(self):
+        return self.name
     
+    def get_cost_prices(self):
+        return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
+    
+    def get_selling_prices(self):
+        return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
     
     
     

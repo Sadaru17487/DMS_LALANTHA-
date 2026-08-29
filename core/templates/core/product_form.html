@@ -6,22 +6,16 @@
 {% block content %}
 
 <style>
-    /* ===== PAGE HEADER ===== */
     .page-header {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
         color: white;
         padding: 20px 25px;
         border-radius: 12px;
         margin-bottom: 25px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
     }
     .page-header h1 { font-size: 28px; font-weight: 400; margin: 0; }
     .page-header .sub { color: #8aa3c9; font-size: 14px; }
 
-    /* ===== FORM GRID ===== */
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -39,12 +33,8 @@
         text-transform: uppercase;
         letter-spacing: 0.3px;
     }
-    .form-group label .required {
-        color: #dc3545;
-    }
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
+    .form-group label .required { color: #dc3545; }
+    .form-group .form-control {
         padding: 10px 12px;
         border: 2px solid #e0e4eb;
         border-radius: 8px;
@@ -53,42 +43,29 @@
         transition: 0.2s;
         width: 100%;
     }
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
+    .form-group .form-control:focus {
         border-color: #007bff;
         outline: none;
         background: white;
         box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
     }
-    .form-group textarea {
+    .form-group textarea.form-control {
         min-height: 80px;
         resize: vertical;
     }
-    .help-text {
+    .form-group .help-text {
         font-size: 11px;
         color: #888;
         margin-top: 2px;
     }
-    .full-width {
-        grid-column: 1 / -1;
-    }
+    .full-width { grid-column: 1 / -1; }
 
-    /* ===== PRICE VERSIONS ===== */
     .price-section {
         margin-top: 30px;
         border-top: 2px solid #e8ecf2;
         padding-top: 20px;
     }
-    .price-section h3 {
-        font-size: 18px;
-        color: #1a2634;
-    }
-    .price-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 10px 0;
-    }
+    .price-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
     .price-table th {
         background: #f8f9fc;
         padding: 8px 12px;
@@ -99,27 +76,9 @@
         font-size: 12px;
         text-transform: uppercase;
     }
-    .price-table td {
-        padding: 8px 12px;
-        border-bottom: 1px solid #edf1f7;
-        font-size: 14px;
-    }
-    .active-badge {
-        background: #28a745;
-        color: white;
-        padding: 2px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .archived-badge {
-        background: #6c757d;
-        color: white;
-        padding: 2px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
-    }
+    .price-table td { padding: 8px 12px; border-bottom: 1px solid #edf1f7; }
+    .active-badge { background: #28a745; color: white; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .archived-badge { background: #6c757d; color: white; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .btn-add-price {
         background: #007bff;
         color: white;
@@ -143,7 +102,6 @@
     }
     .btn-set-active:hover { background: #218838; }
 
-    /* ===== BUTTONS ===== */
     .action-buttons {
         display: flex;
         gap: 12px;
@@ -176,7 +134,7 @@
     }
     .btn-cancel:hover { background: #d0d5dd; }
 
-    /* ===== MODAL ===== */
+    /* Modal */
     .modal-overlay {
         display: none;
         position: fixed;
@@ -197,13 +155,8 @@
         max-width: 450px;
         width: 90%;
     }
-    .modal-content h3 { margin-top: 0; color: #1a2634; }
+    .modal-content h3 { margin-top: 0; }
     .modal-content .form-group { margin-bottom: 15px; }
-    .modal-content .form-group label {
-        font-weight: 600;
-        color: #555;
-        font-size: 13px;
-    }
     .modal-content .form-group input {
         width: 100%;
         padding: 10px 12px;
@@ -211,11 +164,7 @@
         border-radius: 8px;
         font-size: 14px;
     }
-    .modal-content .btn-group {
-        display: flex;
-        gap: 10px;
-        margin-top: 15px;
-    }
+    .btn-group { display: flex; gap: 10px; margin-top: 15px; }
     .btn-modal {
         padding: 10px 25px;
         border: none;
@@ -229,7 +178,6 @@
     .btn-modal.cancel { background: #6c757d; color: white; }
     .btn-modal.cancel:hover { background: #5a6268; }
 
-    /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
         .form-grid { grid-template-columns: 1fr; }
         .action-buttons { flex-direction: column; }
@@ -239,57 +187,48 @@
 </style>
 
 <div class="container">
-    <!-- Header -->
     <div class="page-header">
-        <div>
-            <h1>{% if product %}✏️ Edit Product{% else %}➕ Add Product{% endif %}</h1>
-            <div class="sub">{% if product %}Update product information{% else %}Create a new product in the system{% endif %}</div>
-        </div>
+        <h1>{% if product %}✏️ Edit Product{% else %}➕ Add Product{% endif %}</h1>
+        <div class="sub">{% if product %}Update product information{% else %}Create a new product in the system{% endif %}</div>
     </div>
 
     <div class="card">
-        <form method="POST" id="productForm" novalidate>
+        <form method="POST" id="productForm">
             {% csrf_token %}
 
-            <!-- ============================================ -->
-            <!-- MAIN PRODUCT FIELDS                          -->
-            <!-- ============================================ -->
+            <!-- ========================================== -->
+            <!-- MAIN PRODUCT FIELDS                        -->
+            <!-- ========================================== -->
             <div class="form-grid">
 
-                <!-- Product Name -->
                 <div class="form-group">
                     <label>Product Name <span class="required">*</span></label>
                     {{ form.name }}
                 </div>
 
-                <!-- Product Code -->
                 <div class="form-group">
                     <label>Product Code <span class="required">*</span></label>
                     {{ form.code }}
-                    <span class="help-text">Unique identifier (SKU)</span>
+                    <span class="help-text">{{ form.code.help_text }}</span>
                 </div>
 
-                <!-- Category -->
                 <div class="form-group">
                     <label>Category</label>
                     {{ form.category }}
                 </div>
 
-                <!-- Unit -->
                 <div class="form-group">
                     <label>Unit <span class="required">*</span></label>
                     {{ form.unit }}
-                    <span class="help-text">e.g., Pcs, Kg, Ltr, Box</span>
+                    <span class="help-text">{{ form.unit.help_text }}</span>
                 </div>
 
-                <!-- Cost Price -->
                 <div class="form-group">
                     <label>Cost Price (Rs)</label>
                     {{ form.cost_price }}
-                    <span class="help-text">For profit calculation</span>
+                    <span class="help-text">{{ form.cost_price.help_text }}</span>
                 </div>
 
-                <!-- Selling Price -->
                 <div class="form-group">
                     <label>Selling Price (Rs) <span class="required">*</span></label>
                     {{ form.selling_price }}
@@ -301,39 +240,39 @@
                 <div class="form-group full-width">
                     <label>Description</label>
                     {{ form.description }}
-                    <span class="help-text">Detailed product description</span>
+                    <span class="help-text">{{ form.description.help_text }}</span>
                 </div>
 
                 <div class="form-group full-width">
                     <label>Notes</label>
                     {{ form.notes }}
-                    <span class="help-text">Internal notes (not visible to customers)</span>
+                    <span class="help-text">{{ form.notes.help_text }}</span>
                 </div>
 
                 <!-- Active -->
                 <div class="form-group full-width" style="display: flex; flex-direction: row; align-items: center; gap: 12px; padding-top: 5px;">
                     <label style="margin: 0; text-transform: none; font-weight: 600; font-size: 14px;">Active</label>
                     {{ form.is_active }}
-                    <span class="help-text" style="margin: 0;">Inactive products won't appear in sales screens</span>
+                    <span class="help-text" style="margin: 0;">{{ form.is_active.help_text }}</span>
                 </div>
 
             </div>
 
-            <!-- ============================================ -->
-            <!-- PRICE VERSIONS SECTION                       -->
-            <!-- ============================================ -->
+            <!-- ========================================== -->
+            <!-- PRICE VERSIONS                             -->
+            <!-- ========================================== -->
             <div class="price-section">
                 <h3>💰 Price Versions</h3>
                 <p style="color:#888; font-size:14px;">
                     {% if product %}
-                        Multiple prices can be stored. The active price is used by default in sales and purchases.
+                        Multiple prices can be stored. The active price is used by default.
                     {% else %}
-                        You can set the initial prices below. Additional versions can be added after saving.
+                        Save the product first to add price versions.
                     {% endif %}
                 </p>
 
-                <!-- Cost Prices Table -->
-                <h4 style="margin-top: 20px;">Cost Prices</h4>
+                <!-- Cost Prices -->
+                <h4>Cost Prices</h4>
                 <table class="price-table">
                     <thead>
                         <tr>
@@ -368,17 +307,15 @@
                             <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">No cost prices added yet.</td></tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">Save the product first to add price versions.</td></tr>
+                            <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">Save the product first.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
                 {% if product %}
                     <button type="button" class="btn-add-price" onclick="openAddPriceModal('cost')">+ Add Cost Price</button>
-                {% else %}
-                    <span style="color:#999; font-size:13px;">(Save product first to add prices)</span>
                 {% endif %}
 
-                <!-- Selling Prices Table -->
+                <!-- Selling Prices -->
                 <h4 style="margin-top: 30px;">Selling Prices</h4>
                 <table class="price-table">
                     <thead>
@@ -414,21 +351,20 @@
                             <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">No selling prices added yet.</td></tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">Save the product first to add price versions.</td></tr>
+                            <tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">Save the product first.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
                 {% if product %}
                     <button type="button" class="btn-add-price" onclick="openAddPriceModal('selling')">+ Add Selling Price</button>
-                {% else %}
-                    <span style="color:#999; font-size:13px;">(Save product first to add prices)</span>
                 {% endif %}
             </div>
 
-            <!-- Hidden Fields -->
             <input type="hidden" name="product_id" value="{{ product.id }}">
 
-            <!-- Action Buttons -->
+            <!-- ========================================== -->
+            <!-- ACTION BUTTONS                             -->
+            <!-- ========================================== -->
             <div class="action-buttons">
                 <button type="submit" class="btn-save">💾 Save Product</button>
                 <a href="/products/" class="btn-cancel">← Cancel</a>
@@ -438,36 +374,30 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- ADD PRICE MODAL                              -->
-<!-- ============================================ -->
+<!-- ========================================== -->
+<!-- ADD PRICE MODAL                            -->
+<!-- ========================================== -->
 <div class="modal-overlay" id="addPriceModal">
     <div class="modal-content">
         <h3 id="modalTitle">Add New Price</h3>
-        <form id="addPriceForm">
-            <div class="form-group">
-                <label>Amount (Rs) <span class="required">*</span></label>
-                <input type="number" step="0.01" id="newPriceAmount" placeholder="0.00" required>
-            </div>
-            <div class="form-group">
-                <label>Effective Date</label>
-                <input type="date" id="newPriceDate" value="{{ today|date:'Y-m-d' }}">
-            </div>
-            <input type="hidden" id="newPriceType" value="selling">
-            <input type="hidden" id="newPriceProductId" value="{{ product.id }}">
-            <div class="btn-group">
-                <button type="button" class="btn-modal cancel" onclick="closeAddPriceModal()">Cancel</button>
-                <button type="button" class="btn-modal confirm" onclick="submitNewPrice()">✅ Add Price</button>
-            </div>
-        </form>
+        <div class="form-group">
+            <label>Amount (Rs) <span class="required">*</span></label>
+            <input type="number" step="0.01" id="newPriceAmount" placeholder="0.00">
+        </div>
+        <div class="form-group">
+            <label>Effective Date</label>
+            <input type="date" id="newPriceDate" value="{{ today|date:'Y-m-d' }}">
+        </div>
+        <input type="hidden" id="newPriceType" value="selling">
+        <input type="hidden" id="newPriceProductId" value="{{ product.id }}">
+        <div class="btn-group">
+            <button type="button" class="btn-modal cancel" onclick="closeAddPriceModal()">Cancel</button>
+            <button type="button" class="btn-modal confirm" onclick="submitNewPrice()">✅ Add Price</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // ============================================================
-    // PRICE VERSION FUNCTIONS
-    // ============================================================
-
     function openAddPriceModal(type) {
         document.getElementById('addPriceModal').classList.add('show');
         document.getElementById('newPriceType').value = type;
@@ -493,7 +423,7 @@
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (!csrfToken) {
-            alert('CSRF token not found. Please refresh the page.');
+            alert('CSRF token not found.');
             return;
         }
 
@@ -522,7 +452,7 @@
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
         if (!csrfToken) {
-            alert('CSRF token not found. Please refresh the page.');
+            alert('CSRF token not found.');
             return;
         }
 
@@ -546,7 +476,6 @@
         .catch(() => alert('Error updating active price.'));
     }
 
-    // Close modal when clicking outside
     document.addEventListener('click', function(e) {
         const modal = document.getElementById('addPriceModal');
         if (e.target === modal) {
