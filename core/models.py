@@ -245,6 +245,7 @@ class SalesBill(models.Model):
     rep = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_bills')
     status = models.CharField(max_length=20, choices=[
         ('DRAFT', 'Draft'),
+        ('PENDING', 'Pending'),
         ('COMPLETED', 'Completed'),
         ('CANCELLED', 'Cancelled'),
     ], default='DRAFT')
