@@ -721,7 +721,11 @@ class Cheque(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)    
 
-        # ==================== CUSTOMER ====================
+    bounce_reason = models.CharField(max_length=50, blank=True, null=True)
+    bounced_at = models.DateTimeField(blank=True, null=True)
+    bounced_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='bounced_cheques')
+    bank_charge_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    bank_charge_expense = models.ForeignKey('Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name='cheque_charges')
 
 
 class Customer(models.Model):

@@ -1927,18 +1927,18 @@ def cheque_bounce(request, cheque_id):
             ).first()
 
             if payment:
-                # 3. DELETE the Cheque payment (or mark reversed)
+                # 3. Mark payment as reversed
                 payment.is_reversed = True
                 payment.reversed_at = timezone.now()
                 payment.reversed_by = request.user
                 payment.reversed_cheque = cheque
                 payment.save()
 
-                # 4. CREATE a Credit payment for the same amount
+                # 4. Create a Credit payment for the same amount
                 # Check if a Credit payment already exists for this bill
                 credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
                 if credit_payment:
-                    # Add to existing Credit payment (if multiple credits)
+                    # Add to existing Credit payment
                     credit_payment.amount += cheque.amount
                     credit_payment.save()
                 else:
@@ -1952,18 +1952,15 @@ def cheque_bounce(request, cheque_id):
                 messages.warning(request, 'Could not find a matching payment for this cheque.')
 
             # 5. Recalculate outstanding and update bill status
-            # Get total payments excluding Credit
             non_credit_payments = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
             credit_total = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
             outstanding = bill.net_total - non_credit_payments - credit_total
 
-            # If outstanding > 0, mark bill as PENDING (so it appears in Credit List)
             if outstanding > 0:
                 bill.status = 'PENDING'
                 bill.save()
                 logger.info(f"Bill {bill.invoice_no} set to PENDING with outstanding {outstanding}")
             else:
-                # If outstanding is 0, keep as COMPLETED
                 bill.status = 'COMPLETED'
                 bill.save()
 
@@ -1995,6 +1992,7 @@ def cheque_bounce(request, cheque_id):
 
     # GET request: show bounce form
     return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+
 
 
 @login_required
