@@ -229,6 +229,13 @@ class VehicleStock(models.Model):
 
 
 class SalesBill(models.Model):
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('PENDING', 'Pending'),      # ✅ ADD THIS
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
     """Header of the sales bill"""
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='bills')
     date = models.DateField(default=date.today)  # ✅ No max/min restrictions
@@ -335,10 +342,10 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.type}: {self.amount}"
-    is_reversed = models.BooleanField(default=False)  # ✅ New field
-    reversed_at = models.DateTimeField(null=True, blank=True)
+    is_reversed = models.BooleanField(default=False)
+    reversed_at = models.DateTimeField(blank=True, null=True)
     reversed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payments')
-    reversed_cheque = models.ForeignKey('Cheque', on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payment')
+    reversed_cheque = models.ForeignKey('Cheque', on_delete=models.SET_NULL, null=True, blank=True)
     
 
 class UserProfile(models.Model):
@@ -676,11 +683,11 @@ class Cheque(models.Model):
         }
         return colors.get(self.status, 'secondary')
 # Bounce info
-    bounce_reason = models.CharField(max_length=255, blank=True, null=True)
-    bounced_at = models.DateTimeField(null=True, blank=True)
+    bounce_reason = models.CharField(max_length=50, blank=True, null=True)
+    bounced_at = models.DateTimeField(blank=True, null=True)
     bounced_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='bounced_cheques')
-    bank_charge_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    bank_charge_expense = models.ForeignKey('Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name='cheque_bounce_charges')
+    bank_charge_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    bank_charge_expense = models.ForeignKey('Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name='cheque_charges')
     
     class Meta:
         ordering = ['-created_at']

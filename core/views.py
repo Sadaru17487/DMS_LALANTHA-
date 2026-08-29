@@ -1856,120 +1856,119 @@ def cheque_clear(request, cheque_id):
 @login_required
 @permission_required('manage_cheques')
 def bounce_cheque(request, cheque_id):
-    """
-    Bounce a cheque:
-    1. Mark cheque as BOUNCED
-    2. Reverse the Cheque payment
-    3. Create a Credit payment for the same amount
-    4. Update bill status to PENDING (if outstanding > 0)
-    5. Reset Credit Collection to PENDING
-    6. Optionally add a bank charge expense
-    """
-    cheque = get_object_or_404(Cheque, id=cheque_id)
-    bill = cheque.sales_bill
+    try:
+        cheque = get_object_or_404(Cheque, id=cheque_id)
+        bill = cheque.sales_bill
 
-    if request.method == 'POST':
-        bounce_reason = request.POST.get('bounce_reason')
-        add_bank_charge = request.POST.get('add_bank_charge') == 'on'
-        bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0'))
-        notes = request.POST.get('notes', '')
+        if request.method == 'POST':
+            bounce_reason = request.POST.get('bounce_reason')
+            add_bank_charge = request.POST.get('add_bank_charge') == 'on'
+            bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0'))
+            notes = request.POST.get('notes', '')
 
-        if not bounce_reason:
-            messages.error(request, 'Please provide a bounce reason.')
-            return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+            if not bounce_reason:
+                messages.error(request, 'Please provide a bounce reason.')
+                return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
-        with transaction.atomic():
-            # 1. Mark cheque as bounced
-            cheque.status = 'BOUNCED'
-            cheque.bounce_reason = bounce_reason
-            cheque.bounced_at = timezone.now()
-            cheque.bounced_by = request.user
-            cheque.notes = notes
-            cheque.save()
-            logger.info(f"Cheque {cheque.cheque_no} bounced for bill {bill.invoice_no}")
-
-            # 2. Reverse the Cheque payment
-            payment = Payment.objects.filter(
-                bill=bill,
-                type='Cheque',
-                amount=cheque.amount,
-                is_reversed=False
-            ).first()
-
-            if payment:
-                payment.is_reversed = True
-                payment.reversed_at = timezone.now()
-                payment.reversed_by = request.user
-                payment.reversed_cheque = cheque
-                payment.save()
-                logger.info(f"Reversed payment {payment.id} for cheque {cheque.cheque_no}")
-            else:
-                logger.warning(f"No matching payment found for cheque {cheque.cheque_no}")
-
-            # 3. Create a Credit payment
-            credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
-            if credit_payment:
-                credit_payment.amount += cheque.amount
-                credit_payment.save()
-                logger.info(f"Updated existing Credit payment to {credit_payment.amount}")
-            else:
-                Payment.objects.create(
-                    bill=bill,
-                    type='Credit',
-                    amount=cheque.amount
-                )
-                logger.info(f"Created new Credit payment for {cheque.amount}")
-
-            # 4. Recalculate outstanding
-            non_credit_total = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            credit_total = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            outstanding = bill.net_total - non_credit_total - credit_total
-
-            # 5. Update bill status
-            if outstanding > 0:
-                bill.status = 'PENDING'
-                bill.save()
-                logger.info(f"Bill {bill.invoice_no} set to PENDING (outstanding: {outstanding})")
-            else:
-                bill.status = 'COMPLETED'
-                bill.save()
-                logger.info(f"Bill {bill.invoice_no} remains COMPLETED (outstanding: {outstanding})")
-
-            # 6. Reset Credit Collection
-            collection = CreditCollection.objects.filter(sales_bill=bill).first()
-            if collection:
-                collection.status = 'PENDING'
-                collection.date_taken = None
-                collection.not_collected_reason = None
-                collection.save()
-                logger.info(f"Credit collection reset to PENDING for bill {bill.invoice_no}")
-            else:
-                CreditCollection.objects.create(
-                    sales_bill=bill,
-                    status='PENDING'
-                )
-                logger.info(f"Created new credit collection for bill {bill.invoice_no}")
-
-            # 7. Add bank charge expense
-            if add_bank_charge and bank_charge_amount > 0:
-                expense = Expense.objects.create(
-                    vehicle=None,
-                    date=timezone.now().date(),
-                    category='Bank Charges',
-                    amount=bank_charge_amount,
-                    note=f'Bank charge for bounced cheque {cheque.cheque_no} from {cheque.customer_name}',
-                    status='PAID',
-                )
-                cheque.bank_charge_amount = bank_charge_amount
-                cheque.bank_charge_expense = expense
+            with transaction.atomic():
+                # 1. Mark cheque as bounced
+                cheque.status = 'BOUNCED'
+                cheque.bounce_reason = bounce_reason
+                cheque.bounced_at = timezone.now()
+                cheque.bounced_by = request.user
+                cheque.notes = notes
                 cheque.save()
-                messages.success(request, f'Bank charge of Rs {bank_charge_amount} added as expense.')
+                logger.info(f"Cheque {cheque.cheque_no} bounced for bill {bill.invoice_no}")
 
-        messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
+                # 2. Reverse the Cheque payment
+                payment = Payment.objects.filter(
+                    bill=bill,
+                    type='Cheque',
+                    amount=cheque.amount,
+                    is_reversed=False
+                ).first()
+
+                if payment:
+                    payment.is_reversed = True
+                    payment.reversed_at = timezone.now()
+                    payment.reversed_by = request.user
+                    payment.reversed_cheque = cheque
+                    payment.save()
+                    logger.info(f"Reversed payment {payment.id} for cheque {cheque.cheque_no}")
+                else:
+                    logger.warning(f"No matching payment found for cheque {cheque.cheque_no}")
+
+                # 3. Create a Credit payment
+                credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
+                if credit_payment:
+                    credit_payment.amount += cheque.amount
+                    credit_payment.save()
+                    logger.info(f"Updated existing Credit payment to {credit_payment.amount}")
+                else:
+                    Payment.objects.create(
+                        bill=bill,
+                        type='Credit',
+                        amount=cheque.amount
+                    )
+                    logger.info(f"Created new Credit payment for {cheque.amount}")
+
+                # 4. Recalculate outstanding
+                non_credit_total = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                credit_total = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                outstanding = bill.net_total - non_credit_total - credit_total
+
+                # 5. Update bill status
+                if outstanding > 0:
+                    bill.status = 'PENDING'
+                    bill.save()
+                    logger.info(f"Bill {bill.invoice_no} set to PENDING (outstanding: {outstanding})")
+                else:
+                    bill.status = 'COMPLETED'
+                    bill.save()
+                    logger.info(f"Bill {bill.invoice_no} remains COMPLETED (outstanding: {outstanding})")
+
+                # 6. Reset Credit Collection
+                collection = CreditCollection.objects.filter(sales_bill=bill).first()
+                if collection:
+                    collection.status = 'PENDING'
+                    collection.date_taken = None
+                    collection.not_collected_reason = None
+                    collection.save()
+                    logger.info(f"Credit collection reset to PENDING for bill {bill.invoice_no}")
+                else:
+                    CreditCollection.objects.create(
+                        sales_bill=bill,
+                        status='PENDING'
+                    )
+                    logger.info(f"Created new credit collection for bill {bill.invoice_no}")
+
+                # 7. Add bank charge expense
+                if add_bank_charge and bank_charge_amount > 0:
+                    expense = Expense.objects.create(
+                        vehicle=None,
+                        date=timezone.now().date(),
+                        category='Bank Charges',
+                        amount=bank_charge_amount,
+                        note=f'Bank charge for bounced cheque {cheque.cheque_no} from {cheque.customer_name}',
+                        status='PAID',
+                    )
+                    cheque.bank_charge_amount = bank_charge_amount
+                    cheque.bank_charge_expense = expense
+                    cheque.save()
+                    messages.success(request, f'Bank charge of Rs {bank_charge_amount} added as expense.')
+
+            messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
+            return redirect('cheque_list')
+
+        # GET request: show bounce form
+        return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        logger.error(f"bounce_cheque error: {e}\n{error_msg}")
+        messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
         return redirect('cheque_list')
-
-    # GET request: show bounce form
-    return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
 
 
