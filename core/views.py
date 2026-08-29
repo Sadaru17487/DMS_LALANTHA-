@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from . import views
 from .decorators import permission_required
-from .forms import VehicleLoadForm, SalesBillForm, EmployeeForm
+from .forms import ProductForm, VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
     Category, Employee, Product, ProductPrice, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
@@ -1034,61 +1034,21 @@ def product_list(request):
 
 @login_required
 @permission_required('manage_products')
-def product_add(request):
-    """Add a new product"""
-    categories = Category.objects.filter(is_active=True)
-    
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        code = request.POST.get('code')
-        category_id = request.POST.get('category')
-        unit = request.POST.get('unit')
-        selling_price = request.POST.get('selling_price')
-        cost_price = request.POST.get('cost_price')
-        notes = request.POST.get('notes', '')
-        is_active = request.POST.get('is_active') == 'on'
-        
-        # Validate
-        if not name or not code or not selling_price:
-            messages.error(request, 'Name, Code, and Selling Price are required.')
-            return render(request, 'core/product_form.html', {
-                'categories': categories,
-                'product': None,
-                'action': 'Add',
-            })
-        
-        if Product.objects.filter(code=code).exists():
-            messages.error(request, f'Product with code "{code}" already exists.')
-            return render(request, 'core/product_form.html', {
-                'categories': categories,
-                'product': None,
-                'action': 'Add',
-            })
-        
-        # Create product
-        product = Product.objects.create(
-            name=name,
-            code=code,
-            category_id=category_id if category_id else None,
-            unit=unit or 'Pcs',
-            selling_price=selling_price,
-            cost_price=cost_price if cost_price else None,
-            notes=notes,
-            is_active=is_active
-        )
-        
-        # Create warehouse stock entry
-        WarehouseStock.objects.create(product=product, quantity=0)
-        
-        messages.success(request, f'Product "{product.name}" added successfully!')
-        return redirect('core:product_list')
-    
-    return render(request, 'core/product_form.html', {
-        'categories': categories,
-        'product': None,
-        'action': 'Add',
-        'units': Product.UNIT_CHOICES,
-    })
+def add_product(request):
+    try:
+        if request.method == 'POST':
+            form = ProductForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Product added successfully!')
+                return redirect('/products/')
+        else:
+            form = ProductForm()
+        return render(request, 'core/product_form.html', {'form': form, 'product': None})
+    except Exception as e:
+        import traceback
+        messages.error(request, f'Error: {e}')
+        return render(request, 'core/product_form.html', {'form': ProductForm()})
 
 
 @login_required

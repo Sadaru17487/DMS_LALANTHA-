@@ -115,4 +115,4 @@ SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on each request
 
 
 # Add this at the bottom
-CACHE_VERSION = '1.0.0'  # Increment this on every deployment
+CACHE_VERSION = '1.0.1'  # Increment this on every deployment
