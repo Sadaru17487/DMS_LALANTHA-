@@ -1034,7 +1034,7 @@ def product_list(request):
 
 @login_required
 @permission_required('manage_products')
-def add_product(request):
+def product_add(request):
     try:
         if request.method == 'POST':
             form = ProductForm(request.POST)
