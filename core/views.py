@@ -1374,8 +1374,8 @@ def purchase_add(request):
         )
         
         # Process items
-        subtotal = Decimal('0')
-        foc_value = Decimal('0')
+        subtotal = Decimal('0')          # Regular items only
+        foc_value = Decimal('0')         # FOC items (should be 0)
         items_data = []
         
         item_count = int(request.POST.get('item_count', 0))
@@ -1387,14 +1387,26 @@ def purchase_add(request):
             wholesale_price = Decimal(request.POST.get(f'wholesale_{i}', '0') or '0')
             is_foc = request.POST.get(f'is_foc_{i}', 'false') == 'true'
             
-            if not product_id or quantity <= 0 or cost_price <= 0:
+            if not product_id or quantity <= 0:
                 continue
             
             product = get_object_or_404(Product, id=product_id)
-            total = quantity * cost_price
-            retail_total = quantity * retail_price
-            wholesale_total = quantity * wholesale_price
             
+            # ============================================================
+            # 🔥 FIX: FOC items have ZERO cost and ZERO total
+            # ============================================================
+            if is_foc:
+                cost_price = Decimal('0')      # ✅ Force cost to 0
+                retail_price = Decimal('0')    # ✅ Force retail to 0
+                wholesale_price = Decimal('0') # ✅ Force wholesale to 0
+                total = Decimal('0')           # ✅ Force total to 0
+            else:
+                # Regular items must have cost price
+                if cost_price <= 0:
+                    continue
+                total = quantity * cost_price
+            
+            # Create PurchaseItem
             PurchaseItem.objects.create(
                 purchase=purchase,
                 product=product,
@@ -1403,16 +1415,18 @@ def purchase_add(request):
                 retail_price=retail_price,
                 wholesale_price=wholesale_price,
                 total=total,
-                retail_total=retail_total,
-                wholesale_total=wholesale_total,
+                retail_total=quantity * retail_price,
+                wholesale_total=quantity * wholesale_price,
                 is_foc=is_foc,
             )
             
-            # Subtotal includes ALL items (regular + FOC) for valuation
-            subtotal += total
-            # FOC value tracked separately (but same as total for FOC items)
+            # ✅ Only add to subtotal if NOT FOC
+            if not is_foc:
+                subtotal += total
+            
+            # FOC value tracked separately
             if is_foc:
-                foc_value += total
+                foc_value += total  # Will always be 0
             
             items_data.append({
                 'product': product,
@@ -1429,6 +1443,7 @@ def purchase_add(request):
             purchase.subtotal = subtotal
             purchase.tax_amount = (subtotal * tax_rate) / 100
             purchase.total = subtotal + purchase.tax_amount
+            purchase.foc_value = foc_value  # ✅ Store FOC value (will be 0)
             purchase.save()
             
             messages.success(request, f'Purchase #{purchase.invoice_no} created successfully!')
@@ -1453,7 +1468,6 @@ def purchase_add(request):
         'today': date.today(),
         'random_po': f"{random.randint(100000, 999999)}",
     })
-
 
 @login_required
 @permission_required('manage_purchases')

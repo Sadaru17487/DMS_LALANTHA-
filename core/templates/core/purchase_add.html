@@ -338,10 +338,19 @@
         
         const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-        const amount = qty * cost;
+        const isFoc = row.dataset.isFoc === 'true';  // ✅ Check if FOC
+        
+        // ✅ If FOC, amount is ALWAYS zero
+        const amount = isFoc ? 0 : (qty * cost);
         
         const amountSpan = document.getElementById(`amount_${index}`);
         amountSpan.textContent = `Rs ${amount.toFixed(2)}`;
+        
+        // ✅ If FOC, also set cost to 0 for display
+        if (isFoc) {
+            const costInput = row.querySelector('.cost-input');
+            if (costInput) costInput.value = 0;
+        }
         
         calculateTotals();
     }
@@ -356,12 +365,15 @@
             const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
             const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
             const isFoc = row.dataset.isFoc === 'true';
-            const amount = qty * cost;
+            
+            // ✅ FOC items have zero cost
+            const effectiveCost = isFoc ? 0 : cost;
+            const amount = qty * effectiveCost;
             
             totalItems += qty;
             subtotal += amount;
             if (isFoc) {
-                focTotalVal += amount;
+                focTotalVal += amount;  // Will always be 0
             }
         });
         

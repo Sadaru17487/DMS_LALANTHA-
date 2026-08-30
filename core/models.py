@@ -523,8 +523,8 @@ class Supplier(models.Model):
 
 class Purchase(models.Model):
     PAYMENT_STATUS_CHOICES = [
-    ('CREDIT', 'Credit Purchases'),
-    ('COMPLETE', 'Complete Payment'),
+        ('CREDIT', 'Credit Purchases'),
+        ('COMPLETE', 'Complete Payment'),
     ]
     
     STATUS_CHOICES = [
@@ -557,6 +557,9 @@ class Purchase(models.Model):
     tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     paid_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    # ✅ ADD THIS FIELD
+    foc_value = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
     # Status
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
