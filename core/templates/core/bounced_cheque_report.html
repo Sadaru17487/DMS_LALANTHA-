@@ -6,95 +6,141 @@
 {% block content %}
 
 <style>
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    .summary-grid .card {
-        background: white;
-        padding: 15px 20px;
+    .report-container { max-width: 1400px; margin: 0 auto; }
+    .header-box {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 25px 30px;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        text-align: center;
+        margin-bottom: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
     }
-    .summary-grid .card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
-    .summary-grid .card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
-    .summary-grid .card .value.total { color: #1a2634; }
-    .summary-grid .card .value.charges { color: #fd7e14; }
+    .header-box h1 { font-size: 28px; font-weight: 400; margin: 0; }
+    .header-box .sub { color: #8aa3c9; font-size: 14px; }
+    .filter-box {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: end;
+    }
+    .filter-box .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-box .filter-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; }
+    .filter-box .filter-group input { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
+    .btn-filter { background: #007bff; color: white; padding: 8px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 42px; }
+    .btn-filter:hover { background: #0056b3; }
+    .btn-clear { background: #6c757d; color: white; padding: 8px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; height: 42px; }
+    .btn-excel { background: #28a745; color: white; padding: 8px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; height: 42px; margin-left: auto; }
+    
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: white; padding: 18px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; border-top: 4px solid #dc3545; }
+    .summary-card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-card .value { font-size: 24px; font-weight: 700; color: #1a2634; margin-top: 5px; }
+    .summary-card .value.red { color: #dc3545; }
+    
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 25px; }
+    .card h3 { margin-bottom: 15px; border-bottom: 2px solid #e8ecf2; padding-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table th { background: #f8f9fc; padding: 10px 12px; text-align: left; font-weight: 600; color: #555; border-bottom: 2px solid #e0e4eb; }
+    table td { padding: 10px 12px; border-bottom: 1px solid #edf1f7; color: #333; }
+    table td:last-child, table th:last-child { text-align: right; }
+    .badge-bounced { background: #dc3545; color: white; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .footer { text-align: center; margin-top: 25px; padding: 15px; color: #999; font-size: 13px; border-top: 1px solid #e0e4eb; }
+    
+    @media (max-width: 768px) {
+        .summary-grid { grid-template-columns: repeat(2, 1fr); }
+        .filter-box { flex-direction: column; align-items: stretch; }
+        .filter-box .filter-group input { min-width: 100%; }
+        .filter-box .btn-excel { margin-left: 0; }
+    }
 </style>
 
-<div class="container">
-    <div class="page-title">
+<div class="report-container">
+    <div class="header-box">
         <div>
-            <h2>📊 Bounced Cheque Report</h2>
-            <span class="subtitle">List of all bounced cheques</span>
+            <h1>🏦 Bounced Cheque Report</h1>
+            <div class="sub">List of all bounced cheques</div>
+        </div>
+        <div class="date-badge" style="background: rgba(255,255,255,0.1); padding: 8px 18px; border-radius: 20px; font-size: 14px; color: #a0c4ff;">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
         </div>
     </div>
 
-    <!-- Filters -->
-    <form method="GET" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end; background:white; padding:15px; border-radius:12px; margin-bottom:20px;">
-        <div>
-            <label style="font-weight:600; font-size:13px; color:#555;">From:</label>
-            <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
         </div>
-        <div>
-            <label style="font-weight:600; font-size:13px; color:#555;">To:</label>
-            <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
         </div>
-        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
-        <a href="/reports/bounced-cheques/" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+        <button type="submit" class="btn-filter">🔍 Generate</button>
+        <a href="/reports/bounced-cheques/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
     </form>
 
-    <!-- Summary -->
     <div class="summary-grid">
-        <div class="card">
+        <div class="summary-card">
             <div class="label">Total Bounced Cheques</div>
-            <div class="value total">{{ count }}</div>
+            <div class="value red">{{ total_count }}</div>
         </div>
-        <div class="card">
+        <div class="summary-card" style="border-top-color: #dc3545;">
             <div class="label">Total Amount</div>
-            <div class="value total">Rs {{ total_bounced_amount|floatformat:2 }}</div>
+            <div class="value red">Rs {{ total_amount|floatformat:2 }}</div>
         </div>
-        <div class="card">
+        <div class="summary-card" style="border-top-color: #fd7e14;">
             <div class="label">Bank Charges</div>
-            <div class="value charges">Rs {{ total_bank_charges|floatformat:2 }}</div>
+            <div class="value orange">Rs {{ total_bank_charges|floatformat:2 }}</div>
         </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-container" style="background:white; border-radius:12px; padding:20px; overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse;">
-            <thead>
-                <tr>
-                    <th>Cheque No</th>
-                    <th>Customer</th>
-                    <th>Bank</th>
-                    <th style="text-align:right;">Amount</th>
-                    <th>Bounce Date</th>
-                    <th>Reason</th>
-                    <th style="text-align:right;">Bank Charge</th>
-                    <th>Bounced By</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for cheque in cheques %}
-                <tr>
-                    <td><strong>{{ cheque.cheque_no }}</strong></td>
-                    <td>{{ cheque.customer_name }}</td>
-                    <td>{{ cheque.bank.name }}</td>
-                    <td style="text-align:right; font-weight:600;">Rs {{ cheque.amount|floatformat:2 }}</td>
-                    <td>{{ cheque.bounced_at|date:"Y-m-d H:i" }}</td>
-                    <td>{{ cheque.get_bounce_reason_display|default:cheque.bounce_reason }}</td>
-                    <td style="text-align:right;">{% if cheque.bank_charge_amount > 0 %}Rs {{ cheque.bank_charge_amount|floatformat:2 }}{% else %}-{% endif %}</td>
-                    <td>{{ cheque.bounced_by.username|default:"-" }}</td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No bounced cheques found for this period.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card">
+        <h3>📋 Bounced Cheque Details</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cheque No</th>
+                        <th>Customer</th>
+                        <th>Bank</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Bounce Date</th>
+                        <th>Reason</th>
+                        <th style="text-align:right;">Bank Charge</th>
+                        <th>Bounced By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cheque in bounced_cheques %}
+                    <tr>
+                        <td><strong>{{ cheque.cheque_no }}</strong></td>
+                        <td>{{ cheque.customer_name }}</td>
+                        <td>{{ cheque.bank.name }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ cheque.amount|floatformat:2 }}</td>
+                        <td>{{ cheque.bounced_at|date:"Y-m-d H:i" }}</td>
+                        <td><span class="badge-bounced">{{ cheque.bounce_reason|default:"Other" }}</span></td>
+                        <td style="text-align:right; color:#fd7e14;">Rs {{ cheque.bank_charge_amount|floatformat:2 }}</td>
+                        <td>{{ cheque.bounced_by.username|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No bounced cheques found for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
     </div>
 </div>
 {% endblock %}

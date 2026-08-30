@@ -40,7 +40,12 @@ from .forms import VehicleLoadForm
 from .decorators import permission_required
 import logging
 from .models import StockMovementLog
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
+from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
+
 logger = logging.getLogger(__name__)
+
 
 @login_required
 def dashboard(request):
@@ -1925,7 +1930,6 @@ def bounce_cheque(request, cheque_id):
                 else:
                     bill.status = 'COMPLETED'
                     bill.save()
-                    logger.info(f"Bill {bill.invoice_no} remains COMPLETED (outstanding: {outstanding})")
 
                 # 6. Reset Credit Collection
                 collection = CreditCollection.objects.filter(sales_bill=bill).first()
@@ -1934,13 +1938,11 @@ def bounce_cheque(request, cheque_id):
                     collection.date_taken = None
                     collection.not_collected_reason = None
                     collection.save()
-                    logger.info(f"Credit collection reset to PENDING for bill {bill.invoice_no}")
                 else:
                     CreditCollection.objects.create(
                         sales_bill=bill,
                         status='PENDING'
                     )
-                    logger.info(f"Created new credit collection for bill {bill.invoice_no}")
 
                 # 7. Add bank charge expense
                 if add_bank_charge and bank_charge_amount > 0:
@@ -1960,8 +1962,14 @@ def bounce_cheque(request, cheque_id):
             messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
             return redirect('cheque_list')
 
-        # GET request: show bounce form
         return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        logger.error(f"bounce_cheque error: {e}\n{error_msg}")
+        messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
+        return redirect('cheque_list')
 
     except Exception as e:
         import traceback
@@ -1975,25 +1983,39 @@ def bounce_cheque(request, cheque_id):
 @login_required
 @permission_required('view_reports')
 def bounced_cheque_report(request):
-    from datetime import date
-    start_date = request.GET.get('start_date', date.today().strftime('%Y-%m-%d'))
-    end_date = request.GET.get('end_date', date.today().strftime('%Y-%m-%d'))
+    today = date.today()
+    start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today
+        end_date_obj = today
+    
+    # Get bounced cheques with date filter
     bounced_cheques = Cheque.objects.filter(
         status='BOUNCED',
-        bounced_at__date__gte=start_date,
-        bounced_at__date__lte=end_date
-    ).select_related('sales_bill', 'bank', 'bounced_by')
-
-    total_bounced_amount = bounced_cheques.aggregate(total=Sum('amount'))['total'] or 0
-    total_bank_charges = bounced_cheques.exclude(bank_charge_amount=0).aggregate(total=Sum('bank_charge_amount'))['total'] or 0
-
+        bounced_at__date__gte=start_date_obj,
+        bounced_at__date__lte=end_date_obj
+    ).select_related('bank', 'bounced_by', 'sales_bill')
+    
+    # Calculate totals
+    total_count = bounced_cheques.count()
+    total_amount = bounced_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+    total_bank_charges = bounced_cheques.aggregate(total=Sum('bank_charge_amount'))['total'] or Decimal('0')
+    
     context = {
-        'cheques': bounced_cheques,
         'start_date': start_date,
         'end_date': end_date,
-        'total_bounced_amount': total_bounced_amount,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'bounced_cheques': bounced_cheques,
+        'total_count': total_count,
+        'total_amount': total_amount,
         'total_bank_charges': total_bank_charges,
-        'count': bounced_cheques.count(),
+        'today': today,
     }
     return render(request, 'core/bounced_cheque_report.html', context)
 
