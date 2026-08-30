@@ -13,7 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Sum, Count, Q
-from django.http import JsonResponse, request
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
@@ -43,11 +43,7 @@ from .models import StockMovementLog
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
-from datetime import datetime
-try:
-    purchase_date = datetime.strptime(request.POST.get('purchase_date'), '%Y-%m-%d').date()
-except ValueError:
-    purchase_date = date.today()
+
 
 
 logger = logging.getLogger(__name__)
