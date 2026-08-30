@@ -44,7 +44,7 @@ urlpatterns = [
     path('supplier/edit/<int:supplier_id>/', views.supplier_edit, name='supplier_edit'),
     path('supplier/delete/<int:supplier_id>/', views.supplier_delete, name='supplier_delete'),
     path('api/add-bank/', views.add_bank_api, name='add_bank_api'),
-    path('cheques/', views.cheque_list, name='cheque_list'),
+    path('cheques/', views.cheque_list, name='cheque_list'),  # ✅ ADD name='cheque_list'
     path('cheque/detail/<int:cheque_id>/', views.cheque_detail, name='cheque_detail'),
     path('cheque/deposit/<int:cheque_id>/', views.cheque_deposit, name='cheque_deposit'),
     path('cheque/clear/<int:cheque_id>/', views.cheque_clear, name='cheque_clear'),
