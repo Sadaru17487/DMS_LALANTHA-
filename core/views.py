@@ -1861,20 +1861,20 @@ def cheque_clear(request, cheque_id):
 @login_required
 @permission_required('manage_cheques')
 def bounce_cheque(request, cheque_id):
-    try:
-        cheque = get_object_or_404(Cheque, id=cheque_id)
-        bill = cheque.sales_bill
+    cheque = get_object_or_404(Cheque, id=cheque_id)
+    bill = cheque.sales_bill
 
-        if request.method == 'POST':
-            bounce_reason = request.POST.get('bounce_reason')
-            add_bank_charge = request.POST.get('add_bank_charge') == 'on'
-            bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0'))
-            notes = request.POST.get('notes', '')
+    if request.method == 'POST':
+        bounce_reason = request.POST.get('bounce_reason')
+        add_bank_charge = request.POST.get('add_bank_charge') == 'on'
+        bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0'))
+        notes = request.POST.get('notes', '')
 
-            if not bounce_reason:
-                messages.error(request, 'Please provide a bounce reason.')
-                return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+        if not bounce_reason:
+            messages.error(request, 'Please provide a bounce reason.')
+            return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
+        try:
             with transaction.atomic():
                 # 1. Mark cheque as bounced
                 cheque.status = 'BOUNCED'
@@ -1883,39 +1883,31 @@ def bounce_cheque(request, cheque_id):
                 cheque.bounced_by = request.user
                 cheque.notes = notes
                 cheque.save()
-                logger.info(f"Cheque {cheque.cheque_no} bounced for bill {bill.invoice_no}")
 
                 # 2. Reverse the Cheque payment
                 payment = Payment.objects.filter(
                     bill=bill,
                     type='Cheque',
-                    amount=cheque.amount,
                     is_reversed=False
                 ).first()
-
                 if payment:
                     payment.is_reversed = True
                     payment.reversed_at = timezone.now()
                     payment.reversed_by = request.user
                     payment.reversed_cheque = cheque
                     payment.save()
-                    logger.info(f"Reversed payment {payment.id} for cheque {cheque.cheque_no}")
-                else:
-                    logger.warning(f"No matching payment found for cheque {cheque.cheque_no}")
 
-                # 3. Create a Credit payment
+                # 3. Create a Credit payment for the same amount
                 credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
                 if credit_payment:
                     credit_payment.amount += cheque.amount
                     credit_payment.save()
-                    logger.info(f"Updated existing Credit payment to {credit_payment.amount}")
                 else:
                     Payment.objects.create(
                         bill=bill,
                         type='Credit',
                         amount=cheque.amount
                     )
-                    logger.info(f"Created new Credit payment for {cheque.amount}")
 
                 # 4. Recalculate outstanding
                 non_credit_total = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
@@ -1936,7 +1928,6 @@ def bounce_cheque(request, cheque_id):
                 if collection:
                     collection.status = 'PENDING'
                     collection.date_taken = None
-                    collection.not_collected_reason = None
                     collection.save()
                 else:
                     CreditCollection.objects.create(
@@ -1944,45 +1935,38 @@ def bounce_cheque(request, cheque_id):
                         status='PENDING'
                     )
 
-                # 7. Add bank charge expense
+                # 7. Add bank charge
                 if add_bank_charge and bank_charge_amount > 0:
                     expense = Expense.objects.create(
                         vehicle=None,
                         date=timezone.now().date(),
                         category='Bank Charges',
                         amount=bank_charge_amount,
-                        note=f'Bank charge for bounced cheque {cheque.cheque_no} from {cheque.customer_name}',
+                        note=f'Bank charge for bounced cheque {cheque.cheque_no}',
                         status='PAID',
                     )
                     cheque.bank_charge_amount = bank_charge_amount
                     cheque.bank_charge_expense = expense
                     cheque.save()
-                    messages.success(request, f'Bank charge of Rs {bank_charge_amount} added as expense.')
+                    messages.success(request, f'Bank charge of Rs {bank_charge_amount} added.')
 
-            messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
-            return redirect('cheque_list')
+                messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
+                return redirect('cheque_list')
 
-        return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+        except Exception as e:
+            import traceback
+            logger.error(f"Bounce error: {traceback.format_exc()}")
+            messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
+            return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
-    except Exception as e:
-        import traceback
-        error_msg = traceback.format_exc()
-        logger.error(f"bounce_cheque error: {e}\n{error_msg}")
-        messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
-        return redirect('cheque_list')
-
-    except Exception as e:
-        import traceback
-        error_msg = traceback.format_exc()
-        logger.error(f"bounce_cheque error: {e}\n{error_msg}")
-        messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
-        return redirect('cheque_list')
+    return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
 
 
 @login_required
 @permission_required('view_reports')
 def bounced_cheque_report(request):
+    from datetime import date, datetime
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -1994,14 +1978,12 @@ def bounced_cheque_report(request):
         start_date_obj = today
         end_date_obj = today
     
-    # Get bounced cheques with date filter
     bounced_cheques = Cheque.objects.filter(
         status='BOUNCED',
         bounced_at__date__gte=start_date_obj,
         bounced_at__date__lte=end_date_obj
     ).select_related('bank', 'bounced_by', 'sales_bill')
     
-    # Calculate totals
     total_count = bounced_cheques.count()
     total_amount = bounced_cheques.aggregate(total=Sum('amount'))['total'] or Decimal('0')
     total_bank_charges = bounced_cheques.aggregate(total=Sum('bank_charge_amount'))['total'] or Decimal('0')
