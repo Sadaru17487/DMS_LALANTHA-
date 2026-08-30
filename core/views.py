@@ -4,7 +4,7 @@ import logging
 import random
 from decimal import Decimal
 from datetime import date, datetime, timedelta
-from itertools import product
+
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -17,7 +17,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
-from . import views
+
 from .decorators import permission_required
 from .forms import ProductForm, VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
@@ -27,7 +27,7 @@ from .models import (
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession
 )
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.styles import Font
 from django.http import HttpResponse
 from django.http import JsonResponse
 from decimal import Decimal
@@ -43,7 +43,7 @@ from .models import StockMovementLog
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
-from .views import purchase_delete
+
 
 logger = logging.getLogger(__name__)
 
@@ -1699,19 +1699,25 @@ def purchase_edit(request, purchase_id):
 
 @login_required
 @permission_required('manage_purchases')
-def purchase_delete(request, purchase_id):
-    """Delete a purchase (only if not received)"""
+def delete_purchase(request, purchase_id):
+    """
+    Delete a purchase (only if not received).
+    Shows confirmation page on GET, deletes on POST.
+    """
     purchase = get_object_or_404(Purchase, id=purchase_id)
     
+    # Prevent deletion of received purchases
     if purchase.status == 'RECEIVED':
-        messages.error(request, 'Cannot delete a received purchase.')
+        messages.error(request, f'❌ Cannot delete purchase #{purchase.invoice_no} – it has already been received.')
         return redirect('core:purchase_list')
     
     if request.method == 'POST':
+        invoice_no = purchase.invoice_no
         purchase.delete()
-        messages.success(request, f'Purchase #{purchase.invoice_no} deleted successfully.')
+        messages.success(request, f'✅ Purchase #{invoice_no} deleted successfully.')
         return redirect('core:purchase_list')
     
+    # GET request – show confirmation page
     return render(request, 'core/purchase_confirm_delete.html', {'purchase': purchase})
 
 

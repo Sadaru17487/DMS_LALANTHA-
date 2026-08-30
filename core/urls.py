@@ -38,7 +38,7 @@ urlpatterns = [
     path('purchase/detail/<int:purchase_id>/', views.purchase_detail, name='purchase_detail'),
     path('purchase/receive/<int:purchase_id>/', views.purchase_receive, name='purchase_receive'),
     path('purchase/edit/<int:purchase_id>/', views.purchase_edit, name='purchase_edit'),
-    path('purchase/delete/<int:purchase_id>/', views.purchase_delete, name='purchase_delete'),
+    path('purchase/delete/<int:purchase_id>/', views.delete_purchase, name='delete_purchase'),
     path('suppliers/', views.supplier_list, name='supplier_list'),
     path('supplier/add/', views.supplier_add, name='supplier_add'),
     path('supplier/edit/<int:supplier_id>/', views.supplier_edit, name='supplier_edit'),
@@ -115,6 +115,6 @@ urlpatterns = [
     path('stock-movement-log/', views.stock_movement_log, name='stock_movement_log'),
     path('purchase/detail/<int:purchase_id>/', views.purchase_detail, name='purchase_detail'),
     path('purchase/payment/<int:purchase_id>/', views.make_purchase_payment, name='make_purchase_payment'),
-    
+    path('purchase/delete/<int:purchase_id>/', views.delete_purchase, name='delete_purchase'),
 
 ]
