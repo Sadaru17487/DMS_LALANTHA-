@@ -116,4 +116,5 @@ urlpatterns = [
     path('purchase/detail/<int:purchase_id>/', views.purchase_detail, name='purchase_detail'),
     path('purchase/payment/<int:purchase_id>/', views.make_purchase_payment, name='make_purchase_payment'),
     
+
 ]

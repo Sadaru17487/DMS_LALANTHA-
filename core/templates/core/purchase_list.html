@@ -239,7 +239,7 @@
                             {% if purchase.status != 'RECEIVED' %}
                                 <a href="/purchase/edit/{{ purchase.id }}/" class="edit" title="Edit">✏️</a>
                                 <a href="/purchase/receive/{{ purchase.id }}/" class="pay" title="Mark Received" onclick="return confirm('Receive this purchase? Stock will be updated.')">📦</a>
-                                <a href="/purchase/delete/{{ purchase.id }}/" class="delete" title="Delete" onclick="return confirm('Delete purchase {{ purchase.invoice_no }}?')">🗑️</a>
+                                <a href="{% url 'core:purchase_delete' purchase.id %}" class="delete" title="Delete" onclick="return confirm('Delete purchase {{ purchase.invoice_no }}?')">🗑️</a>
                             {% else %}
                                 <span style="color:#999; font-size:12px;">Received</span>
                             {% endif %}

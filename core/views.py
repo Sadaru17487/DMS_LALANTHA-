@@ -43,6 +43,7 @@ from .models import StockMovementLog
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
+from .views import purchase_delete
 
 logger = logging.getLogger(__name__)
 
@@ -1502,52 +1503,64 @@ def purchase_detail(request, purchase_id):
 @login_required
 @permission_required('manage_purchases')
 def make_purchase_payment(request, purchase_id):
-    purchase = get_object_or_404(Purchase, id=purchase_id)
-    
-    if request.method == 'POST':
-        amount = Decimal(request.POST.get('amount', '0'))
-        payment_date = request.POST.get('payment_date', date.today())
-        payment_method = request.POST.get('payment_method', 'CASH')
-        reference_no = request.POST.get('reference_no', '')
-        notes = request.POST.get('notes', '')
+    try:
+        purchase = get_object_or_404(Purchase, id=purchase_id)
         
-        # Validate
+        # Calculate outstanding
         outstanding = purchase.total - purchase.paid_amount
-        if amount <= 0:
-            messages.error(request, 'Payment amount must be greater than zero.')
+        
+        if request.method == 'POST':
+            amount = Decimal(request.POST.get('amount', '0'))
+            payment_date = request.POST.get('payment_date', str(date.today()))
+            payment_method = request.POST.get('payment_method', 'CASH')
+            reference_no = request.POST.get('reference_no', '')
+            notes = request.POST.get('notes', '')
+            
+            # Validate
+            if amount <= 0:
+                messages.error(request, 'Payment amount must be greater than zero.')
+                return redirect('core:purchase_detail', purchase_id=purchase.id)
+            
+            if amount > outstanding:
+                messages.error(request, f'Payment amount cannot exceed outstanding balance (Rs {outstanding}).')
+                return redirect('core:purchase_detail', purchase_id=purchase.id)
+            
+            with transaction.atomic():
+                # Create payment record
+                payment = PurchasePayment.objects.create(
+                    purchase=purchase,
+                    amount=amount,
+                    payment_date=payment_date,
+                    payment_method=payment_method,
+                    reference_no=reference_no,
+                    notes=notes,
+                    created_by=request.user,
+                )
+                
+                # Update purchase paid_amount
+                purchase.paid_amount += amount
+                purchase.save()
+                
+                # Check if fully paid
+                if purchase.paid_amount >= purchase.total:
+                    purchase.payment_status = 'COMPLETE'
+                    purchase.save()
+                    messages.success(request, f'✅ Purchase #{purchase.invoice_no} fully paid!')
+                else:
+                    messages.success(request, f'✅ Payment of Rs {amount} recorded for purchase #{purchase.invoice_no}.')
+            
             return redirect('core:purchase_detail', purchase_id=purchase.id)
         
-        if amount > outstanding:
-            messages.error(request, f'Payment amount cannot exceed outstanding balance (Rs {outstanding}).')
-            return redirect('core:purchase_detail', purchase_id=purchase.id)
-        
-        # Create payment record
-        payment = PurchasePayment.objects.create(
-            purchase=purchase,
-            amount=amount,
-            payment_date=payment_date,
-            payment_method=payment_method,
-            reference_no=reference_no,
-            notes=notes,
-            created_by=request.user,
-        )
-        
-        # Update purchase paid_amount
-        purchase.paid_amount += amount
-        purchase.save()
-        
-        # Check if fully paid
-        if purchase.paid_amount >= purchase.total:
-            purchase.payment_status = 'COMPLETE'
-            purchase.save()
-            messages.success(request, f'✅ Purchase #{purchase.invoice_no} fully paid!')
-        else:
-            messages.success(request, f'✅ Payment of Rs {amount} recorded for purchase #{purchase.invoice_no}.')
-        
+        # GET request - redirect to detail
         return redirect('core:purchase_detail', purchase_id=purchase.id)
     
-    # GET request - redirect to detail
-    return redirect('core:purchase_detail', purchase_id=purchase.id)
+    except Exception as e:
+        import traceback
+        error_msg = traceback.format_exc()
+        logger.error(f"make_purchase_payment error: {e}\n{error_msg}")
+        messages.error(request, f'❌ Error making payment: {str(e)}')
+        return redirect('core:purchase_detail', purchase_id=purchase_id)
+
 
 
 @login_required

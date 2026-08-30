@@ -1135,4 +1135,3 @@ class PurchasePayment(models.Model):
     
     class Meta:
         ordering = ['-payment_date']
-
