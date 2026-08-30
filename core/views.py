@@ -23,7 +23,7 @@ from .forms import ProductForm, VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
     Category, Employee, Product, ProductPrice, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
-    Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, 
+    Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, PurchasePayment,
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession
 )
 from openpyxl import Workbook
