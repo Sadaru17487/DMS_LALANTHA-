@@ -1112,5 +1112,27 @@ class StockMovementLog(models.Model):
         ordering = ['-created_at']
 
 
-
+class PurchasePayment(models.Model):
+    PURCHASE_PAYMENT_METHODS = [
+        ('CASH', 'Cash'),
+        ('BANK_TRANSFER', 'Bank Transfer'),
+        ('CHEQUE', 'Cheque'),
+        ('ONLINE', 'Online Payment'),
+        ('CREDIT_NOTE', 'Credit Note'),
+    ]
+    
+    purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    payment_date = models.DateField(auto_now_add=True)
+    payment_method = models.CharField(max_length=20, choices=PURCHASE_PAYMENT_METHODS)
+    reference_no = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_payments')
+    
+    def __str__(self):
+        return f"{self.purchase.invoice_no} - Rs {self.amount} ({self.payment_method})"
+    
+    class Meta:
+        ordering = ['-payment_date']
 

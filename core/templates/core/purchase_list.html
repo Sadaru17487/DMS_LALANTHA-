@@ -211,15 +211,28 @@
                     <td>{{ purchase.get_total_items|floatformat:0 }} Items</td>
                     <td><strong>Rs {{ purchase.total|floatformat:2 }}</strong></td>
                     <td>
+                        <!-- Purchase Status (Received / Pending / Cancelled) -->
                         <span class="badge-status {{ purchase.status|lower }}">
                             {{ purchase.get_status_display }}
                         </span>
-                        {% if purchase.payment_status != 'COMPLETE' %}
-                            <br><span class="badge-status" style="font-size:10px; background:#fff3cd; color:#856404;">
-                                {{ purchase.get_payment_status_display }}
+                        
+                        <!-- Payment Status (Paid / Overdue / Credit) -->
+                        <br>
+                        {% if purchase.paid_amount >= purchase.total %}
+                            <span class="badge-status" style="background:#d4edda; color:#155724; font-size:10px;">
+                                ✅ Paid
+                            </span>
+                        {% elif purchase.due_date and purchase.due_date < today and purchase.paid_amount < purchase.total %}
+                            <span class="badge-status" style="background:#f8d7da; color:#721c24; font-size:10px;">
+                                🔴 Overdue
+                            </span>
+                        {% else %}
+                            <span class="badge-status" style="background:#fff3cd; color:#856404; font-size:10px;">
+                                📋 Credit
                             </span>
                         {% endif %}
                     </td>
+                    
                     <td>
                         <div class="action-icons">
                             <a href="/purchase/detail/{{ purchase.id }}/" class="view" title="View">👁️</a>

@@ -6,162 +6,124 @@
 {% block content %}
 
 <style>
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-    }
-    .detail-grid .item .label {
-        font-size: 12px;
-        color: #888;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    .detail-grid .item .value {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1a2634;
-        margin-top: 3px;
-    }
-    .total-row {
-        background: #f8fafc;
-        font-weight: 700;
-    }
-    .total-row td {
-        padding: 12px !important;
-    }
-    .btn-group {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 15px;
-    }
-    .btn-print {
-        background: #17a2b8;
-        color: white;
-        padding: 10px 25px;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-    }
-    .btn-print:hover { background: #138496; }
-    .btn-receive {
-        background: #28a745;
-        color: white;
-        padding: 10px 25px;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-    }
-    .btn-receive:hover { background: #218838; }
-    .badge-status {
-        padding: 3px 14px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    .badge-status.received { background: #d4edda; color: #155724; }
-    .badge-status.pending { background: #fff3cd; color: #856404; }
-    .badge-status.cancelled { background: #f8d7da; color: #721c24; }
-    .badge-status.complete { background: #d4edda; color: #155724; }
-    .badge-status.partial { background: #fff3cd; color: #856404; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+    .detail-item { background: #f8f9fc; padding: 15px; border-radius: 8px; }
+    .detail-item .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .detail-item .value { font-size: 16px; font-weight: 600; color: #1a2634; margin-top: 2px; }
+    .status-badge { padding: 4px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: inline-block; }
+    .status-badge.received { background: #d4edda; color: #155724; }
+    .status-badge.pending { background: #fff3cd; color: #856404; }
+    .status-badge.cancelled { background: #f8d7da; color: #721c24; }
+    .status-badge.complete { background: #cce5ff; color: #004085; }
+    .status-badge.credit { background: #fff3cd; color: #856404; }
+    .status-badge.overdue { background: #f8d7da; color: #721c24; }
     
-    @media print {
-        .sidebar, .sidebar-toggle, .sidebar-overlay, .btn-group, .no-print { display: none !important; }
-        .main-content { margin-left: 0 !important; padding: 10px !important; }
-        .card { box-shadow: none !important; border: 1px solid #ddd; }
-        body { background: white !important; }
+    .payment-history { margin-top: 25px; border-top: 2px solid #e8ecf2; padding-top: 20px; }
+    .payment-history table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .payment-history th { background: #f8f9fc; padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e0e4eb; }
+    .payment-history td { padding: 8px 12px; border-bottom: 1px solid #edf1f7; }
+    
+    .btn-pay { background: #28a745; color: white; padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-pay:hover { background: #218838; }
+    .btn-back { background: #6c757d; color: white; padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn-back:hover { background: #5a6268; }
+    .btn-print { background: #17a2b8; color: white; padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn-print:hover { background: #138496; }
+    
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 500px; width: 90%; }
+    .modal-content h3 { margin-top: 0; }
+    .modal-content .form-group { margin-bottom: 15px; }
+    .modal-content .form-group label { display: block; font-weight: 600; margin-bottom: 4px; }
+    .modal-content .form-group input, .modal-content .form-group select, .modal-content .form-group textarea {
+        width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px;
+    }
+    .modal-content .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+    .modal-content .btn-modal { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; flex: 1; }
+    .modal-content .btn-modal.confirm { background: #28a745; color: white; }
+    .modal-content .btn-modal.confirm:hover { background: #218838; }
+    .modal-content .btn-modal.cancel { background: #6c757d; color: white; }
+    .modal-content .btn-modal.cancel:hover { background: #5a6268; }
+    
+    @media (max-width: 768px) {
+        .detail-grid { grid-template-columns: 1fr; }
     }
 </style>
 
 <div class="container">
     <div class="page-title">
         <div>
-            <h2>🧾 Purchase Detail</h2>
-            <span class="subtitle">{{ purchase.invoice_no }}</span>
+            <h2>📄 Purchase Detail</h2>
+            <span class="subtitle">Invoice: <strong>{{ purchase.invoice_no }}</strong></span>
         </div>
-        <a href="/purchases/" class="btn" style="background:#6c757d;">← Back to List</a>
     </div>
 
-    <!-- Purchase Info -->
     <div class="card">
+        <!-- Header Info -->
         <div class="detail-grid">
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Invoice No</div>
                 <div class="value">{{ purchase.invoice_no }}</div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Supplier</div>
                 <div class="value">{{ purchase.supplier.name }}</div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">PO Number</div>
                 <div class="value">{{ purchase.po_number|default:"-" }}</div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Date</div>
                 <div class="value">{{ purchase.purchase_date|date:"Y-m-d" }}</div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Rep</div>
                 <div class="value">{{ purchase.rep.name|default:"-" }}</div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Status</div>
                 <div class="value">
-                    <span class="badge-status {{ purchase.status|lower }}">
-                        {{ purchase.get_status_display }}
-                    </span>
+                    <span class="status-badge {{ purchase.status|lower }}">{{ purchase.get_status_display }}</span>
                 </div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Payment Status</div>
                 <div class="value">
-                    <span class="badge-status {{ purchase.payment_status|lower }}">
-                        {{ purchase.get_payment_status_display }}
-                    </span>
+                    {% if purchase.paid_amount >= purchase.total %}
+                        <span class="status-badge complete">✅ Paid</span>
+                    {% elif is_overdue %}
+                        <span class="status-badge overdue">🔴 Overdue</span>
+                    {% else %}
+                        <span class="status-badge credit">📋 Credit</span>
+                    {% endif %}
                 </div>
             </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Due Date</div>
-                <div class="value">{{ purchase.due_date|date:"Y-m-d"|default:"-" }}</div>
+                <div class="value">
+                    {{ purchase.due_date|date:"Y-m-d"|default:"-" }}
+                    {% if is_overdue %}
+                        <span style="color:#dc3545; font-size:12px;"> ({{ purchase.due_date|timeuntil }} overdue)</span>
+                    {% endif %}
+                </div>
             </div>
-            {% if purchase.received_at %}
-            <div class="item">
-                <div class="label">Received At</div>
-                <div class="value">{{ purchase.received_at|date:"Y-m-d H:i" }}</div>
-            </div>
-            {% endif %}
-            <div class="item">
-                <div class="label">Tax Rate</div>
-                <div class="value">{{ purchase.tax_rate }}%</div>
-            </div>
-            <div class="item">
-                <div class="label">Tax Invoice No</div>
-                <div class="value">{{ purchase.tax_invoice_no|default:"-" }}</div>
-            </div>
-            <div class="item">
+            <div class="detail-item">
                 <div class="label">Created By</div>
                 <div class="value">{{ purchase.created_by.username|default:"-" }}</div>
             </div>
+            <div class="detail-item">
+                <div class="label">Received At</div>
+                <div class="value">{{ purchase.received_at|date:"Y-m-d H:i"|default:"-" }}</div>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <div class="label">Notes</div>
+                <div class="value">{{ purchase.notes|default:"-" }}</div>
+            </div>
         </div>
-        {% if purchase.notes %}
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e8ecf2;">
-            <div class="label" style="font-size:12px; color:#888; font-weight:600; text-transform:uppercase;">Notes</div>
-            <div style="margin-top:5px; color:#555;">{{ purchase.notes }}</div>
-        </div>
-        {% endif %}
-    </div>
 
-    <!-- Items -->
-    <div class="card">
+        <!-- Items Table -->
         <h3>🛒 Items</h3>
         <div class="table-container">
             <table>
@@ -174,73 +136,170 @@
                         <th style="text-align:right;">Retail Price</th>
                         <th style="text-align:right;">Wholesale Price</th>
                         <th style="text-align:right;">Total</th>
+                        <th>FOC</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in items %}
-                        <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td>
-                                {{ item.product.name }}
-                                {% if item.is_foc %}
-                                    <span style="color:#fd7e14; font-weight:600;">🎁 FOC</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align:right;">{{ item.quantity|floatformat:2 }}</td>
-                            <td style="text-align:right;">Rs {{ item.cost_price|floatformat:2 }}</td>
-                            <td style="text-align:right;">Rs {{ item.retail_price|floatformat:2 }}</td>
-                            <td style="text-align:right;">Rs {{ item.wholesale_price|floatformat:2 }}</td>
-                            <td style="text-align:right; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
-                        </tr>
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td style="text-align:right;">{{ item.quantity|floatformat:0 }}</td>
+                        <td style="text-align:right;">Rs {{ item.cost_price|floatformat:2 }}</td>
+                        <td style="text-align:right;">Rs {{ item.retail_price|floatformat:2 }}</td>
+                        <td style="text-align:right;">Rs {{ item.wholesale_price|floatformat:2 }}</td>
+                        <td style="text-align:right; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
+                        <td>{% if item.is_foc %}✅ FOC{% else %}-{% endif %}</td>
+                    </tr>
                     {% empty %}
-                    <tr><td colspan="7" style="text-align:center;color:#999;">No items found.</td></tr>
+                    <tr><td colspan="8" style="text-align:center;color:#999;">No items found.</td></tr>
                     {% endfor %}
-                    <tr class="total-row">
-                        <td colspan="5"></td>
-                        <td style="text-align:right;">Subtotal:</td>
-                        <td style="text-align:right;">Rs {{ purchase.subtotal|floatformat:2 }}</td>
-                    </tr>
-                    {% if purchase.tax_rate > 0 %}
-                    <tr class="total-row">
-                        <td colspan="5"></td>
-                        <td style="text-align:right;">Tax ({{ purchase.tax_rate }}%):</td>
-                        <td style="text-align:right;">Rs {{ purchase.tax_amount|floatformat:2 }}</td>
-                    </tr>
-                    {% endif %}
-                    <tr class="total-row" style="background:#e8ecf2; font-size:16px;">
-                        <td colspan="5"></td>
-                        <td style="text-align:right; font-weight:700;">Grand Total:</td>
-                        <td style="text-align:right; font-weight:700; color:#28a745;">Rs {{ purchase.total|floatformat:2 }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="5"></td>
-                        <td style="text-align:right; font-weight:600;">Paid Amount:</td>
-                        <td style="text-align:right; font-weight:600; color:#007bff;">Rs {{ purchase.paid_amount|floatformat:2 }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="5"></td>
-                        <td style="text-align:right; font-weight:600;">Balance:</td>
-                        <td style="text-align:right; font-weight:600; color:{% if purchase.balance > 0 %}#dc3545{% else %}#28a745{% endif %};">
-                            Rs {{ purchase.balance|floatformat:2 }}
-                        </td>
-                    </tr>
                 </tbody>
+                <tfoot>
+                    <tr style="background:#f8f9fc; font-weight:700;">
+                        <td colspan="6" style="text-align:right;"><strong>Subtotal:</strong></td>
+                        <td style="text-align:right;">Rs {{ purchase.subtotal|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="background:#f8f9fc; font-weight:700;">
+                        <td colspan="6" style="text-align:right;"><strong>Tax ({{ purchase.tax_rate }}%):</strong></td>
+                        <td style="text-align:right;">Rs {{ purchase.tax_amount|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="background:#f8f9fc; font-weight:700;">
+                        <td colspan="6" style="text-align:right;"><strong>Grand Total:</strong></td>
+                        <td style="text-align:right; color:#28a745;">Rs {{ purchase.total|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="background:#fff3cd; font-weight:700;">
+                        <td colspan="6" style="text-align:right;"><strong>Paid Amount:</strong></td>
+                        <td style="text-align:right; color:#007bff;">Rs {{ purchase.paid_amount|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                    <tr style="background:#f8d7da; font-weight:700;">
+                        <td colspan="6" style="text-align:right;"><strong>Balance:</strong></td>
+                        <td style="text-align:right; color:#dc3545;">Rs {{ outstanding|floatformat:2 }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
-    </div>
 
-    <!-- Buttons -->
-    <div class="btn-group no-print">
-        <a href="/purchases/" class="btn" style="background:#6c757d;">← Back to List</a>
-        {% if purchase.status != 'RECEIVED' %}
-            <a href="/purchase/receive/{{ purchase.id }}/" class="btn-receive">📦 Mark as Received</a>
-            <a href="/purchase/edit/{{ purchase.id }}/" class="btn" style="background:#fd7e14;">✏️ Edit</a>
+        <!-- Payment History -->
+        {% if payments %}
+        <div class="payment-history">
+            <h3>💳 Payment History</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Reference</th>
+                        <th>Notes</th>
+                        <th>By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.payment_date|date:"Y-m-d" }}</td>
+                        <td style="font-weight:600; color:#28a745;">Rs {{ payment.amount|floatformat:2 }}</td>
+                        <td>{{ payment.get_payment_method_display }}</td>
+                        <td>{{ payment.reference_no|default:"-" }}</td>
+                        <td>{{ payment.notes|default:"-" }}</td>
+                        <td>{{ payment.created_by.username|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background:#f8f9fc; font-weight:700;">
+                        <td><strong>Total Paid</strong></td>
+                        <td style="color:#28a745;"><strong>Rs {{ purchase.paid_amount|floatformat:2 }}</strong></td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
         {% endif %}
-        <button onclick="window.print()" class="btn-print">🖨️ Print</button>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:15px; margin-top:25px; flex-wrap:wrap;">
+            {% if outstanding > 0 %}
+                <button type="button" class="btn-pay" onclick="openPaymentModal()">💳 Make Payment</button>
+            {% endif %}
+            <a href="/purchases/" class="btn-back">← Back to List</a>
+            <button type="button" class="btn-print" onclick="window.print()">🖨️ Print</button>
+        </div>
     </div>
+</div>
+
+<!-- ===== PAYMENT MODAL ===== -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal-content">
+        <h3>💳 Make Payment – Purchase #{{ purchase.invoice_no }}</h3>
+        <form method="POST" action="{% url 'core:make_purchase_payment' purchase.id %}">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>Payment Date</label>
+                <input type="date" name="payment_date" value="{{ today|date:'Y-m-d' }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Amount (Rs) <span class="required" style="color:#dc3545;">*</span></label>
+                <input type="number" step="0.01" name="amount" value="{{ outstanding|floatformat:2 }}" required>
+                <span style="font-size:12px; color:#888;">Outstanding balance: Rs {{ outstanding|floatformat:2 }}</span>
+            </div>
+            
+            <div class="form-group">
+                <label>Payment Method <span class="required">*</span></label>
+                <select name="payment_method" required>
+                    <option value="CASH">Cash</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="ONLINE">Online Payment</option>
+                    <option value="CREDIT_NOTE">Credit Note</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Reference No</label>
+                <input type="text" name="reference_no" placeholder="Cheque/Transaction/Reference #">
+            </div>
+            
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" rows="2" placeholder="Payment notes..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="btn-modal cancel" onclick="closePaymentModal()">Cancel</button>
+                <button type="submit" class="btn-modal confirm">✅ Confirm Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPaymentModal() {
+        document.getElementById('paymentModal').classList.add('show');
+    }
     
-    <div class="footer">
-        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
-    </div>
+    function closePaymentModal() {
+        document.getElementById('paymentModal').classList.remove('show');
+    }
+    
+    // Close modal when clicking outside
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('paymentModal');
+        if (e.target === modal) {
+            closePaymentModal();
+        }
+    });
+</script>
+
+<div class="footer">
+    &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
 </div>
 {% endblock %}

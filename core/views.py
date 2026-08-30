@@ -1299,22 +1299,23 @@ def purchase_list(request):
     
     suppliers = Supplier.objects.filter(is_active=True)
     
-    # Calculate totals
+
     total_cost_sum = purchases.aggregate(total=Sum('total'))['total'] or 0
     
     context = {
         'purchases': purchases,
         'suppliers': suppliers,
-        'search': search,
-        'start_date': start_date,
-        'end_date': end_date,
+        'payment_status_choices': Purchase.PAYMENT_STATUS_CHOICES,
+        'status_choices': Purchase.STATUS_CHOICES,
         'selected_supplier': supplier_id,
         'selected_payment_status': payment_status,
         'selected_status': status,
+        'search': search,
+        'start_date': start_date,
+        'end_date': end_date,
         'total_count': purchases.count(),
-        'total_cost_sum': total_cost_sum,
-        'payment_status_choices': Purchase.PAYMENT_STATUS_CHOICES,
-        'status_choices': Purchase.STATUS_CHOICES,
+        'total_cost_sum': purchases.aggregate(total=Sum('total'))['total'] or Decimal('0'),
+        'today': date.today(),  # ✅ ADD THIS
     }
     return render(request, 'core/purchase_list.html', context)
 
@@ -1470,17 +1471,82 @@ def purchase_add(request):
     })
 
 @login_required
-@permission_required('manage_purchases')
+@permission_required('view_purchases')
 def purchase_detail(request, purchase_id):
-    """View purchase details"""
     purchase = get_object_or_404(Purchase, id=purchase_id)
-    items = purchase.items.all().select_related('product')
+    items = purchase.items.all()
+    
+    # Calculate outstanding balance
+    outstanding = purchase.total - purchase.paid_amount
+    
+    # Get payment history
+    payments = purchase.payments.all()
+    
+    # Check if overdue
+    is_overdue = False
+    if purchase.due_date and purchase.due_date < date.today() and outstanding > 0:
+        is_overdue = True
     
     context = {
         'purchase': purchase,
         'items': items,
+        'outstanding': outstanding,
+        'payments': payments,
+        'is_overdue': is_overdue,
+        'today': date.today(),
     }
     return render(request, 'core/purchase_detail.html', context)
+
+
+@login_required
+@permission_required('manage_purchases')
+def make_purchase_payment(request, purchase_id):
+    purchase = get_object_or_404(Purchase, id=purchase_id)
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount', '0'))
+        payment_date = request.POST.get('payment_date', date.today())
+        payment_method = request.POST.get('payment_method', 'CASH')
+        reference_no = request.POST.get('reference_no', '')
+        notes = request.POST.get('notes', '')
+        
+        # Validate
+        outstanding = purchase.total - purchase.paid_amount
+        if amount <= 0:
+            messages.error(request, 'Payment amount must be greater than zero.')
+            return redirect('core:purchase_detail', purchase_id=purchase.id)
+        
+        if amount > outstanding:
+            messages.error(request, f'Payment amount cannot exceed outstanding balance (Rs {outstanding}).')
+            return redirect('core:purchase_detail', purchase_id=purchase.id)
+        
+        # Create payment record
+        payment = PurchasePayment.objects.create(
+            purchase=purchase,
+            amount=amount,
+            payment_date=payment_date,
+            payment_method=payment_method,
+            reference_no=reference_no,
+            notes=notes,
+            created_by=request.user,
+        )
+        
+        # Update purchase paid_amount
+        purchase.paid_amount += amount
+        purchase.save()
+        
+        # Check if fully paid
+        if purchase.paid_amount >= purchase.total:
+            purchase.payment_status = 'COMPLETE'
+            purchase.save()
+            messages.success(request, f'✅ Purchase #{purchase.invoice_no} fully paid!')
+        else:
+            messages.success(request, f'✅ Payment of Rs {amount} recorded for purchase #{purchase.invoice_no}.')
+        
+        return redirect('core:purchase_detail', purchase_id=purchase.id)
+    
+    # GET request - redirect to detail
+    return redirect('core:purchase_detail', purchase_id=purchase.id)
 
 
 @login_required
