@@ -1375,10 +1375,10 @@ def purchase_add(request):
         )
         
         # Process items
-        subtotal = Decimal('0')          # Regular items only
-        foc_value = Decimal('0')         # FOC items (should be 0)
+        subtotal = Decimal('0')
+        foc_value = Decimal('0')
         items_data = []
-        
+
         item_count = int(request.POST.get('item_count', 0))
         for i in range(item_count):
             product_id = request.POST.get(f'product_{i}')
@@ -1397,15 +1397,16 @@ def purchase_add(request):
             # 🔥 FIX: FOC items have ZERO cost and ZERO total
             # ============================================================
             if is_foc:
-                cost_price = Decimal('0')      # ✅ Force cost to 0
-                retail_price = Decimal('0')    # ✅ Force retail to 0
-                wholesale_price = Decimal('0') # ✅ Force wholesale to 0
-                total = Decimal('0')           # ✅ Force total to 0
+                total = Decimal('0')           # FOC items have zero total
+                retail_total = Decimal('0')
+                wholesale_total = Decimal('0')
+                # BUT keep the entered cost_price and wholesale_price for valuation
             else:
-                # Regular items must have cost price
                 if cost_price <= 0:
                     continue
                 total = quantity * cost_price
+                retail_total = quantity * retail_price
+                wholesale_total = quantity * wholesale_price
             
             # Create PurchaseItem
             PurchaseItem.objects.create(
@@ -1425,9 +1426,9 @@ def purchase_add(request):
             if not is_foc:
                 subtotal += total
             
-            # FOC value tracked separately
+            # FOC value tracked separately (should be 0)
             if is_foc:
-                foc_value += total  # Will always be 0
+                foc_value += total  # Will be 0
             
             items_data.append({
                 'product': product,

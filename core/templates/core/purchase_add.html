@@ -338,19 +338,16 @@
         
         const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
         const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
-        const isFoc = row.dataset.isFoc === 'true';  // ✅ Check if FOC
+        const isFoc = row.dataset.isFoc === 'true';
         
-        // ✅ If FOC, amount is ALWAYS zero
+        // ✅ FOC items have ZERO amount, regardless of cost
         const amount = isFoc ? 0 : (qty * cost);
         
         const amountSpan = document.getElementById(`amount_${index}`);
         amountSpan.textContent = `Rs ${amount.toFixed(2)}`;
         
-        // ✅ If FOC, also set cost to 0 for display
-        if (isFoc) {
-            const costInput = row.querySelector('.cost-input');
-            if (costInput) costInput.value = 0;
-        }
+        // ✅ DO NOT override cost for FOC – keep it editable
+        // Remove the lines that set costInput.value = 0
         
         calculateTotals();
     }
@@ -366,14 +363,13 @@
             const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
             const isFoc = row.dataset.isFoc === 'true';
             
-            // ✅ FOC items have zero cost
-            const effectiveCost = isFoc ? 0 : cost;
-            const amount = qty * effectiveCost;
+            // ✅ FOC items contribute 0 to subtotal
+            const amount = isFoc ? 0 : (qty * cost);
             
             totalItems += qty;
             subtotal += amount;
             if (isFoc) {
-                focTotalVal += amount;  // Will always be 0
+                focTotalVal += 0; // Always 0 for FOC
             }
         });
         
