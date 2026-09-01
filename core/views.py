@@ -1330,12 +1330,12 @@ def purchase_add(request):
     products = Product.objects.filter(is_active=True)
     
     if request.method == 'POST':
-        # === DEBUG: Print all POST data ===
-        print("===== POST DATA =====")
-        for key, value in request.POST.items():
-            print(f"{key}: {value}")
-        print("=====================")
-        
+        # ===== DEBUG: Print the submitted date =====
+        print("===== PURCHASE DATE DEBUG =====")
+        print("POST data:", request.POST)
+        print("purchase_date raw:", request.POST.get('purchase_date'))
+        print("================================")
+            
         supplier_id = request.POST.get('supplier')
         rep_id = request.POST.get('rep')
         po_number = request.POST.get('po_number')
@@ -1343,7 +1343,9 @@ def purchase_add(request):
         
         # === DATE PARSING ===
         purchase_date_str = request.POST.get('purchase_date')
-        print(f"DEBUG: raw purchase_date = '{purchase_date_str}'")
+        
+        print(f"Parsed purchase_date: {purchase_date}")
+        
         
         if purchase_date_str:
             try:
@@ -1403,7 +1405,8 @@ def purchase_add(request):
             created_by=request.user,
         )
         
-        print(f"DEBUG: Purchase created with date: {purchase.purchase_date}")
+        
+        print(f"Purchase created with date: {purchase.purchase_date}")
         
         # Process items
         subtotal = Decimal('0')
