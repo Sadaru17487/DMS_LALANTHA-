@@ -43,7 +43,7 @@ class Product(models.Model):
     
     def get_cost_prices(self):
         return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
-    
+
     def get_selling_prices(self):
         return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
     
@@ -87,11 +87,7 @@ class ProductPrice(models.Model):
         ('selling', 'Selling Price'),
     ]
     
-    product = models.ForeignKey(
-        'Product', 
-        on_delete=models.CASCADE, 
-        related_name='prices'   # ← This creates the 'prices' attribute
-    )
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='prices')
     price_type = models.CharField(max_length=10, choices=PRICE_TYPES)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     effective_date = models.DateField(default=date.today)
@@ -99,11 +95,8 @@ class ProductPrice(models.Model):
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        ordering = ['-effective_date', '-created_at']
-
     def __str__(self):
-        return f"{self.product.name} - {self.get_price_type_display()} {self.amount} ({'Active' if self.is_active else 'Archived'})"
+        return f"{self.product.name} - {self.get_price_type_display()} {self.amount}"
 
 
 class WarehouseStock(models.Model):
@@ -346,6 +339,7 @@ class Payment(models.Model):
     reversed_at = models.DateTimeField(blank=True, null=True)
     reversed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payments')
     reversed_cheque = models.ForeignKey('Cheque', on_delete=models.SET_NULL, null=True, blank=True)
+
 
 class UserProfile(models.Model):
     """Extends the built-in User model with role-based permissions"""
