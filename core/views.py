@@ -4,6 +4,7 @@ import logging
 import random
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from datetime import datetime, date
 
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1330,33 +1331,28 @@ def purchase_add(request):
     products = Product.objects.filter(is_active=True)
     
     if request.method == 'POST':
-        # ===== DEBUG: Print the submitted date =====
+        # Debug – you can keep or remove after testing
         print("===== PURCHASE DATE DEBUG =====")
         print("POST data:", request.POST)
         print("purchase_date raw:", request.POST.get('purchase_date'))
-        print("================================")
-            
+        
         supplier_id = request.POST.get('supplier')
         rep_id = request.POST.get('rep')
         po_number = request.POST.get('po_number')
         invoice_no = request.POST.get('invoice_no')
         
-        # === DATE PARSING ===
+        # ✅ Date parsing with proper error handling
         purchase_date_str = request.POST.get('purchase_date')
-        
-        print(f"Parsed purchase_date: {purchase_date}")
-        
-        
         if purchase_date_str:
             try:
                 purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
-                print(f"DEBUG: parsed purchase_date = {purchase_date}")
-            except ValueError as e:
-                print(f"DEBUG: date parse error: {e}")
+                print(f"Parsed purchase_date: {purchase_date}")
+            except ValueError:
                 purchase_date = date.today()
+                print("Date parse error – using today")
         else:
             purchase_date = date.today()
-            print("DEBUG: no purchase_date submitted, using today")
+            print("No purchase_date submitted – using today")
         
         due_date_str = request.POST.get('due_date')
         due_date = None
