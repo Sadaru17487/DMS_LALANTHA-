@@ -1325,26 +1325,36 @@ def purchase_list(request):
 @login_required
 @permission_required('manage_purchases')
 def purchase_add(request):
-    """Add a new purchase with FOC support and backdating"""
     suppliers = Supplier.objects.filter(is_active=True)
     reps = Employee.objects.filter(is_active=True)
     products = Product.objects.filter(is_active=True)
     
     if request.method == 'POST':
+        # === DEBUG: Print all POST data ===
+        print("===== POST DATA =====")
+        for key, value in request.POST.items():
+            print(f"{key}: {value}")
+        print("=====================")
+        
         supplier_id = request.POST.get('supplier')
         rep_id = request.POST.get('rep')
         po_number = request.POST.get('po_number')
         invoice_no = request.POST.get('invoice_no')
         
-        # ✅ Get the date from the form
+        # === DATE PARSING ===
         purchase_date_str = request.POST.get('purchase_date')
+        print(f"DEBUG: raw purchase_date = '{purchase_date_str}'")
+        
         if purchase_date_str:
             try:
                 purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
-            except ValueError:
+                print(f"DEBUG: parsed purchase_date = {purchase_date}")
+            except ValueError as e:
+                print(f"DEBUG: date parse error: {e}")
                 purchase_date = date.today()
         else:
             purchase_date = date.today()
+            print("DEBUG: no purchase_date submitted, using today")
         
         due_date_str = request.POST.get('due_date')
         due_date = None
@@ -1376,13 +1386,13 @@ def purchase_add(request):
         if rep_id:
             rep = get_object_or_404(Employee, id=rep_id)
         
-        # ✅ Create purchase with the submitted date
+        # === CREATE PURCHASE ===
         purchase = Purchase.objects.create(
             supplier=supplier,
             rep=rep,
             po_number=po_number or '',
             invoice_no=invoice_no,
-            purchase_date=purchase_date,
+            purchase_date=purchase_date,  # ✅ Use the parsed date
             due_date=due_date,
             tax_rate=tax_rate,
             tax_invoice_no=tax_invoice_no,
@@ -1392,6 +1402,8 @@ def purchase_add(request):
             status='PENDING',
             created_by=request.user,
         )
+        
+        print(f"DEBUG: Purchase created with date: {purchase.purchase_date}")
         
         # Process items
         subtotal = Decimal('0')
