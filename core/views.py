@@ -1325,7 +1325,7 @@ def purchase_list(request):
 @login_required
 @permission_required('manage_purchases')
 def purchase_add(request):
-    """Add a new purchase with FOC support"""
+    """Add a new purchase with FOC support and backdating"""
     suppliers = Supplier.objects.filter(is_active=True)
     reps = Employee.objects.filter(is_active=True)
     products = Product.objects.filter(is_active=True)
@@ -1335,8 +1335,25 @@ def purchase_add(request):
         rep_id = request.POST.get('rep')
         po_number = request.POST.get('po_number')
         invoice_no = request.POST.get('invoice_no')
-        purchase_date = request.POST.get('purchase_date')
-        due_date = request.POST.get('due_date')
+        
+        # ✅ Get the date from the form
+        purchase_date_str = request.POST.get('purchase_date')
+        if purchase_date_str:
+            try:
+                purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                purchase_date = date.today()
+        else:
+            purchase_date = date.today()
+        
+        due_date_str = request.POST.get('due_date')
+        due_date = None
+        if due_date_str:
+            try:
+                due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        
         tax_rate = int(request.POST.get('tax_rate', 0))
         tax_invoice_no = request.POST.get('tax_invoice_no', '')
         paid_amount = Decimal(request.POST.get('paid_amount', '0') or '0')
@@ -1359,14 +1376,14 @@ def purchase_add(request):
         if rep_id:
             rep = get_object_or_404(Employee, id=rep_id)
         
-        # Create purchase
+        # ✅ Create purchase with the submitted date
         purchase = Purchase.objects.create(
             supplier=supplier,
             rep=rep,
             po_number=po_number or '',
             invoice_no=invoice_no,
-            purchase_date=purchase_date or date.today(),
-            due_date=due_date if due_date else None,
+            purchase_date=purchase_date,
+            due_date=due_date,
             tax_rate=tax_rate,
             tax_invoice_no=tax_invoice_no,
             paid_amount=paid_amount,
@@ -1380,7 +1397,7 @@ def purchase_add(request):
         subtotal = Decimal('0')
         foc_value = Decimal('0')
         items_data = []
-
+        
         item_count = int(request.POST.get('item_count', 0))
         for i in range(item_count):
             product_id = request.POST.get(f'product_{i}')
@@ -1395,22 +1412,16 @@ def purchase_add(request):
             
             product = get_object_or_404(Product, id=product_id)
             
-            # ============================================================
-            # 🔥 FIX: FOC items have ZERO cost and ZERO total
-            # ============================================================
             if is_foc:
-                total = Decimal('0')           # FOC items have zero total
-                retail_total = Decimal('0')
-                wholesale_total = Decimal('0')
-                # BUT keep the entered cost_price and wholesale_price for valuation
+                cost_price = Decimal('0')
+                retail_price = Decimal('0')
+                wholesale_price = Decimal('0')
+                total = Decimal('0')
             else:
                 if cost_price <= 0:
                     continue
                 total = quantity * cost_price
-                retail_total = quantity * retail_price
-                wholesale_total = quantity * wholesale_price
             
-            # Create PurchaseItem
             PurchaseItem.objects.create(
                 purchase=purchase,
                 product=product,
@@ -1424,13 +1435,11 @@ def purchase_add(request):
                 is_foc=is_foc,
             )
             
-            # ✅ Only add to subtotal if NOT FOC
             if not is_foc:
                 subtotal += total
             
-            # FOC value tracked separately (should be 0)
             if is_foc:
-                foc_value += total  # Will be 0
+                foc_value += total
             
             items_data.append({
                 'product': product,
@@ -1443,11 +1452,10 @@ def purchase_add(request):
             })
         
         if items_data:
-            # Update purchase totals
             purchase.subtotal = subtotal
             purchase.tax_amount = (subtotal * tax_rate) / 100
             purchase.total = subtotal + purchase.tax_amount
-            purchase.foc_value = foc_value  # ✅ Store FOC value (will be 0)
+            purchase.foc_value = foc_value
             purchase.save()
             
             messages.success(request, f'Purchase #{purchase.invoice_no} created successfully!')
