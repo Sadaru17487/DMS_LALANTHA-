@@ -547,7 +547,7 @@ class Purchase(models.Model):
     rep = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='purchases')
     po_number = models.CharField(max_length=50, unique=True, blank=True, help_text="Your PO Number")
     invoice_no = models.CharField(max_length=100, help_text="Supplier's Invoice Number")
-    purchase_date = models.DateField(auto_now_add=True)
+    purchase_date = models.DateField(default=date.today)  # ✅ This allows custom dates
     due_date = models.DateField(null=True, blank=True)
     tax_rate = models.IntegerField(choices=TAX_RATE_CHOICES, default=0)
     tax_invoice_no = models.CharField(max_length=100, blank=True, null=True, help_text="Tax Invoice Number")
