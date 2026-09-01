@@ -42,10 +42,16 @@ class Product(models.Model):
         return self.name
     
     def get_cost_prices(self):
-        return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
+        try:
+            return self.prices.filter(price_type='cost').order_by('-is_active', '-effective_date')
+        except:
+            return []
 
     def get_selling_prices(self):
-        return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
+        try:
+            return self.prices.filter(price_type='selling').order_by('-is_active', '-effective_date')
+        except:
+            return []
     
     
     

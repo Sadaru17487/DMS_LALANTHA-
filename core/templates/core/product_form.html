@@ -271,7 +271,7 @@
                     {% endif %}
                 </p>
 
-                <!-- Cost Prices -->
+               <!-- Cost Prices -->
                 <h4>Cost Prices</h4>
                 <table class="price-table">
                     <thead>
@@ -304,11 +304,11 @@
                                 </td>
                             </tr>
                             {% empty %}
-                                    <tr><td colspan="4">No cost prices added yet.</td></tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr><td colspan="4">Save the product first to add price versions.</td></tr>
-                            {% endif %}
+                            <tr><td colspan="4" style="text-align:center;color:#999;">No cost prices added yet.</td></tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="4" style="text-align:center;color:#999;">Save the product first to add price versions.</td></tr>
+                        {% endif %}
                     </tbody>
                 </table>
                 {% if product %}
