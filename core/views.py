@@ -1062,30 +1062,26 @@ def product_add(request):
 @login_required
 @permission_required('manage_products')
 def product_edit(request, product_id):
-    """Edit an existing product"""
-    product = get_object_or_404(Product, id=product_id)
-    categories = Category.objects.filter(is_active=True)
-    
-    if request.method == 'POST':
-        product.name = request.POST.get('name')
-        product.code = request.POST.get('code')
-        product.category_id = request.POST.get('category') or None
-        product.unit = request.POST.get('unit') or 'Pcs'
-        product.selling_price = request.POST.get('selling_price')
-        product.cost_price = request.POST.get('cost_price') or None
-        product.notes = request.POST.get('notes', '')
-        product.is_active = request.POST.get('is_active') == 'on'
-        product.save()
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        if request.method == 'POST':
+            form = ProductForm(request.POST, instance=product)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Product updated successfully!')
+                return redirect('core:product_list')
+        else:
+            form = ProductForm(instance=product)
         
-        messages.success(request, f'Product "{product.name}" updated successfully!')
+        return render(request, 'core/product_form.html', {
+            'form': form,
+            'product': product,
+            'today': date.today(),
+        })
+    except Exception as e:
+        import traceback
+        messages.error(request, f'Error loading product: {str(e)}')
         return redirect('core:product_list')
-    
-    return render(request, 'core/product_form.html', {
-        'product': product,
-        'categories': categories,
-        'action': 'Edit',
-        'units': Product.UNIT_CHOICES,
-    })
 
 
 @login_required
