@@ -136,6 +136,7 @@
     .summary-card .value.red { color: #dc3545; }
     .summary-card .value.blue { color: #007bff; }
     .summary-card .value.orange { color: #fd7e14; }
+    .summary-card .value.green { color: #28a745; }
 
     .card {
         background: white;
@@ -169,6 +170,31 @@
     }
     table td:last-child, table th:last-child { text-align: right; }
 
+    .return-badge-good {
+        background: #d4edda;
+        color: #155724;
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .return-badge-bad {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .return-badge-none {
+        background: #e2e3e5;
+        color: #383d41;
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
     .footer {
         text-align: center;
         margin-top: 25px;
@@ -191,59 +217,78 @@
     <div class="header-box">
         <div>
             <h1>↩️ Return Report</h1>
-            <div class="sub">Track all returned items</div>
+            <div class="sub">Track all returned items (Good vs Bad)</div>
         </div>
         <div class="date-badge">
             {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
         </div>
     </div>
 
-                <!-- Filter Form -->
-            <form method="GET" class="filter-box">
-                <div class="filter-group">
-                    <label>From Date</label>
-                    <input type="date" name="start_date" value="{{ start_date }}">
-                </div>
-                <div class="filter-group">
-                    <label>To Date</label>
-                    <input type="date" name="end_date" value="{{ end_date }}">
-                </div>
-                <div class="filter-group">
-                    <label>Return Type</label>
-                    <select name="return_type">
-                        {% for key, value in return_types %}
-                            <option value="{{ key }}" {% if selected_return_type == key %}selected{% endif %}>
-                                {{ value }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn-filter">🔍 Get Report</button>
-                <a href="/reports/return-report/" class="btn-clear">Clear</a>
-                <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
-            </form>
+    <!-- Filter Form -->
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Return Type</label>
+            <select name="return_type">
+                {% for key, value in return_types %}
+                    <option value="{{ key }}" {% if selected_return_type == key %}selected{% endif %}>
+                        {{ value }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/return-report/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
 
-            <!-- Summary -->
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <div class="label">Total Items Returned</div>
-                    <div class="value red">{{ total_return_qty|floatformat:0 }}</div>
-                </div>
-                <div class="summary-card">
-                    <div class="label">Total Return Value</div>
-                    <div class="value red">Rs {{ total_return_value|floatformat:2 }}</div>
-                </div>
-                <div class="summary-card">
-                    <div class="label">Good Returns</div>
-                    <div class="value green">{{ good_count }}</div>
-                </div>
-                <div class="summary-card">
-                    <div class="label">Bad Returns</div>
-                    <div class="value orange">{{ bad_count }}</div>
-                </div>
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="label">Total Items Returned</div>
+            <div class="value red">{{ total_return_qty|floatformat:0 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #dc3545;">
+            <div class="label">Total Return Value</div>
+            <div class="value red">Rs {{ total_return_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #28a745;">
+            <div class="label">Good Returns</div>
+            <div class="value green">{{ good_count }}</div>
+        </div>
+        <div class="summary-card" style="border-top-color: #fd7e14;">
+            <div class="label">Bad Returns</div>
+            <div class="value orange">{{ bad_count }}</div>
+        </div>
+    </div>
+
+    <!-- Return Type Breakdown -->
+    {% if reason_breakdown %}
+    <div class="card">
+        <h3>📊 Return Breakdown by Reason</h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:15px;">
+            {% for reason, data in reason_breakdown.items %}
+            <div style="background:#f8f9fc; padding:15px; border-radius:8px; text-align:center;">
+                <span style="font-size:14px; color:#888;">{{ reason|title }}</span>
+                <div style="font-size:24px; font-weight:700; color:#dc3545;">{{ data.count }}</div>
+                <div style="font-size:16px; color:#dc3545;">Rs {{ data.value|floatformat:2 }}</div>
             </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
-            <!-- Table -->
+    <!-- Detailed Transactions -->
+    <div class="card">
+        <h3>📋 Return Details</h3>
+        <div class="table-container">
             <table>
                 <thead>
                     <tr>
@@ -264,7 +309,7 @@
                     {% for item in return_items %}
                     <tr>
                         <td>{{ item.bill.date|date:"Y-m-d" }}</td>
-                        <td><a href="/sales-detail/{{ item.bill.id }}/">{{ item.bill.invoice_no }}</a></td>
+                        <td><a href="/sales-detail/{{ item.bill.id }}/" style="color:#007bff; text-decoration:none;">{{ item.bill.invoice_no }}</a></td>
                         <td>{{ item.bill.shop_name|default:"-" }}</td>
                         <td>{{ item.bill.vehicle.vehicle_number|default:"-" }}</td>
                         <td>{{ item.bill.rep.name|default:"-" }}</td>
@@ -274,11 +319,11 @@
                         <td style="text-align:right; color:#dc3545; font-weight:600;">Rs {{ item.total|floatformat:2 }}</td>
                         <td>
                             {% if item.return_type == 'GOOD' %}
-                                <span style="background:#d4edda; color:#155724; padding:2px 10px; border-radius:12px; font-size:12px;">✅ Good</span>
+                                <span class="return-badge-good">✅ Good</span>
                             {% elif item.return_type == 'BAD' %}
-                                <span style="background:#f8d7da; color:#721c24; padding:2px 10px; border-radius:12px; font-size:12px;">❌ Bad</span>
+                                <span class="return-badge-bad">❌ Bad</span>
                             {% else %}
-                                <span style="background:#e2e3e5; color:#383d41; padding:2px 10px; border-radius:12px; font-size:12px;">-</span>
+                                <span class="return-badge-none">-</span>
                             {% endif %}
                         </td>
                         <td>{{ item.return_reason|default:"-" }}</td>
