@@ -294,15 +294,6 @@
                 <!-- Section Title with Return Toggle -->
                 <div class="section-title">
                     <h3>🛒 Current Bill Items</h3>
-                    <div class="return-toggle">
-                        <label for="returnMode">🔄 SALES RETURN</label>
-                        <input type="checkbox" id="returnMode" onchange="toggleReturnMode()">
-                        <select id="returnReason">
-                            <option value="DAMAGED">Damaged</option>
-                            <option value="EXPIRED">Expired</option>
-                            <option value="OTHER">Other</option>
-                        </select>
-                    </div>
                 </div>
 
                 <!-- Regular Items -->
@@ -510,7 +501,35 @@
             <button type="button" class="btn-modal confirm" onclick="confirmMultiPay()">✅ Confirm</button>
         </div>
     </div>
+
+    <!-- Return Toggle -->
+    <div class="return-toggle">
+        <label for="returnMode">🔄 SALES RETURN</label>
+        <input type="checkbox" id="returnMode" onchange="toggleReturnMode()">
+        <div id="returnTypeSection" style="display:none; margin-top:10px; padding:10px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
+            <div style="margin-bottom:8px; font-weight:600;">Return Type:</div>
+            <div style="display:flex; gap:20px; margin-bottom:8px;">
+                <label><input type="radio" name="return_type" value="GOOD" checked> Good Return (stock added back)</label>
+                <label><input type="radio" name="return_type" value="BAD"> Bad Return (stock NOT added back)</label>
+            </div>
+            <div style="margin-top:8px;">
+                <label style="font-weight:600;">Reason</label>
+                <select id="returnReason" name="return_reason">
+                    <option value="DAMAGED">Damaged</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="WRONG_PRODUCT">Wrong Product</option>
+                    <option value="CUSTOMER_REQUEST">Customer Request</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            <div id="badReturnWarning" style="display:none; margin-top:10px; padding:10px; background:#fff3cd; border-radius:8px; border:1px solid #ffc107; color:#856404;">
+                ⚠️ Bad Return: Stock will NOT be added back to the vehicle.
+            </div>
+        </div>
+    </div>
 </div>
+
+    
 
 <script>
     // ============================================================
@@ -692,16 +711,42 @@
     // ============================================================
     function toggleReturnMode() {
         returnMode = document.getElementById('returnMode').checked;
+        const returnTypeSection = document.getElementById('returnTypeSection');
         const reasonSelect = document.getElementById('returnReason');
+        const badWarning = document.getElementById('badReturnWarning');
+
         if (returnMode) {
+            returnTypeSection.style.display = 'block';
             reasonSelect.style.display = 'inline-block';
             document.querySelector('.return-toggle label').style.color = '#dc3545';
+            // Check selected return type
+            const selectedType = document.querySelector('input[name="return_type"]:checked');
+            if (selectedType && selectedType.value === 'BAD') {
+                badWarning.style.display = 'block';
+            } else {
+                badWarning.style.display = 'none';
+            }
         } else {
+            returnTypeSection.style.display = 'none';
             reasonSelect.style.display = 'none';
             document.querySelector('.return-toggle label').style.color = '#333';
         }
         renderCart();
     }
+
+    // Add event listener for return type change
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('input[name="return_type"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                const badWarning = document.getElementById('badReturnWarning');
+                if (this.value === 'BAD' && document.getElementById('returnMode').checked) {
+                    badWarning.style.display = 'block';
+                } else {
+                    badWarning.style.display = 'none';
+                }
+            });
+        });
+    });
 
     // ============================================================
     // CART FUNCTIONS

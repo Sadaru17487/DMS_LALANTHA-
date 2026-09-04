@@ -259,13 +259,15 @@ class SalesBill(models.Model):
     completed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='completed_bills')
     
     # Return tracking
+    RETURN_TYPES = [
+        ('NONE', 'No Return'),
+        ('GOOD', 'Good Return'),
+        ('BAD', 'Bad Return'),
+    ]
+    # existing fields...
     is_return = models.BooleanField(default=False)
-    original_bill = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='return_bills')
-    return_reason = models.CharField(max_length=50, choices=[
-        ('DAMAGED', 'Damaged'),
-        ('EXPIRED', 'Expired'),
-        ('OTHER', 'Other'),
-    ], null=True, blank=True)
+    return_type = models.CharField(max_length=10, choices=RETURN_TYPES, default='NONE')
+    return_reason = models.CharField(max_length=50, blank=True, null=True)
 
     session = models.ForeignKey(
         'DailySession', 
@@ -321,11 +323,15 @@ class SalesItem(models.Model):
     discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discounted_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    return_reason = models.CharField(max_length=20, choices=[
-        ('DAMAGED', 'Damaged'),
-        ('EXPIRED', 'Expired'),
-        ('OTHER', 'Other'),
-    ], null=True, blank=True)
+    RETURN_TYPES = [
+        ('NONE', 'No Return'),
+        ('GOOD', 'Good Return'),
+        ('BAD', 'Bad Return'),
+    ]
+    
+    is_return = models.BooleanField(default=False)
+    return_type = models.CharField(max_length=10, choices=SalesBill.RETURN_TYPES, default='NONE')
+    return_reason = models.CharField(max_length=50, blank=True, null=True)
 
 
 class Payment(models.Model):

@@ -2419,11 +2419,9 @@ def create_sales_bill(request):
     MAX_ITEMS = 20
     
     # ===== VEHICLE & REP PERSISTENCE =====
-    # Try GET params first (if coming from a specific link)
     selected_vehicle = request.GET.get('vehicle')
     selected_rep = request.GET.get('rep')
     
-    # If no GET params, load from session
     if not selected_vehicle:
         selected_vehicle = request.session.get('last_vehicle_id')
     if not selected_rep:
@@ -2441,7 +2439,12 @@ def create_sales_bill(request):
                     items_to_save = []
                     vehicle = bill.vehicle
                     
-                    # Get customer from form
+                    # ===== GET RETURN TYPE =====
+                    is_return = request.POST.get('is_return') == 'true'
+                    return_type = request.POST.get('return_type', 'NONE')  # GOOD or BAD
+                    return_reason = request.POST.get('return_reason') or None
+                    
+                    # ===== GET CUSTOMER =====
                     customer_id = request.POST.get('customer')
                     customer_name = request.POST.get('shop_name', '').strip()
                     customer_code = request.POST.get('shop_code', '').strip()
@@ -2463,7 +2466,7 @@ def create_sales_bill(request):
                         else:
                             bill.shop_code = ''
                     
-                    # Process items from POST data
+                    # ===== PROCESS ITEMS =====
                     for i in range(1, MAX_ITEMS + 1):
                         product_id = request.POST.get(f'product_{i}')
                         quantity_str = request.POST.get(f'qty_{i}', '0')
@@ -2471,9 +2474,7 @@ def create_sales_bill(request):
                         is_foc_str = request.POST.get(f'is_foc_{i}', 'false')
                         is_foc = is_foc_str.lower() == 'true'
                         
-                        # Price version support
                         price_id = request.POST.get(f'price_id_{i}', '')
-                        
                         discount_type = request.POST.get(f'discount_type_{i}', '')
                         discount_value_str = request.POST.get(f'discount_value_{i}', '0')
                         
@@ -2483,20 +2484,16 @@ def create_sales_bill(request):
                         product = get_object_or_404(Product, id=product_id)
                         quantity = Decimal(quantity_str)
                         
-                       # Determine the rate to use
+                        # Determine the rate to use
                         rate = Decimal(rate_str)
-
-                        # If a specific price version was selected, use it
                         if price_id and price_id.isdigit():
                             try:
                                 price = ProductPrice.objects.get(id=price_id, product=product)
                                 rate = price.amount
                             except ProductPrice.DoesNotExist:
-                                # Only fallback if not FOC
                                 if not is_foc and rate == 0:
                                     rate = product.selling_price
                         else:
-                            # Only fallback if not FOC
                             if not is_foc and rate == 0:
                                 rate = product.selling_price
                         
@@ -2514,8 +2511,11 @@ def create_sales_bill(request):
                         
                         total = quantity * discounted_rate
                         
-                        # Check Vehicle Stock (for sales, not returns)
+                        # ====================================================
+                        # ===== RETURN STOCK HANDLING =====
+                        # ====================================================
                         if quantity > 0:
+                            # Regular Sale – deduct from vehicle stock
                             vehicle_stock = get_object_or_404(VehicleStock, vehicle=vehicle, product=product)
                             if vehicle_stock.quantity < quantity:
                                 messages.error(request, f'❌ Not enough stock on {vehicle.vehicle_number} for {product.name}. Available: {vehicle_stock.quantity}')
@@ -2534,14 +2534,38 @@ def create_sales_bill(request):
                                 })
                             vehicle_stock.quantity -= quantity
                             vehicle_stock.save()
+                            
                         elif quantity < 0:
-                            # RETURN: Add back to Vehicle Stock
-                            vehicle_stock, created = VehicleStock.objects.get_or_create(
-                                vehicle=vehicle, 
-                                product=product
-                            )
-                            vehicle_stock.quantity += abs(quantity)
-                            vehicle_stock.save()
+                            # ====================================================
+                            # 🔥 RETURN HANDLING: GOOD vs BAD
+                            # ====================================================
+                            abs_qty = abs(quantity)
+                            
+                            if return_type == 'GOOD':
+                                # ✅ GOOD RETURN: Stock added back to vehicle
+                                vehicle_stock, created = VehicleStock.objects.get_or_create(
+                                    vehicle=vehicle, 
+                                    product=product
+                                )
+                                vehicle_stock.quantity += abs_qty
+                                vehicle_stock.save()
+                                logger.info(f"GOOD RETURN: {abs_qty} of {product.name} added back to {vehicle.vehicle_number}")
+                                
+                            elif return_type == 'BAD':
+                                # ❌ BAD RETURN: Stock NOT added back (damaged/expired)
+                                # Optionally, track bad stock separately
+                                logger.info(f"BAD RETURN: {abs_qty} of {product.name} NOT added back to vehicle (damaged/expired)")
+                                
+                                # Optionally: create a Bad Stock record for tracking
+                                # BadStock.objects.create(
+                                #     product=product,
+                                #     quantity=abs_qty,
+                                #     reason=return_reason or 'Damaged',
+                                #     sales_bill=bill,
+                                # )
+                            
+                            # For both Good and Bad returns, the amount is credited
+                            # The total is negative (reduces bill amount)
                         
                         subtotal += total
                         items_to_save.append({
@@ -2554,9 +2578,12 @@ def create_sales_bill(request):
                             'discount_type': discount_type if discount_value > 0 else None,
                             'discount_value': discount_value if discount_value > 0 else Decimal('0'),
                             'price_id': price_id if price_id else None,
+                            'is_return': is_return and quantity < 0,
+                            'return_type': return_type if is_return and quantity < 0 else 'NONE',
+                            'return_reason': return_reason if is_return and quantity < 0 else None,
                         })
                     
-                    # Calculate totals
+                    # ===== CALCULATE TOTALS =====
                     bill.subtotal = subtotal
                     bill.discount_total = Decimal('0')
                     
@@ -2579,10 +2606,11 @@ def create_sales_bill(request):
                     bill.bill_discount_amount = bill_discount_amount
                     bill.net_total = subtotal - bill_discount_amount
                     
-                    # Set bill status
+                    # ===== SET BILL STATUS & RETURN INFO =====
                     bill.status = request.POST.get('bill_status', 'DRAFT')
-                    bill.is_return = request.POST.get('is_return') == 'true'
-                    bill.return_reason = request.POST.get('return_reason') or None
+                    bill.is_return = is_return
+                    bill.return_type = return_type
+                    bill.return_reason = return_reason
                     
                     # Set date from form
                     bill_date = request.POST.get('bill_date')
@@ -2602,10 +2630,10 @@ def create_sales_bill(request):
                         except Employee.DoesNotExist:
                             pass
                     
-                    # Invoice number handling
+                    # ===== INVOICE NUMBER HANDLING =====
                     user_invoice = request.POST.get('invoice_no', '').strip()
                     if not user_invoice:
-                        messages.error(request, '❌ Invoice Number is required. Please enter a unique invoice number.')
+                        messages.error(request, '❌ Invoice Number is required.')
                         customers = Customer.objects.filter(is_active=True)
                         return render(request, 'core/sales_bill.html', {
                             'form': form,
@@ -2620,9 +2648,8 @@ def create_sales_bill(request):
                             'today': date.today(),
                         })
                     
-                    # Check duplicate invoice number
                     if SalesBill.objects.filter(invoice_no=user_invoice).exists():
-                        messages.error(request, f'❌ Invoice number "{user_invoice}" already exists. Please use a unique number.')
+                        messages.error(request, f'❌ Invoice number "{user_invoice}" already exists.')
                         customers = Customer.objects.filter(is_active=True)
                         return render(request, 'core/sales_bill.html', {
                             'form': form,
@@ -2648,7 +2675,7 @@ def create_sales_bill(request):
                         bill.completed_at = timezone.now()
                         bill.save()
                     
-                    # Save Item lines
+                    # ===== SAVE ITEM LINES =====
                     for item_data in items_to_save:
                         SalesItem.objects.create(
                             bill=bill,
@@ -2660,58 +2687,44 @@ def create_sales_bill(request):
                             is_foc=item_data['is_foc'],
                             discount_type=item_data['discount_type'],
                             discount_value=item_data['discount_value'],
+                            is_return=item_data.get('is_return', False),
+                            return_type=item_data.get('return_type', 'NONE'),
+                            return_reason=item_data.get('return_reason', None),
                         )
                     
-                    # ===== GET PAYMENT METHOD AND AMOUNTS =====
+                    # ===== PAYMENT PROCESSING =====
                     payment_method = request.POST.get('payment_method', '')
                     cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
                     cash_amount = Decimal(request.POST.get('cash_amount', '0') or '0')
                     credit_amount = Decimal(request.POST.get('credit_amount', '0') or '0')
                     online_amount = Decimal(request.POST.get('online_amount', '0') or '0')
-
-                     # 🔍 Debug logging
-                    logger.info(f"Payment method: {payment_method}, Cheque amount: {cheque_amount}")
-                    logger.info(f"Payment method: {payment_method}")
-                    logger.info(f"Cash: {cash_amount}, Credit: {credit_amount}, Cheque: {cheque_amount}, Online: {online_amount}")
-
-                    # ===== VALIDATE PAYMENT AMOUNT MATCHES NET TOTAL =====
+                    
+                    logger.info(f"Payment method: {payment_method}, Cheque: {cheque_amount}")
+                    
+                    # Validate payment matches net total
                     net_total = bill.net_total
                     total_paid = cash_amount + credit_amount + cheque_amount + online_amount
-
-                    # If net_total is 0, we can accept any payment method (or no payment)
-                    # If net_total > 0, total_paid must match net_total
+                    
                     if net_total > 0 and total_paid != net_total:
                         messages.error(request, f'❌ Payment total ({total_paid}) does not match Bill Total ({net_total})!')
+                        customers = Customer.objects.filter(is_active=True)
                         return render(request, 'core/sales_bill.html', {
-                                                        'form': form,
-                                                        'products': Product.objects.filter(is_active=True),
-                                                        'customers': customers,
-                                                        'vehicles': Vehicle.objects.filter(is_active=True),
-                                                        'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                                        'banks': Bank.objects.filter(is_active=True),
-                                                        'max_items': MAX_ITEMS,
-                                                        'selected_vehicle': selected_vehicle,
-                                                        'selected_rep': selected_rep,
-                                                        'today': date.today(),
-                                                    })
-                                            
-
-                    # ===== CREATE PAYMENTS BASED ON PAYMENT METHOD =====
-                    payment_created = False
-
-
+                            'form': form,
+                            'products': Product.objects.filter(is_active=True),
+                            'customers': customers,
+                            'vehicles': Vehicle.objects.filter(is_active=True),
+                            'reps': Employee.objects.filter(position='Rep', is_active=True),
+                            'banks': Bank.objects.filter(is_active=True),
+                            'max_items': MAX_ITEMS,
+                            'selected_vehicle': selected_vehicle,
+                            'selected_rep': selected_rep,
+                            'today': date.today(),
+                        })
                     
-                    # ===== CHEQUE PAYMENT =====
+                    # ===== CREATE PAYMENTS =====
                     if payment_method == 'cheque' or cheque_amount > 0:
                         if cheque_amount > 0:
-                            # Create Payment with type='Cheque'
-                            Payment.objects.create(
-                                bill=bill,
-                                type='Cheque',
-                                amount=cheque_amount
-                            )
-                            
-                            # Create Cheque record
+                            Payment.objects.create(bill=bill, type='Cheque', amount=cheque_amount)
                             cheque_no = request.POST.get('cheque_no', '')
                             cheque_date = request.POST.get('cheque_date', '')
                             bank_id = request.POST.get('cheque_bank', '')
@@ -2728,132 +2741,36 @@ def create_sales_bill(request):
                                         status='PENDING',
                                         notes=f"Auto-created from invoice: {bill.invoice_no}"
                                     )
-                                    logger.info(f"Cheque record created for {bill.invoice_no}")
                                 except Bank.DoesNotExist:
-                                    logger.warning(f"Bank {bank_id} not found for cheque")
-                            else:
-                                logger.warning(f"Cheque details missing: no={cheque_no}, date={cheque_date}, bank={bank_id}")
-                        else:
-                            messages.error(request, '❌ Cheque amount must be greater than 0.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': Product.objects.filter(is_active=True),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
+                                    pass
                     
-                    # ===== CASH PAYMENT =====
-                    elif payment_method == 'cash':
-                        cash_amount = Decimal(request.POST.get('cash_amount', '0') or '0')
-                        if cash_amount > 0:
-                            Payment.objects.create(bill=bill, type='Cash', amount=cash_amount)
-                        else:
-                            messages.error(request, '❌ Cash amount must be greater than 0.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': Product.objects.filter(is_active=True),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
+                    elif payment_method == 'cash' and cash_amount > 0:
+                        Payment.objects.create(bill=bill, type='Cash', amount=cash_amount)
                     
-                    # ===== CREDIT PAYMENT =====
-                    elif payment_method == 'credit':
-                        credit_amount = Decimal(request.POST.get('credit_amount', '0') or '0')
-                        if credit_amount > 0:
-                            Payment.objects.create(bill=bill, type='Credit', amount=credit_amount)
-                        else:
-                            messages.error(request, '❌ Credit amount must be greater than 0.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': Product.objects.filter(is_active=True),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
+                    elif payment_method == 'credit' and credit_amount > 0:
+                        Payment.objects.create(bill=bill, type='Credit', amount=credit_amount)
                     
-                    # ===== ONLINE PAYMENT =====
-                    elif payment_method == 'online':
-                        online_amount = Decimal(request.POST.get('online_amount', '0') or '0')
-                        if online_amount > 0:
-                            Payment.objects.create(bill=bill, type='Online', amount=online_amount)
-                            online_method = request.POST.get('online_method', '')
-                            online_ref = request.POST.get('online_ref', '')
-                            if online_method:
-                                OnlinePayment.objects.create(
-                                    bill=bill,
-                                    payment_method=online_method,
-                                    reference_no=online_ref,
-                                    amount=online_amount
-                                )
-                        else:
-                            messages.error(request, '❌ Online payment amount must be greater than 0.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': Product.objects.filter(is_active=True),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
+                    elif payment_method == 'online' and online_amount > 0:
+                        Payment.objects.create(bill=bill, type='Online', amount=online_amount)
+                        online_method = request.POST.get('online_method', '')
+                        online_ref = request.POST.get('online_ref', '')
+                        if online_method:
+                            OnlinePayment.objects.create(
+                                bill=bill,
+                                payment_method=online_method,
+                                reference_no=online_ref,
+                                amount=online_amount
+                            )
                     
-                    # ===== MULTI PAYMENT =====
                     elif payment_method == 'multi':
                         multi_type1 = request.POST.get('multi_type1', '')
                         multi_amount1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
                         multi_type2 = request.POST.get('multi_type2', '')
                         multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
-                        
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
-                            Payment.objects.create(
-                                bill=bill,
-                                type=multi_type1,
-                                amount=multi_amount1
-                            )
-                            Payment.objects.create(
-                                bill=bill,
-                                type=multi_type2,
-                                amount=multi_amount2
-                            )
-                        else:
-                            messages.error(request, '❌ Please enter valid amounts for both payment types.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': Product.objects.filter(is_active=True),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
+                            Payment.objects.create(bill=bill, type=multi_type1, amount=multi_amount1)
+                            Payment.objects.create(bill=bill, type=multi_type2, amount=multi_amount2)
+                    
                     else:
                         messages.error(request, '❌ Invalid payment method selected.')
                         customers = Customer.objects.filter(is_active=True)
@@ -2876,12 +2793,10 @@ def create_sales_bill(request):
                             request.session['last_vehicle_id'] = int(bill.vehicle.id)
                         else:
                             request.session['last_vehicle_id'] = None
-                        
                         if bill.rep:
                             request.session['last_rep_id'] = int(bill.rep.id)
                         else:
                             request.session['last_rep_id'] = None
-                        
                         request.session.modified = True
                     except Exception as e:
                         logger.warning(f"Failed to save session: {e}")
@@ -2944,7 +2859,6 @@ def create_sales_bill(request):
     reps = Employee.objects.filter(position='Rep', is_active=True)
     banks = Bank.objects.filter(is_active=True)
     
-    # Get vehicle stock for the selected vehicle
     vehicle_stock_dict = {}
     if selected_vehicle:
         try:
@@ -5128,10 +5042,10 @@ def sales_by_rep_report(request):
 @login_required
 @permission_required('view_reports')
 def return_report(request):
-
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    return_type_filter = request.GET.get('return_type', '')  # GOOD, BAD, or ALL
 
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5148,13 +5062,18 @@ def return_report(request):
         bill__date__lte=end_date_obj
     ).select_related('product', 'bill', 'bill__vehicle', 'bill__rep')
 
-    # Ensure we don't filter on any missing fields
+    # Filter by return type (GOOD or BAD)
+    if return_type_filter in ['GOOD', 'BAD']:
+        items = items.filter(return_type=return_type_filter)
+
     # All calculations done in Python
     total_qty = 0
     total_value = Decimal('0')
     invoices_set = set()
     products_set = set()
     reason_dict = {}
+    good_count = 0
+    bad_count = 0
 
     for item in items:
         qty = abs(item.quantity)
@@ -5163,7 +5082,14 @@ def return_report(request):
         total_value += value
         invoices_set.add(item.bill.id)
         products_set.add(item.product.id)
-        reason = getattr(item.bill, 'return_reason', 'OTHER')
+        
+        # Track good vs bad returns
+        if item.return_type == 'GOOD':
+            good_count += 1
+        elif item.return_type == 'BAD':
+            bad_count += 1
+        
+        reason = item.return_reason or getattr(item.bill, 'return_reason', 'OTHER')
         if reason not in reason_dict:
             reason_dict[reason] = {'count': 0, 'value': Decimal('0')}
         reason_dict[reason]['count'] += 1
@@ -5179,12 +5105,12 @@ def return_report(request):
         wb = Workbook()
         ws = wb.active
         ws.title = "Return Report"
-        headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Qty Returned', 'Rate', 'Total Value', 'Reason']
+        headers = ['Date', 'Invoice', 'Customer', 'Vehicle', 'Rep', 'Product', 'Qty Returned', 'Rate', 'Total Value', 'Return Type', 'Reason']
         ws.append(headers)
-        for col in range(1, 11):
+        for col in range(1, 12):
             ws.cell(row=1, column=col).font = Font(bold=True)
         for item in items:
-            reason = getattr(item.bill, 'return_reason', 'Other')
+            reason = item.return_reason or getattr(item.bill, 'return_reason', 'Other')
             ws.append([
                 item.bill.date.strftime('%Y-%m-%d'),
                 item.bill.invoice_no,
@@ -5195,6 +5121,7 @@ def return_report(request):
                 float(abs(item.quantity)),
                 float(item.rate),
                 float(abs(item.total)),
+                item.return_type or 'N/A',
                 reason or 'Other',
             ])
         for col in ws.columns:
@@ -5209,10 +5136,11 @@ def return_report(request):
         wb.save(response)
         return response
 
+    # Return type choices for filter
     return_types = [
-        ('DAMAGED', 'Damaged'),
-        ('EXPIRED', 'Expired'),
-        ('OTHER', 'Other'),
+        ('', 'All Returns'),
+        ('GOOD', 'Good Return (Stock Added Back)'),
+        ('BAD', 'Bad Return (Stock NOT Added)'),
     ]
 
     context = {
@@ -5226,6 +5154,10 @@ def return_report(request):
         'total_invoices': total_invoices,
         'unique_products': unique_products,
         'reason_breakdown': reason_dict,
+        'good_count': good_count,
+        'bad_count': bad_count,
+        'return_types': return_types,
+        'selected_return_type': return_type_filter,
         'today': today,
     }
     return render(request, 'core/return_report.html', context)
