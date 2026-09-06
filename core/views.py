@@ -660,6 +660,20 @@ def toggle_user_status(request, user_id):
     return redirect('/admin-dashboard/')  # ✅ FIXED
 
 
+def get_date_from_request(request):
+    """Get date from POST or default to today."""
+    date_str = request.POST.get('date')
+    if date_str:
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return date.today()
+    return date.today()
+
+def has_date_field(model):
+    """Check if a model has a 'date' field."""
+    return any(f.name == 'date' for f in model._meta.fields)
+
 @login_required
 @permission_required('load_vehicle')
 def load_vehicle(request):
@@ -680,87 +694,77 @@ def load_vehicle(request):
         form = VehicleLoadForm(request.POST)
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
-
-            date_str = request.POST.get('date')
-            if date_str:
-                try:
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                except ValueError:
-                    date_obj = date.today()
-            else:
-                date_obj = date.today()
-
-            # When creating VehicleLoad, add date=date_obj
-            VehicleLoad.objects.create(
-                vehicle=vehicle,
-                product=product,
-                quantity=quantity,
-                date=date_obj,  # ✅ Add this
-                notes=f"Loaded from warehouse"
-            )
             
-            try:
-                with transaction.atomic():
-                    loaded_count = 0
-                    for item in product_list:
-                        product = item['product']
-                        quantity_key = f'qty_{product.id}'
-                        quantity_str = request.POST.get(quantity_key, '0')
-                        
-                        try:
-                            quantity = Decimal(quantity_str)
-                        except:
-                            quantity = Decimal('0')
-                        
-                        if quantity > 0:
-                            # 1. Deduct from warehouse
-                            warehouse_stock, created = WarehouseStock.objects.get_or_create(
-                                product=product,
-                                defaults={'quantity': 0}
-                            )
-                            if warehouse_stock.quantity < quantity:
-                                messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
-                                return render(request, 'core/load_vehicle.html', {
-                                    'form': form,
-                                    'product_list': product_list
-                                })
-                            
-                            warehouse_stock.quantity -= quantity
-                            warehouse_stock.save()
-                            
-                            # 2. Add to vehicle
-                            vehicle_stock, created = VehicleStock.objects.get_or_create(
-                                vehicle=vehicle, 
-                                product=product
-                            )
-                            vehicle_stock.quantity += quantity
-                            vehicle_stock.save()
-                            
-                            # 3. Log
-                            StockMovementLog.objects.create(
-                                vehicle=vehicle,
-                                product=product,
-                                quantity=quantity,
-                                movement_type='LOAD',
-                                date=date_obj,
-                                performed_by=request.user,
-                                notes=f"Loaded from warehouse"
-                            )
-                            
-                            loaded_count += 1
+            # Get the date from the request (safe)
+            date_obj = get_date_from_request(request)
+            
+            with transaction.atomic():
+                loaded_count = 0
+                for item in product_list:
+                    product = item['product']
+                    quantity_key = f'qty_{product.id}'
+                    quantity_str = request.POST.get(quantity_key, '0')
                     
-                    if loaded_count == 0:
-                        messages.warning(request, 'No products were loaded. Please enter quantities.')
-                    else:
-                        messages.success(request, f'✅ Successfully loaded {loaded_count} product(s) to {vehicle.vehicle_number} - {vehicle.driver_name}')
-                    return redirect('/load/')
-            except Exception as e:
-                logger.error(f"Load Vehicle error: {e}")
-                messages.error(request, f'❌ Error: {str(e)}')
-                return render(request, 'core/load_vehicle.html', {
-                    'form': form,
-                    'product_list': product_list
-                })
+                    try:
+                        quantity = Decimal(quantity_str)
+                    except:
+                        quantity = Decimal('0')
+                    
+                    if quantity > 0:
+                        # Warehouse stock
+                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
+                            product=product,
+                            defaults={'quantity': 0}
+                        )
+                        if warehouse_stock.quantity < quantity:
+                            messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
+                            return render(request, 'core/load_vehicle.html', {
+                                'form': form,
+                                'product_list': product_list
+                            })
+                        
+                        warehouse_stock.quantity -= quantity
+                        warehouse_stock.save()
+                        
+                        # Vehicle stock
+                        vehicle_stock, created = VehicleStock.objects.get_or_create(
+                            vehicle=vehicle, 
+                            product=product
+                        )
+                        vehicle_stock.quantity += quantity
+                        vehicle_stock.save()
+                        
+                        # ===== CREATE VEHICLE LOAD RECORD (SAFE) =====
+                        load_kwargs = {
+                            'vehicle': vehicle,
+                            'product': product,
+                            'quantity': quantity,
+                            'notes': f"Loaded from warehouse"
+                        }
+                        if has_date_field(VehicleLoad):
+                            load_kwargs['date'] = date_obj
+                        VehicleLoad.objects.create(**load_kwargs)
+                        
+                        # ===== CREATE STOCK MOVEMENT LOG (SAFE) =====
+                        log_kwargs = {
+                            'vehicle': vehicle,
+                            'product': product,
+                            'quantity': quantity,
+                            'movement_type': 'LOAD',
+                            'performed_by': request.user,
+                            'notes': f"Loaded from warehouse"
+                        }
+                        if has_date_field(StockMovementLog):
+                            log_kwargs['date'] = date_obj
+                        StockMovementLog.objects.create(**log_kwargs)
+                        
+                        loaded_count += 1
+                
+                if loaded_count == 0:
+                    messages.warning(request, 'No products were loaded. Please enter quantities.')
+                else:
+                    messages.success(request, f'✅ Successfully loaded {loaded_count} product(s) to {vehicle.vehicle_number} - {vehicle.driver_name}')
+                return redirect('/load/')
         else:
             messages.error(request, 'Please select a valid vehicle.')
     else:
@@ -768,7 +772,8 @@ def load_vehicle(request):
 
     return render(request, 'core/load_vehicle.html', {
         'form': form,
-        'product_list': product_list
+        'product_list': product_list,
+        'today': date.today(),
     })
 
 
