@@ -92,6 +92,11 @@
                 {{ form.vehicle }}
             </div>
 
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+            </div>
+
             <h3>📦 Products & Current Warehouse Stock</h3>
 
             <!-- 🔍 Search Bar -->

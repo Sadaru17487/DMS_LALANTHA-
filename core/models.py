@@ -919,6 +919,7 @@ class StockTransfer(models.Model):
     )
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    date = models.DateField(default=date.today)
     transfer_date = models.DateTimeField(auto_now_add=True)
     transferred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='stock_transfers')
     reason = models.CharField(max_length=20, choices=REASON_CHOICES, default='STOCK_BALANCE')
@@ -1081,6 +1082,7 @@ class VehicleLoad(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='loads')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    date = models.DateField(default=date.today)
     loaded_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
 
@@ -1101,6 +1103,8 @@ class StockMovementLog(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=15, decimal_places=2)
     movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
+    date = models.DateField(default=date.today)
+    created_at = models.DateTimeField(auto_now_add=True)
     performed_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 

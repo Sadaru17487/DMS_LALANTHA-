@@ -134,6 +134,10 @@
                     <input type="number" step="0.01" name="quantity" placeholder="0" required>
                 </div>
                 <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+                </div>
+                <div class="form-group">
                     <label>Reason</label>
                     <select name="reason">
                         {% for key, value in reasons %}

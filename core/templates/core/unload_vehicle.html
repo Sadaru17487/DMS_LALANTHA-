@@ -116,6 +116,13 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <!-- Inside the unload form, after the vehicle selection -->
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+            </div>
+            
         </form>
 
         <!-- Unload Form: POST (for actual unloading) -->

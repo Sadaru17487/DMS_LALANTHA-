@@ -680,6 +680,24 @@ def load_vehicle(request):
         form = VehicleLoadForm(request.POST)
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
+
+            date_str = request.POST.get('date')
+            if date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    date_obj = date.today()
+            else:
+                date_obj = date.today()
+
+            # When creating VehicleLoad, add date=date_obj
+            VehicleLoad.objects.create(
+                vehicle=vehicle,
+                product=product,
+                quantity=quantity,
+                date=date_obj,  # ✅ Add this
+                notes=f"Loaded from warehouse"
+            )
             
             try:
                 with transaction.atomic():
@@ -724,6 +742,7 @@ def load_vehicle(request):
                                 product=product,
                                 quantity=quantity,
                                 movement_type='LOAD',
+                                date=date_obj,
                                 performed_by=request.user,
                                 notes=f"Loaded from warehouse"
                             )
@@ -3615,6 +3634,15 @@ def transfer_create(request):
         quantity = request.POST.get('quantity')
         reason = request.POST.get('reason', 'STOCK_BALANCE')
         notes = request.POST.get('notes', '')
+
+        date_str = request.POST.get('date')
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                date_obj = date.today()
+        else:
+            date_obj = date.today()
         
         if not source_id or not dest_id or not product_id or not quantity:
             messages.error(request, 'Please fill in all required fields.')
@@ -3675,6 +3703,7 @@ def transfer_create(request):
                 product=product,
                 quantity=quantity,
                 transferred_by=request.user,
+                date=date_obj,
                 reason=reason,
                 notes=notes,
             )
@@ -6620,6 +6649,15 @@ def unload_vehicle(request):
             return redirect('/unload/')
 
         vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+
+        date_str = request.POST.get('date')
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                date_obj = date.today()
+        else:
+            date_obj = date.today()
         
         try:
             with transaction.atomic():
@@ -6662,6 +6700,7 @@ def unload_vehicle(request):
                             product=product,
                             quantity=quantity,
                             movement_type='UNLOAD',
+                            date=date_obj,
                             performed_by=request.user,
                             notes="Unloaded to warehouse"
                         )
