@@ -660,20 +660,6 @@ def toggle_user_status(request, user_id):
     return redirect('/admin-dashboard/')  # ✅ FIXED
 
 
-def get_date_from_request(request):
-    """Get date from POST or default to today."""
-    date_str = request.POST.get('date')
-    if date_str:
-        try:
-            return datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return date.today()
-    return date.today()
-
-def has_date_field(model):
-    """Check if a model has a 'date' field."""
-    return any(f.name == 'date' for f in model._meta.fields)
-
 @login_required
 @permission_required('load_vehicle')
 def load_vehicle(request):
@@ -695,8 +681,22 @@ def load_vehicle(request):
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
             
-            # Get the date from the request (safe)
-            date_obj = get_date_from_request(request)
+            # ===== DEBUG: Print the submitted date =====
+            date_str = request.POST.get('date', '')
+            print(f"🔍 DEBUG: Raw date from POST: '{date_str}'")
+            
+            if date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    print(f"🔍 DEBUG: Parsed date: {date_obj}")
+                except ValueError as e:
+                    print(f"🔍 DEBUG: Date parse error: {e}")
+                    date_obj = date.today()
+            else:
+                print("🔍 DEBUG: No date submitted, using today")
+                date_obj = date.today()
+            
+            print(f"🔍 DEBUG: Final date to save: {date_obj}")
             
             with transaction.atomic():
                 loaded_count = 0
@@ -734,29 +734,48 @@ def load_vehicle(request):
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
                         
-                        # ===== CREATE VEHICLE LOAD RECORD (SAFE) =====
-                        load_kwargs = {
-                            'vehicle': vehicle,
-                            'product': product,
-                            'quantity': quantity,
-                            'notes': f"Loaded from warehouse"
-                        }
-                        if has_date_field(VehicleLoad):
-                            load_kwargs['date'] = date_obj
-                        VehicleLoad.objects.create(**load_kwargs)
+                        # ===== CREATE VEHICLE LOAD RECORD =====
+                        # Try with date field first, fallback if it doesn't exist
+                        try:
+                            load = VehicleLoad.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                date=date_obj,  # ✅ Use the parsed date
+                                notes=f"Loaded from warehouse"
+                            )
+                            print(f"🔍 DEBUG: VehicleLoad created with date={load.date}")
+                        except Exception as e:
+                            print(f"🔍 DEBUG: VehicleLoad without date (field missing): {e}")
+                            load = VehicleLoad.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                notes=f"Loaded from warehouse"
+                            )
                         
-                        # ===== CREATE STOCK MOVEMENT LOG (SAFE) =====
-                        log_kwargs = {
-                            'vehicle': vehicle,
-                            'product': product,
-                            'quantity': quantity,
-                            'movement_type': 'LOAD',
-                            'performed_by': request.user,
-                            'notes': f"Loaded from warehouse"
-                        }
-                        if has_date_field(StockMovementLog):
-                            log_kwargs['date'] = date_obj
-                        StockMovementLog.objects.create(**log_kwargs)
+                        # ===== CREATE STOCK MOVEMENT LOG =====
+                        try:
+                            log = StockMovementLog.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                movement_type='LOAD',
+                                date=date_obj,  # ✅ Use the parsed date
+                                performed_by=request.user,
+                                notes=f"Loaded from warehouse"
+                            )
+                            print(f"🔍 DEBUG: StockMovementLog created with date={log.date}")
+                        except Exception as e:
+                            print(f"🔍 DEBUG: StockMovementLog without date (field missing): {e}")
+                            log = StockMovementLog.objects.create(
+                                vehicle=vehicle,
+                                product=product,
+                                quantity=quantity,
+                                movement_type='LOAD',
+                                performed_by=request.user,
+                                notes=f"Loaded from warehouse"
+                            )
                         
                         loaded_count += 1
                 
