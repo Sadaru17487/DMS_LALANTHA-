@@ -294,7 +294,7 @@
                             <a href="/sales-detail/{{ item.bill.id }}/" class="view" title="View">👁️</a>
                             
                             <!-- Pay Now -->
-                            <a href="/pay-credit/{{ item.bill.id }}/" class="pay" title="Pay Now">💰</a>
+                            <button type="button" class="pay" title="Pay Now" onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }})">💰</button>
                             
                             <!-- Return (only for TAKEN) -->
                             {% if item.collection.status == 'TAKEN' %}
@@ -407,6 +407,79 @@
     </div>
 </div>
 
+<!-- ===== PAY NOW MODAL ===== -->
+<div class="modal-overlay" id="payNowModal">
+    <div class="modal-content">
+        <h3>💰 Pay Now</h3>
+        <p style="color:#777; margin-bottom:15px;">
+            Make a payment for bill: <strong id="payBillInvoice">-</strong>
+        </p>
+        <form id="payNowForm" method="POST" action="/pay-credit/">
+            {% csrf_token %}
+            <input type="hidden" name="bill_id" id="payBillId">
+            
+            <div class="form-group">
+                <label>Payment Date</label>
+                <input type="date" name="payment_date" value="{{ today|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="form-group">
+                <label>Amount (Rs) <span class="required">*</span></label>
+                <input type="number" step="0.01" name="amount" id="payAmount" placeholder="0.00" required>
+                <span style="font-size:12px; color:#888;">Outstanding: Rs <span id="payOutstanding">0.00</span></span>
+            </div>
+            
+            <div class="form-group">
+                <label>Payment Method <span class="required">*</span></label>
+                <select name="payment_method" id="payPaymentMethod" onchange="togglePayChequeFields()" required>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Online">Online Payment</option>
+                </select>
+            </div>
+            
+            <!-- ===== CHEQUE DETAILS SECTION ===== -->
+            <div id="payChequeFields" style="display:none; margin-top:15px; padding:15px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
+                <h4 style="margin-top:0; font-size:14px; color:#6f42c1;">🏦 Cheque Details</h4>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Cheque Number <span class="required">*</span></label>
+                    <input type="text" name="cheque_no" id="payChequeNo" placeholder="Enter cheque number">
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Cheque Date <span class="required">*</span></label>
+                    <input type="date" name="cheque_date" id="payChequeDate">
+                </div>
+                <div class="form-group">
+                    <label>Bank <span class="required">*</span></label>
+                    <select name="cheque_bank" id="payChequeBank">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}
+                            <option value="{{ bank.id }}">{{ bank.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-add-small" onclick="openAddBankModal()" style="margin-top:5px; padding:4px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">+ Add Bank</button>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Reference No</label>
+                <input type="text" name="reference_no" placeholder="Transaction/Reference #">
+            </div>
+            
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" rows="2" placeholder="Payment notes..."></textarea>
+            </div>
+            
+            <div class="btn-group">
+                <button type="button" class="btn-modal cancel" onclick="closePayNowModal()">Cancel</button>
+                <button type="submit" class="btn-modal confirm">✅ Confirm Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     function toggleAll(source) {
         const checkboxes = document.querySelectorAll('.bill-checkbox');
@@ -486,6 +559,48 @@
             console.error('Retake error:', error);
         });
     }
+
+    // ============================================================
+// PAY NOW MODAL - CHEQUE FIELDS
+// ============================================================
+    function togglePayChequeFields() {
+        const method = document.getElementById('payPaymentMethod').value;
+        const chequeFields = document.getElementById('payChequeFields');
+        if (method === 'Cheque') {
+            chequeFields.style.display = 'block';
+            const dateInput = document.getElementById('payChequeDate');
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            chequeFields.style.display = 'none';
+        }
+    }
+
+    function openPayNowModal(billId, invoiceNo, outstanding) {
+        document.getElementById('payBillId').value = billId;
+        document.getElementById('payBillInvoice').textContent = invoiceNo;
+        document.getElementById('payOutstanding').textContent = outstanding.toFixed(2);
+        document.getElementById('payAmount').value = outstanding.toFixed(2);
+        document.getElementById('payPaymentMethod').value = 'Cash';
+        document.getElementById('payChequeFields').style.display = 'none';
+        document.getElementById('payChequeNo').value = '';
+        document.getElementById('payChequeDate').value = '';
+        document.getElementById('payChequeBank').value = '';
+        document.getElementById('payNowModal').classList.add('show');
+    }
+
+    function closePayNowModal() {
+        document.getElementById('payNowModal').classList.remove('show');
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('payNowModal');
+        if (e.target === modal) {
+            closePayNowModal();
+        }
+    });
 </script>
 {% endblock %}
 

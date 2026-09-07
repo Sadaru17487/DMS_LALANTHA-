@@ -4227,68 +4227,69 @@ def session_complete(request):
 
 
 @login_required
-@permission_required('create_sales')
-def pay_credit(request, bill_id):
-    """Process partial/full payment for a credit bill"""
-    bill = get_object_or_404(SalesBill, id=bill_id)
-
-    paid_amount = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    outstanding = bill.net_total - paid_amount
-
+@permission_required('manage_credit')
+def pay_credit_bill(request):
     if request.method == 'POST':
+        bill_id = request.POST.get('bill_id')
         amount = Decimal(request.POST.get('amount', '0'))
+        payment_date = request.POST.get('payment_date', date.today())
         payment_method = request.POST.get('payment_method', 'Cash')
+        reference_no = request.POST.get('reference_no', '')
         notes = request.POST.get('notes', '')
         
-        # Calculate outstanding (exclude Credit payments)
-        paid_amount = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-        outstanding = bill.net_total - paid_amount
+        bill = get_object_or_404(SalesBill, id=bill_id)
+        outstanding = bill.net_total - bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
         
-        # Validate
         if amount <= 0:
-            messages.error(request, 'Amount must be greater than zero.')
+            messages.error(request, 'Payment amount must be greater than zero.')
             return redirect('core:credit_list')
         
         if amount > outstanding:
-            messages.error(request, f'Payment amount ({amount}) exceeds outstanding balance ({outstanding}).')
+            messages.error(request, f'Payment amount cannot exceed outstanding balance (Rs {outstanding}).')
             return redirect('core:credit_list')
         
         with transaction.atomic():
-            # Create payment
+            # Create payment record
             Payment.objects.create(
                 bill=bill,
                 type=payment_method,
                 amount=amount
             )
             
-            # If cheque, create cheque record
+            # ===== IF CHEQUE, CREATE CHEQUE RECORD =====
             if payment_method == 'Cheque':
                 cheque_no = request.POST.get('cheque_no', '')
                 cheque_date = request.POST.get('cheque_date', '')
-                bank_id = request.POST.get('bank_id', '')
+                bank_id = request.POST.get('cheque_bank', '')
                 if cheque_no and cheque_date and bank_id:
-                    bank = get_object_or_404(Bank, id=bank_id)
-                    Cheque.objects.create(
-                        cheque_no=cheque_no,
-                        bank=bank,
-                        cheque_date=cheque_date,
-                        amount=amount,
-                        customer_name=bill.shop_name or 'N/A',
-                        sales_bill=bill,
-                        status='PENDING',
-                        notes=f"Payment for credit bill: {bill.invoice_no}"
-                    )
+                    try:
+                        bank = Bank.objects.get(id=bank_id)
+                        Cheque.objects.create(
+                            cheque_no=cheque_no,
+                            bank=bank,
+                            cheque_date=cheque_date,
+                            amount=amount,
+                            customer_name=bill.shop_name or bill.shop_code or 'N/A',
+                            sales_bill=bill,
+                            status='PENDING',
+                            notes=f"Credit payment - {notes}" if notes else "Credit payment"
+                        )
+                        messages.success(request, f'✅ Cheque #{cheque_no} recorded for payment.')
+                    except Bank.DoesNotExist:
+                        messages.warning(request, 'Bank not found, but payment recorded.')
+                else:
+                    messages.warning(request, 'Cheque details missing, but payment recorded.')
+            
+            # Update bill status if fully paid
+            new_outstanding = outstanding - amount
+            if new_outstanding <= 0:
+                messages.success(request, f'✅ Bill #{bill.invoice_no} fully paid!')
+            else:
+                messages.success(request, f'✅ Payment of Rs {amount} recorded. Remaining: Rs {new_outstanding}')
         
-        messages.success(request, f'✅ Payment of Rs {amount} recorded for bill {bill.invoice_no}.')
         return redirect('core:credit_list')
     
-    # GET request: show payment form
-    context = {
-        'bill': bill,
-        'paid_amount': paid_amount,
-        'outstanding': outstanding,
-    }
-    return render(request, 'core/pay_credit.html', context)
+    return redirect('core:credit_list')
 
 
 @login_required
