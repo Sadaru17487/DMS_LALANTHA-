@@ -50,6 +50,7 @@ from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
 logger = logging.getLogger(__name__)
 
 
+
 @login_required
 def dashboard(request):
     """Main Dashboard - Landing page after login"""
@@ -2811,7 +2812,7 @@ def create_sales_bill(request):
                         multi_amount1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
                         multi_type2 = request.POST.get('multi_type2', '')
                         multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
-                        
+
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
                             # Create payment 1
                             Payment.objects.create(
@@ -2819,7 +2820,7 @@ def create_sales_bill(request):
                                 type=multi_type1,
                                 amount=multi_amount1
                             )
-                            
+
                             # If payment 1 is Cheque, create cheque record
                             if multi_type1 == 'Cheque':
                                 cheque_no = request.POST.get('multi_cheque_no_1', '')
@@ -2838,16 +2839,21 @@ def create_sales_bill(request):
                                             status='PENDING',
                                             notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
                                         )
+                                        logger.info(f"Multi Pay Cheque 1 created: {cheque_no}")
                                     except Bank.DoesNotExist:
-                                        pass
-                            
+                                        logger.warning(f"Bank {bank_id} not found for Multi Pay Cheque 1")
+                                    except Exception as e:
+                                        logger.error(f"Error creating Multi Pay Cheque 1: {e}")
+                                else:
+                                    logger.warning(f"Multi Pay Cheque 1 details missing: no={cheque_no}, date={cheque_date}, bank={bank_id}")
+
                             # Create payment 2
                             Payment.objects.create(
                                 bill=bill,
                                 type=multi_type2,
                                 amount=multi_amount2
                             )
-                            
+
                             # If payment 2 is Cheque, create cheque record
                             if multi_type2 == 'Cheque':
                                 cheque_no = request.POST.get('multi_cheque_no_2', '')
@@ -2866,8 +2872,13 @@ def create_sales_bill(request):
                                             status='PENDING',
                                             notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
                                         )
+                                        logger.info(f"Multi Pay Cheque 2 created: {cheque_no}")
                                     except Bank.DoesNotExist:
-                                        pass
+                                        logger.warning(f"Bank {bank_id} not found for Multi Pay Cheque 2")
+                                    except Exception as e:
+                                        logger.error(f"Error creating Multi Pay Cheque 2: {e}")
+                                else:
+                                    logger.warning(f"Multi Pay Cheque 2 details missing: no={cheque_no}, date={cheque_date}, bank={bank_id}")
                         else:
                             messages.error(request, '❌ Please enter valid amounts for both payment types.')
                             customers = Customer.objects.filter(is_active=True)
@@ -4228,14 +4239,18 @@ def session_complete(request):
 
 @login_required
 @permission_required('manage_credit')
-def pay_credit(request):
+def pay_credit_bill(request):
     if request.method == 'POST':
         bill_id = request.POST.get('bill_id')
         amount = Decimal(request.POST.get('amount', '0'))
-        payment_date = request.POST.get('payment_date', date.today())
+        payment_date = request.POST.get('payment_date', str(date.today()))
         payment_method = request.POST.get('payment_method', 'Cash')
         reference_no = request.POST.get('reference_no', '')
         notes = request.POST.get('notes', '')
+        
+        if not bill_id:
+            messages.error(request, 'Bill ID is required.')
+            return redirect('core:credit_list')
         
         bill = get_object_or_404(SalesBill, id=bill_id)
         outstanding = bill.net_total - bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
@@ -4277,6 +4292,9 @@ def pay_credit(request):
                         messages.success(request, f'✅ Cheque #{cheque_no} recorded for payment.')
                     except Bank.DoesNotExist:
                         messages.warning(request, 'Bank not found, but payment recorded.')
+                    except Exception as e:
+                        logger.error(f"Error creating cheque for credit payment: {e}")
+                        messages.warning(request, 'Payment recorded but cheque creation failed.')
                 else:
                     messages.warning(request, 'Cheque details missing, but payment recorded.')
             

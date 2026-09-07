@@ -414,7 +414,7 @@
         <p style="color:#777; margin-bottom:15px;">
             Make a payment for bill: <strong id="payBillInvoice">-</strong>
         </p>
-        <form id="payNowForm" method="POST" action="/pay-credit/">
+        <form id="payNowForm" method="POST" action="{% url 'core:pay_credit_bill' %}">
             {% csrf_token %}
             <input type="hidden" name="bill_id" id="payBillId">
             
@@ -603,4 +603,3 @@
     });
 </script>
 {% endblock %}
-

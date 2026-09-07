@@ -88,7 +88,6 @@ urlpatterns = [
     path('session-start/', views.session_start, name='session_start'),
     path('session-summary/', views.session_summary, name='session_summary'),
     path('session-complete/', views.session_complete, name='session_complete'),
-    path('pay-credit/<int:bill_id>/', views.pay_credit, name='pay_credit'),
     path('reports/discount-history/', views.discount_history_report, name='discount_history_report'),
     path('reports/day-selling/', views.day_selling_report, name='day_selling_report'),
     path('reports/sold-items/', views.sold_items_report, name='sold_items_report'),
