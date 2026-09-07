@@ -4228,7 +4228,7 @@ def session_complete(request):
 
 @login_required
 @permission_required('manage_credit')
-def pay_credit_bill(request):
+def pay_credit(request):
     if request.method == 'POST':
         bill_id = request.POST.get('bill_id')
         amount = Decimal(request.POST.get('amount', '0'))
