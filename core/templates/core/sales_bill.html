@@ -511,25 +511,68 @@
         <h3>🔀 Multi Payment</h3>
         <p style="color:#777; margin-bottom:15px;">Select two payment methods and enter amounts.</p>
         <div class="multi-options">
+            <!-- Payment Type 1 -->
             <div class="option-group">
                 <label>Payment Type 1</label>
-                <select id="multiType1" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                <select id="multiType1" onchange="toggleMultiChequeFields(1)" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
                     <option value="Cash">Cash</option>
                     <option value="Credit">Credit</option>
                     <option value="Cheque">Cheque</option>
                     <option value="Online">Online</option>
                 </select>
                 <input type="number" step="0.01" id="multiAmount1" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                <!-- Cheque Details for Payment 1 -->
+                <div id="multiChequeFields1" style="display:none; margin-top:10px; padding:10px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px; font-weight:600;">Cheque Number *</label>
+                        <input type="text" id="multiChequeNo1" placeholder="Enter cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px; font-weight:600;">Cheque Date *</label>
+                        <input type="date" id="multiChequeDate1" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12px; font-weight:600;">Bank *</label>
+                        <select id="multiChequeBank1" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                            <option value="">-- Select Bank --</option>
+                            {% for bank in banks %}
+                                <option value="{{ bank.id }}">{{ bank.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
             </div>
+            
+            <!-- Payment Type 2 -->
             <div class="option-group">
                 <label>Payment Type 2</label>
-                <select id="multiType2" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                <select id="multiType2" onchange="toggleMultiChequeFields(2)" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
                     <option value="Cash">Cash</option>
                     <option value="Credit">Credit</option>
                     <option value="Cheque">Cheque</option>
                     <option value="Online">Online</option>
                 </select>
                 <input type="number" step="0.01" id="multiAmount2" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
+                <!-- Cheque Details for Payment 2 -->
+                <div id="multiChequeFields2" style="display:none; margin-top:10px; padding:10px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px; font-weight:600;">Cheque Number *</label>
+                        <input type="text" id="multiChequeNo2" placeholder="Enter cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label style="font-size:12px; font-weight:600;">Cheque Date *</label>
+                        <input type="date" id="multiChequeDate2" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:12px; font-weight:600;">Bank *</label>
+                        <select id="multiChequeBank2" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                            <option value="">-- Select Bank --</option>
+                            {% for bank in banks %}
+                                <option value="{{ bank.id }}">{{ bank.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
             </div>
         </div>
         <div style="margin-top:15px; padding:10px; background:#f8f9fc; border-radius:8px; text-align:center;">
@@ -1217,6 +1260,7 @@
         const type2 = document.getElementById('multiType2').value;
         const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
         const total = amt1 + amt2;
+        
         if (type1 === type2) {
             alert('Please select two different payment types.');
             return;
@@ -1225,29 +1269,93 @@
             alert('Please enter valid amounts.');
             return;
         }
-        multiPayData = { type1, amt1, type2, amt2, total };
+        
+        // ===== VALIDATE CHEQUE DETAILS =====
+        let chequeData1 = null;
+        let chequeData2 = null;
+        
+        if (type1 === 'Cheque') {
+            const chequeNo1 = document.getElementById('multiChequeNo1').value.trim();
+            const chequeDate1 = document.getElementById('multiChequeDate1').value;
+            const bank1 = document.getElementById('multiChequeBank1').value;
+            if (!chequeNo1 || !chequeDate1 || !bank1) {
+                alert('Please fill in all cheque details for Payment 1.');
+                return;
+            }
+            chequeData1 = { cheque_no: chequeNo1, cheque_date: chequeDate1, bank: bank1 };
+        }
+        
+        if (type2 === 'Cheque') {
+            const chequeNo2 = document.getElementById('multiChequeNo2').value.trim();
+            const chequeDate2 = document.getElementById('multiChequeDate2').value;
+            const bank2 = document.getElementById('multiChequeBank2').value;
+            if (!chequeNo2 || !chequeDate2 || !bank2) {
+                alert('Please fill in all cheque details for Payment 2.');
+                return;
+            }
+            chequeData2 = { cheque_no: chequeNo2, cheque_date: chequeDate2, bank: bank2 };
+        }
+        
+        multiPayData = { 
+            type1, amt1, type2, amt2, total,
+            chequeData1: chequeData1,
+            chequeData2: chequeData2
+        };
+        
         selectedPayment = 'multi';
         document.getElementById('paymentMethod').value = 'multi';
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pay-btn').forEach(b => {
             if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
         });
+        
         const details = document.getElementById('paymentDetails');
         details.classList.add('show');
-        details.innerHTML = `
-            <div style="background:#f8f0ff; padding:15px; border-radius:8px;">
-                <p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}</p>
-                <p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}</p>
-                <p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>
-            </div>
-            <button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>
-        `;
+        
+        // Build display HTML
+        let displayHtml = `<div style="background:#f8f0ff; padding:15px; border-radius:8px;">`;
+        displayHtml += `<p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}`;
+        if (type1 === 'Cheque' && chequeData1) {
+            displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no} (${chequeData1.cheque_date})</span>`;
+        }
+        displayHtml += `</p>`;
+        
+        displayHtml += `<p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}`;
+        if (type2 === 'Cheque' && chequeData2) {
+            displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no} (${chequeData2.cheque_date})</span>`;
+        }
+        displayHtml += `</p>`;
+        
+        displayHtml += `<p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>`;
+        displayHtml += `</div>`;
+        displayHtml += `<button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>`;
+        details.innerHTML = displayHtml;
+        
         closeMultiPayModal();
     }
 
     function resetMulti() {
         multiPayData = null;
         if (selectedPayment === 'multi') resetPayment();
+    }
+
+    // ============================================================
+// MULTI PAY - TOGGLE CHEQUE FIELDS
+// ============================================================
+    function toggleMultiChequeFields(paymentNumber) {
+        const typeSelect = document.getElementById(`multiType${paymentNumber}`);
+        const chequeFields = document.getElementById(`multiChequeFields${paymentNumber}`);
+        
+        if (typeSelect.value === 'Cheque') {
+            chequeFields.style.display = 'block';
+            // Auto-fill cheque date with today
+            const dateInput = document.getElementById(`multiChequeDate${paymentNumber}`);
+            if (dateInput && !dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+        } else {
+            chequeFields.style.display = 'none';
+        }
     }
 
     // ============================================================
@@ -1459,6 +1567,43 @@
                 alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})! Please adjust.`);
                 return;
             }
+                
+            // In the form submit handler, after checking for multiPayData
+            if (selectedPayment === 'multi' && multiPayData) {
+                const form = document.getElementById('salesForm');
+                
+                // Add payment type fields
+                const fields = [
+                    { name: 'multi_type1', value: multiPayData.type1 },
+                    { name: 'multi_amount1', value: multiPayData.amt1.toFixed(2) },
+                    { name: 'multi_type2', value: multiPayData.type2 },
+                    { name: 'multi_amount2', value: multiPayData.amt2.toFixed(2) }
+                ];
+                
+                // Add cheque details if present
+                if (multiPayData.chequeData1) {
+                    fields.push({ name: 'multi_cheque_no_1', value: multiPayData.chequeData1.cheque_no });
+                    fields.push({ name: 'multi_cheque_date_1', value: multiPayData.chequeData1.cheque_date });
+                    fields.push({ name: 'multi_cheque_bank_1', value: multiPayData.chequeData1.bank });
+                }
+                if (multiPayData.chequeData2) {
+                    fields.push({ name: 'multi_cheque_no_2', value: multiPayData.chequeData2.cheque_no });
+                    fields.push({ name: 'multi_cheque_date_2', value: multiPayData.chequeData2.cheque_date });
+                    fields.push({ name: 'multi_cheque_bank_2', value: multiPayData.chequeData2.bank });
+                }
+                
+                // Remove existing fields and append new ones
+                document.querySelectorAll('.multi-hidden').forEach(el => el.remove());
+                fields.forEach(f => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = f.name;
+                    input.value = f.value;
+                    input.className = 'multi-hidden';
+                    form.appendChild(input);
+                });
+            }
+
 
             // ===== RETURN TYPE =====
             const returnMode = document.getElementById('returnMode').checked;

@@ -2805,14 +2805,84 @@ def create_sales_bill(request):
                                 amount=online_amount
                             )
                     
+                   # ===== MULTI PAYMENT =====
                     elif payment_method == 'multi':
                         multi_type1 = request.POST.get('multi_type1', '')
                         multi_amount1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
                         multi_type2 = request.POST.get('multi_type2', '')
                         multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
+                        
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
-                            Payment.objects.create(bill=bill, type=multi_type1, amount=multi_amount1)
-                            Payment.objects.create(bill=bill, type=multi_type2, amount=multi_amount2)
+                            # Create payment 1
+                            Payment.objects.create(
+                                bill=bill,
+                                type=multi_type1,
+                                amount=multi_amount1
+                            )
+                            
+                            # If payment 1 is Cheque, create cheque record
+                            if multi_type1 == 'Cheque':
+                                cheque_no = request.POST.get('multi_cheque_no_1', '')
+                                cheque_date = request.POST.get('multi_cheque_date_1', '')
+                                bank_id = request.POST.get('multi_cheque_bank_1', '')
+                                if cheque_no and cheque_date and bank_id:
+                                    try:
+                                        bank = Bank.objects.get(id=bank_id)
+                                        Cheque.objects.create(
+                                            cheque_no=cheque_no,
+                                            bank=bank,
+                                            cheque_date=cheque_date,
+                                            amount=multi_amount1,
+                                            customer_name=bill.shop_name or bill.shop_code or 'N/A',
+                                            sales_bill=bill,
+                                            status='PENDING',
+                                            notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
+                                        )
+                                    except Bank.DoesNotExist:
+                                        pass
+                            
+                            # Create payment 2
+                            Payment.objects.create(
+                                bill=bill,
+                                type=multi_type2,
+                                amount=multi_amount2
+                            )
+                            
+                            # If payment 2 is Cheque, create cheque record
+                            if multi_type2 == 'Cheque':
+                                cheque_no = request.POST.get('multi_cheque_no_2', '')
+                                cheque_date = request.POST.get('multi_cheque_date_2', '')
+                                bank_id = request.POST.get('multi_cheque_bank_2', '')
+                                if cheque_no and cheque_date and bank_id:
+                                    try:
+                                        bank = Bank.objects.get(id=bank_id)
+                                        Cheque.objects.create(
+                                            cheque_no=cheque_no,
+                                            bank=bank,
+                                            cheque_date=cheque_date,
+                                            amount=multi_amount2,
+                                            customer_name=bill.shop_name or bill.shop_code or 'N/A',
+                                            sales_bill=bill,
+                                            status='PENDING',
+                                            notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
+                                        )
+                                    except Bank.DoesNotExist:
+                                        pass
+                        else:
+                            messages.error(request, '❌ Please enter valid amounts for both payment types.')
+                            customers = Customer.objects.filter(is_active=True)
+                            return render(request, 'core/sales_bill.html', {
+                                'form': form,
+                                'products': Product.objects.filter(is_active=True),
+                                'customers': customers,
+                                'vehicles': Vehicle.objects.filter(is_active=True),
+                                'reps': Employee.objects.filter(position='Rep', is_active=True),
+                                'banks': Bank.objects.filter(is_active=True),
+                                'max_items': MAX_ITEMS,
+                                'selected_vehicle': selected_vehicle,
+                                'selected_rep': selected_rep,
+                                'today': date.today(),
+                            })
                     
                     else:
                         messages.error(request, '❌ Invalid payment method selected.')
@@ -2954,8 +3024,8 @@ def create_sales_bill(request):
         'duplicate_error': False,
     }
     return render(request, 'core/sales_bill.html', context)
-    
 
+ 
 
 @login_required
 @permission_required('view_expenses')
