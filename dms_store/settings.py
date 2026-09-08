@@ -118,5 +118,3 @@ SESSION_COOKIE_AGE = 86400  # 24 hours (in seconds)
 SESSION_SAVE_EVERY_REQUEST = True  # Refresh session on each request
 
 
-# Add this at the bottom
-CACHE_VERSION = '1.0.2'  # Increment this on every deployment
