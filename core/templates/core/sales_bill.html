@@ -1255,85 +1255,90 @@
     }
 
     function confirmMultiPay() {
-    const type1 = document.getElementById('multiType1').value;
-    const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
-    const type2 = document.getElementById('multiType2').value;
-    const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
-    const total = amt1 + amt2;
+        const type1 = document.getElementById('multiType1').value;
+        const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
+        const type2 = document.getElementById('multiType2').value;
+        const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
+        const total = amt1 + amt2;
 
-    if (type1 === type2) {
-        alert('Please select two different payment types.');
-        return;
-    }
-    if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
-        alert('Please enter valid amounts.');
-        return;
-    }
-
-    // ===== COLLECT CHEQUE DETAILS =====
-    let chequeData1 = null;
-    let chequeData2 = null;
-
-    if (type1 === 'Cheque') {
-        const chequeNo1 = document.getElementById('multiChequeNo1').value.trim();
-        const chequeDate1 = document.getElementById('multiChequeDate1').value;
-        const bank1 = document.getElementById('multiChequeBank1').value;
-        if (!chequeNo1 || !chequeDate1 || !bank1) {
-            alert('Please fill in all cheque details for Payment 1.');
+        if (type1 === type2) {
+            alert('Please select two different payment types.');
             return;
         }
-        chequeData1 = { cheque_no: chequeNo1, cheque_date: chequeDate1, bank: bank1 };
-    }
-
-    if (type2 === 'Cheque') {
-        const chequeNo2 = document.getElementById('multiChequeNo2').value.trim();
-        const chequeDate2 = document.getElementById('multiChequeDate2').value;
-        const bank2 = document.getElementById('multiChequeBank2').value;
-        if (!chequeNo2 || !chequeDate2 || !bank2) {
-            alert('Please fill in all cheque details for Payment 2.');
+        if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
+            alert('Please enter valid amounts.');
             return;
         }
-        chequeData2 = { cheque_no: chequeNo2, cheque_date: chequeDate2, bank: bank2 };
+
+        // ===== COLLECT CHEQUE DETAILS =====
+        let chequeData1 = null;
+        let chequeData2 = null;
+
+        if (type1 === 'Cheque') {
+            const chequeNo1 = document.getElementById('multiChequeNo1').value.trim();
+            const chequeDate1 = document.getElementById('multiChequeDate1').value;
+            const bank1 = document.getElementById('multiChequeBank1').value;
+            if (!chequeNo1 || !chequeDate1 || !bank1) {
+                alert('Please fill in all cheque details for Payment 1.');
+                return;
+            }
+            chequeData1 = { cheque_no: chequeNo1, cheque_date: chequeDate1, bank: bank1 };
+            console.log('Cheque 1 Data:', chequeData1); // Debug
+        }
+
+        if (type2 === 'Cheque') {
+            const chequeNo2 = document.getElementById('multiChequeNo2').value.trim();
+            const chequeDate2 = document.getElementById('multiChequeDate2').value;
+            const bank2 = document.getElementById('multiChequeBank2').value;
+            if (!chequeNo2 || !chequeDate2 || !bank2) {
+                alert('Please fill in all cheque details for Payment 2.');
+                return;
+            }
+            chequeData2 = { cheque_no: chequeNo2, cheque_date: chequeDate2, bank: bank2 };
+            console.log('Cheque 2 Data:', chequeData2); // Debug
+        }
+
+        // ===== STORE DATA =====
+        multiPayData = {
+            type1: type1,
+            amt1: amt1,
+            type2: type2,
+            amt2: amt2,
+            total: total,
+            chequeData1: chequeData1,
+            chequeData2: chequeData2
+        };
+
+        // ===== UPDATE UI =====
+        selectedPayment = 'multi';
+        document.getElementById('paymentMethod').value = 'multi';
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pay-btn').forEach(b => {
+            if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
+        });
+
+        const details = document.getElementById('paymentDetails');
+        details.classList.add('show');
+        let displayHtml = `<div style="background:#f8f0ff; padding:15px; border-radius:8px;">`;
+        displayHtml += `<p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}`;
+        if (type1 === 'Cheque' && chequeData1) {
+            displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no} (${chequeData1.cheque_date})</span>`;
+        }
+        displayHtml += `</p>`;
+        displayHtml += `<p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}`;
+        if (type2 === 'Cheque' && chequeData2) {
+            displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no} (${chequeData2.cheque_date})</span>`;
+        }
+        displayHtml += `</p>`;
+        displayHtml += `<p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>`;
+        displayHtml += `</div>`;
+        displayHtml += `<button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>`;
+        details.innerHTML = displayHtml;
+
+        closeMultiPayModal();
+        console.log('MultiPay Data Stored:', multiPayData); // Debug
     }
 
-    // ===== STORE DATA =====
-    multiPayData = {
-        type1, amt1, type2, amt2, total,
-        chequeData1: chequeData1,
-        chequeData2: chequeData2
-    };
-
-    // ===== UPDATE UI =====
-    selectedPayment = 'multi';
-    document.getElementById('paymentMethod').value = 'multi';
-    document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.pay-btn').forEach(b => {
-        if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
-    });
-
-    const details = document.getElementById('paymentDetails');
-    details.classList.add('show');
-    let displayHtml = `<div style="background:#f8f0ff; padding:15px; border-radius:8px;">`;
-    displayHtml += `<p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}`;
-    if (type1 === 'Cheque' && chequeData1) {
-        displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no} (${chequeData1.cheque_date})</span>`;
-    }
-    displayHtml += `</p>`;
-    displayHtml += `<p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}`;
-    if (type2 === 'Cheque' && chequeData2) {
-        displayHtml += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no} (${chequeData2.cheque_date})</span>`;
-    }
-    displayHtml += `</p>`;
-    displayHtml += `<p><strong>Total:</strong> <strong style="color:#e83e8c;">Rs ${total.toFixed(2)}</strong></p>`;
-    displayHtml += `</div>`;
-    displayHtml += `<button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>`;
-    details.innerHTML = displayHtml;
-
-    closeMultiPayModal();
-
-    // 🔍 Debug: Log the data to console
-    console.log('MultiPay Data:', multiPayData);
-}
 
     function resetMulti() {
         multiPayData = null;
@@ -1571,6 +1576,10 @@
                 
             // In the form submit handler, after checking for multiPayData
             // ===== MULTI PAY HIDDEN FIELDS =====
+            console.log('Selected Payment:', selectedPayment);
+            console.log('MultiPay Data:', multiPayData);
+            console.log('MultiPay hidden fields appended:', fields);
+
             if (selectedPayment === 'multi' && multiPayData) {
                 const form = document.getElementById('salesForm');
 
@@ -1656,3 +1665,5 @@
     });
 </script>
 {% endblock %}
+
+DOMContentLoaded 

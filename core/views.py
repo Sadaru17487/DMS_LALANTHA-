@@ -2813,6 +2813,18 @@ def create_sales_bill(request):
                         multi_type2 = request.POST.get('multi_type2', '')
                         multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
 
+
+                        logger.info("===== MULTI PAY DEBUG =====")
+                        logger.info(f"multi_type1: {multi_type1}, multi_amount1: {multi_amount1}")
+                        logger.info(f"multi_type2: {multi_type2}, multi_amount2: {multi_amount2}")
+                        logger.info(f"multi_cheque_no_1: {request.POST.get('multi_cheque_no_1', 'NOT FOUND')}")
+                        logger.info(f"multi_cheque_date_1: {request.POST.get('multi_cheque_date_1', 'NOT FOUND')}")
+                        logger.info(f"multi_cheque_bank_1: {request.POST.get('multi_cheque_bank_1', 'NOT FOUND')}")
+                        logger.info(f"multi_cheque_no_2: {request.POST.get('multi_cheque_no_2', 'NOT FOUND')}")
+                        logger.info(f"multi_cheque_date_2: {request.POST.get('multi_cheque_date_2', 'NOT FOUND')}")
+                        logger.info(f"multi_cheque_bank_2: {request.POST.get('multi_cheque_bank_2', 'NOT FOUND')}")
+                        logger.info("===== END DEBUG =====")
+
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
                             # Create payment 1
                             Payment.objects.create(
