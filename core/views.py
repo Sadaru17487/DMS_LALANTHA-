@@ -2518,7 +2518,17 @@ def create_sales_bill(request):
                         is_foc_str = request.POST.get(f'is_foc_{i}', 'false')
                         is_foc = is_foc_str.lower() == 'true'
                         
+                        # For each item
                         price_id = request.POST.get(f'price_id_{i}', '')
+                        if price_id and price_id.isdigit():
+                            try:
+                                price = ProductPrice.objects.get(id=price_id, product=product)
+                                rate = price.amount
+                            except ProductPrice.DoesNotExist:
+                                # fallback to product's selling price if the selected version is missing
+                                rate = product.selling_price
+                        else:
+                            rate = product.selling_price
                         discount_type = request.POST.get(f'discount_type_{i}', '')
                         discount_value_str = request.POST.get(f'discount_value_{i}', '0')
                         
@@ -3048,7 +3058,7 @@ def create_sales_bill(request):
     }
     return render(request, 'core/sales_bill.html', context)
 
- 
+
 
 @login_required
 @permission_required('view_expenses')

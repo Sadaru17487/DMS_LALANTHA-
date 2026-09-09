@@ -439,6 +439,7 @@
             <input type="hidden" name="return_type" id="returnTypeVal" value="NONE">
             <input type="hidden" name="return_reason" id="returnReasonVal" value="">
             <input type="hidden" name="bill_status" id="billStatus" value="COMPLETED">
+            <input type="hidden" name="price_id_{{ forloop.counter }}" id="hidden_price_id_{{ forloop.counter }}" value="">
             <div id="hiddenFieldsContainer">
                 {% for i in "1234567891011121314151617181920"|make_list %}
                     <input type="hidden" name="product_{{ forloop.counter }}" id="hidden_product_{{ forloop.counter }}" value="">
@@ -759,7 +760,6 @@
         addToCart(productId, productName, price, false, null);
         closePriceSelector();
     }
-
     // ============================================================
     // TOGGLE RETURN MODE
     // ============================================================
@@ -823,7 +823,7 @@
                 rate: isFoc ? 0 : rate,
                 total: isFoc ? 0 : rate,
                 is_foc: isFoc,
-                price_id: priceId
+                price_id: priceId  // ✅ Store the selected price version ID
             });
         }
         renderCart();
@@ -1497,6 +1497,11 @@
         setupCustomerSearch();
         checkForNewCustomer();
 
+        const priceIdField = document.getElementById(`hidden_price_id_${i}`);
+        if (priceIdField) {
+            priceIdField.value = item.price_id || '';
+        }
+        
         const repSelect = document.getElementById('repSelect');
         if (repSelect) {
             repSelect.addEventListener('change', function() {
@@ -1666,4 +1671,3 @@
 </script>
 {% endblock %}
 
-DOMContentLoaded 
