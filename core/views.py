@@ -6969,4 +6969,57 @@ def add_product_price(request):
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
+@login_required
+@permission_required('manage_products')
+def set_active_price(request):
+    """Set a specific price version as active."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
     
+    price_id = request.POST.get('price_id')
+    if not price_id:
+        return JsonResponse({'error': 'Price ID is required'}, status=400)
+    
+    try:
+        price = ProductPrice.objects.get(id=price_id)
+    except ProductPrice.DoesNotExist:
+        return JsonResponse({'error': 'Price not found'}, status=404)
+    
+    try:
+        # Archive all other prices of the same type for this product
+        ProductPrice.objects.filter(
+            product=price.product,
+            price_type=price.price_type,
+            is_active=True
+        ).exclude(id=price.id).update(is_active=False)
+        
+        # Set this one active
+        price.is_active = True
+        price.save()
+        
+        # Update denormalized field on product
+        product = price.product
+        if price.price_type == 'cost':
+            product.cost_price = price.amount
+        else:
+            product.selling_price = price.amount
+        product.save()
+        
+        logger.info(f"Price {price.id} set as active for {price.price_type} of {product.name}")
+        
+        return JsonResponse({
+            'success': True,
+            'price': {
+                'id': price.id,
+                'amount': float(price.amount),
+                'effective_date': price.effective_date.strftime('%Y-%m-%d'),
+                'is_active': price.is_active
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error setting active price: {e}")
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+
+        

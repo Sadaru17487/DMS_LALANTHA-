@@ -466,33 +466,49 @@
     }
 
     function setActivePrice(priceId) {
-        if (!confirm('Set this price as the active price? The previous active price will be archived.')) return;
+    if (!confirm('Set this price as the active price? The previous active price will be archived.')) return;
 
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        if (!csrfToken) {
-            alert('CSRF token not found.');
-            return;
-        }
-
-        fetch('/api/set-active-price/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken.value
-            },
-            body: `price_id=${priceId}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Active price updated!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(() => alert('Error updating active price.'));
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        alert('CSRF token not found. Please refresh the page.');
+        return;
     }
+
+    console.log('Setting active price:', priceId);
+
+    fetch('/api/set-active-price/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken.value
+        },
+        body: `price_id=${priceId}`
+    })
+    .then(async response => {
+        if (!response.ok) {
+            const text = await response.text();
+            try {
+                const data = JSON.parse(text);
+                throw new Error(data.error || 'Server error');
+            } catch {
+                throw new Error('Server returned an error. Please check the logs.');
+            }
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('Active price updated!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error setting active price:', error);
+        alert('Error: ' + error.message);
+    });
+}
 
     document.addEventListener('click', function(e) {
         const modal = document.getElementById('addPriceModal');
