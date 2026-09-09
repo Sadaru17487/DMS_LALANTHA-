@@ -411,49 +411,59 @@
     }
 
     function submitNewPrice() {
-    const amount = document.getElementById('newPriceAmount').value;
-    const effective_date = document.getElementById('newPriceDate').value;
-    const price_type = document.getElementById('newPriceType').value;
-    const product_id = document.getElementById('newPriceProductId').value;
+        const amount = document.getElementById('newPriceAmount').value;
+        const effective_date = document.getElementById('newPriceDate').value;
+        const price_type = document.getElementById('newPriceType').value;
+        const product_id = document.getElementById('newPriceProductId').value;
 
-    if (!amount || parseFloat(amount) <= 0) {
-        alert('Please enter a valid amount.');
-        return;
-    }
-
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!csrfToken) {
-        alert('CSRF token not found. Please refresh the page.');
-        return;
-    }
-
-    fetch('/api/add-product-price/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': csrfToken.value
-        },
-        body: `product_id=${product_id}&price_type=${price_type}&amount=${amount}&effective_date=${effective_date}`
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => { throw new Error(data.error || 'Server error'); });
+        if (!amount || parseFloat(amount) <= 0) {
+            alert('Please enter a valid amount.');
+            return;
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            alert('Price added successfully!');
-            location.reload();
-        } else {
-            alert('Error: ' + data.error);
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfToken) {
+            alert('CSRF token not found. Please refresh the page.');
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error adding price:', error);
-        alert('Error: ' + error.message);
-    });
-}
+
+        console.log('Submitting price:', { product_id, price_type, amount, effective_date });
+
+        fetch('/api/add-product-price/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: `product_id=${product_id}&price_type=${price_type}&amount=${amount}&effective_date=${effective_date}`
+        })
+        .then(async response => {
+            // Check if response is OK
+            if (!response.ok) {
+                const text = await response.text();
+                // Try to parse as JSON, if it fails, return the text
+                try {
+                    const data = JSON.parse(text);
+                    throw new Error(data.error || 'Server error');
+                } catch {
+                    throw new Error('Server returned an error. Please check the logs.');
+                }
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('Price added successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error adding price:', error);
+            alert('Error: ' + error.message);
+        });
+    }
 
     function setActivePrice(priceId) {
         if (!confirm('Set this price as the active price? The previous active price will be archived.')) return;

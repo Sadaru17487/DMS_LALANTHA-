@@ -6885,46 +6885,53 @@ def stock_movement_log(request):
 @permission_required('manage_products')
 def add_product_price(request):
     """Add a new price version for a product."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Invalid method'}, status=405)
     
-    product_id = request.POST.get('product_id')
-    price_type = request.POST.get('price_type')  # 'cost' or 'selling'
-    amount_str = request.POST.get('amount')
-    effective_date_str = request.POST.get('effective_date')
-
-    # Validate required fields
-    if not product_id:
-        return JsonResponse({'error': 'Product ID is required'}, status=400)
-    if not price_type or price_type not in ['cost', 'selling']:
-        return JsonResponse({'error': 'Price type must be "cost" or "selling"'}, status=400)
-    if not amount_str:
-        return JsonResponse({'error': 'Amount is required'}, status=400)
-
+    # Only accept POST requests
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed. Use POST.'}, status=405)
+    
     try:
-        amount = Decimal(amount_str)
-    except:
-        return JsonResponse({'error': 'Invalid amount format'}, status=400)
+        # Get data from POST
+        product_id = request.POST.get('product_id')
+        price_type = request.POST.get('price_type')  # 'cost' or 'selling'
+        amount_str = request.POST.get('amount')
+        effective_date_str = request.POST.get('effective_date')
 
-    if amount <= 0:
-        return JsonResponse({'error': 'Amount must be greater than zero'}, status=400)
+        # ===== VALIDATE REQUIRED FIELDS =====
+        if not product_id:
+            return JsonResponse({'error': 'Product ID is required'}, status=400)
+        
+        if not price_type or price_type not in ['cost', 'selling']:
+            return JsonResponse({'error': 'Price type must be "cost" or "selling"'}, status=400)
+        
+        if not amount_str:
+            return JsonResponse({'error': 'Amount is required'}, status=400)
 
-    # Get product
-    try:
-        product = Product.objects.get(id=product_id, is_active=True)
-    except Product.DoesNotExist:
-        return JsonResponse({'error': 'Product not found'}, status=404)
-
-    # Parse effective date
-    if effective_date_str:
+        # ===== VALIDATE AMOUNT =====
         try:
-            effective_date = datetime.strptime(effective_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
-    else:
-        effective_date = date.today()
+            amount = Decimal(amount_str)
+        except:
+            return JsonResponse({'error': 'Invalid amount format. Please enter a valid number.'}, status=400)
 
-    try:
+        if amount <= 0:
+            return JsonResponse({'error': 'Amount must be greater than zero'}, status=400)
+
+        # ===== GET PRODUCT =====
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+
+        # ===== PARSE EFFECTIVE DATE =====
+        if effective_date_str:
+            try:
+                effective_date = datetime.strptime(effective_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+        else:
+            effective_date = date.today()
+
+        # ===== CREATE THE PRICE =====
         # Archive the currently active price of this type
         product.prices.filter(price_type=price_type, is_active=True).update(is_active=False)
 
@@ -6944,6 +6951,9 @@ def add_product_price(request):
             product.selling_price = amount
         product.save()
 
+        logger.info(f"Price added: {price_type} = {amount} for product {product.name} (ID: {product.id})")
+
+        # ===== RETURN SUCCESS =====
         return JsonResponse({
             'success': True,
             'price': {
@@ -6955,10 +6965,8 @@ def add_product_price(request):
         })
 
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.error(f"Error adding product price: {e}")
-        return JsonResponse({'error': f'Database error: {str(e)}'}, status=500)
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
     

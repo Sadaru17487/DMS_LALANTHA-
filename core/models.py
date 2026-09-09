@@ -93,7 +93,7 @@ class ProductPrice(models.Model):
         ('selling', 'Selling Price'),
     ]
     
-    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='prices')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='prices')
     price_type = models.CharField(max_length=10, choices=PRICE_TYPES)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     effective_date = models.DateField(default=date.today)
