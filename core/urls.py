@@ -116,5 +116,6 @@ urlpatterns = [
     path('purchase/payment/<int:purchase_id>/', views.make_purchase_payment, name='make_purchase_payment'),
     path('purchase/delete/<int:purchase_id>/', views.delete_purchase, name='delete_purchase'),
     path('pay-credit/', views.pay_credit_bill, name='pay_credit_bill'),
-    
+    path('api/add-product-price/', views.add_product_price, name='add_product_price'),
+    path('api/set-active-price/', views.set_active_price, name='set_active_price'),
 ]

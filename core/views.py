@@ -44,6 +44,7 @@ from .models import StockMovementLog
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
+from .models import Product, ProductPrice
 
 
 
@@ -6880,3 +6881,84 @@ def stock_movement_log(request):
     return render(request, 'core/stock_movement_log.html', context)
 
 
+@login_required
+@permission_required('manage_products')
+def add_product_price(request):
+    """Add a new price version for a product."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid method'}, status=405)
+    
+    product_id = request.POST.get('product_id')
+    price_type = request.POST.get('price_type')  # 'cost' or 'selling'
+    amount_str = request.POST.get('amount')
+    effective_date_str = request.POST.get('effective_date')
+
+    # Validate required fields
+    if not product_id:
+        return JsonResponse({'error': 'Product ID is required'}, status=400)
+    if not price_type or price_type not in ['cost', 'selling']:
+        return JsonResponse({'error': 'Price type must be "cost" or "selling"'}, status=400)
+    if not amount_str:
+        return JsonResponse({'error': 'Amount is required'}, status=400)
+
+    try:
+        amount = Decimal(amount_str)
+    except:
+        return JsonResponse({'error': 'Invalid amount format'}, status=400)
+
+    if amount <= 0:
+        return JsonResponse({'error': 'Amount must be greater than zero'}, status=400)
+
+    # Get product
+    try:
+        product = Product.objects.get(id=product_id, is_active=True)
+    except Product.DoesNotExist:
+        return JsonResponse({'error': 'Product not found'}, status=404)
+
+    # Parse effective date
+    if effective_date_str:
+        try:
+            effective_date = datetime.strptime(effective_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+    else:
+        effective_date = date.today()
+
+    try:
+        # Archive the currently active price of this type
+        product.prices.filter(price_type=price_type, is_active=True).update(is_active=False)
+
+        # Create the new price
+        new_price = ProductPrice.objects.create(
+            product=product,
+            price_type=price_type,
+            amount=amount,
+            effective_date=effective_date,
+            is_active=True
+        )
+
+        # Update the denormalized fields on the product
+        if price_type == 'cost':
+            product.cost_price = amount
+        else:
+            product.selling_price = amount
+        product.save()
+
+        return JsonResponse({
+            'success': True,
+            'price': {
+                'id': new_price.id,
+                'amount': float(new_price.amount),
+                'effective_date': new_price.effective_date.strftime('%Y-%m-%d'),
+                'is_active': new_price.is_active
+            }
+        })
+
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error adding product price: {e}")
+        return JsonResponse({'error': f'Database error: {str(e)}'}, status=500)
+
+
+    
