@@ -2831,7 +2831,6 @@ def create_sales_bill(request):
                                 amount=multi_amount1
                             )
 
-                            # If Cheque, create Cheque record
                             if multi_type1 == 'Cheque':
                                 try:
                                     cheque_no = request.POST.get('multi_cheque_no_1', '').strip()
@@ -2850,13 +2849,9 @@ def create_sales_bill(request):
                                             status='PENDING',
                                             notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
                                         )
-                                        logger.info(f"Multi Pay Cheque created: {cheque_no}")
-                                    else:
-                                        logger.warning(f"Cheque 1 details missing: {cheque_no}, {cheque_date}, {bank_id}")
-                                except Bank.DoesNotExist:
-                                    logger.warning(f"Bank {bank_id} not found for Multi Pay Cheque 1")
+                                        logger.info(f"Multi Pay Cheque 1 created: {cheque_no}")
                                 except Exception as e:
-                                    logger.error(f"Error creating Multi Pay Cheque 1: {e}")
+                                    logger.error(f"Multi Pay Cheque 1 error: {e}")
 
                             # Payment 2
                             Payment.objects.create(
@@ -2865,7 +2860,6 @@ def create_sales_bill(request):
                                 amount=multi_amount2
                             )
 
-                            # If Cheque, create Cheque record
                             if multi_type2 == 'Cheque':
                                 try:
                                     cheque_no = request.POST.get('multi_cheque_no_2', '').strip()
@@ -2884,13 +2878,9 @@ def create_sales_bill(request):
                                             status='PENDING',
                                             notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
                                         )
-                                        logger.info(f"Multi Pay Cheque created: {cheque_no}")
-                                    else:
-                                        logger.warning(f"Cheque 2 details missing: {cheque_no}, {cheque_date}, {bank_id}")
-                                except Bank.DoesNotExist:
-                                    logger.warning(f"Bank {bank_id} not found for Multi Pay Cheque 2")
+                                        logger.info(f"Multi Pay Cheque 2 created: {cheque_no}")
                                 except Exception as e:
-                                    logger.error(f"Error creating Multi Pay Cheque 2: {e}")
+                                    logger.error(f"Multi Pay Cheque 2 error: {e}")
                         else:
                             messages.error(request, '❌ Please enter valid amounts for both payment types.')
                             customers = Customer.objects.filter(is_active=True)
@@ -4025,7 +4015,7 @@ def api_vehicle_stock(request):
         return JsonResponse({'stocks': stock_dict})
     except Vehicle.DoesNotExist:
         return JsonResponse({'stocks': {}})
-
+        
 
 @login_required
 @permission_required('create_sales')

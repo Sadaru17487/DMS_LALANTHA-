@@ -414,9 +414,8 @@ class Employee(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    rep_code = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Unique code for Sales Representatives (e.g., 008SIN)")
     rep_invoice_counter = models.IntegerField(default=0, help_text="Last invoice number used for this Rep")
-    
+    rep_code = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

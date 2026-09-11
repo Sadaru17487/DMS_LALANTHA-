@@ -962,6 +962,8 @@
     // ============================================================
     // VEHICLE STOCK UPDATE
     // ============================================================
+
+
     function updateVehicleStock() {
         const vehicleSelect = document.getElementById('vehicleSelect');
         const vehicleId = vehicleSelect ? vehicleSelect.value : '';
@@ -998,9 +1000,13 @@
             .catch(error => console.error('Error fetching vehicle stock:', error));
     }
 
+
+
+
     // ============================================================
     // REP CODE INVOICE GENERATION
     // ============================================================
+
     function updateInvoiceFromRep() {
         const repSelect = document.getElementById('repSelect');
         const invoiceInput = document.getElementById('invoiceNoInput');
@@ -1008,12 +1014,15 @@
         if (manualInvoice) return;
         const selectedOption = repSelect.options[repSelect.selectedIndex];
         const repCode = selectedOption ? selectedOption.getAttribute('data-rep-code') : '';
-        if (repCode) {
-            invoiceInput.value = repCode;
-        } else {
-            invoiceInput.value = '';
+
+            console.log('Selected rep code:', repCode);  // Debug
+    
+            if (repCode && repCode !== 'None') {
+                invoiceInput.value = repCode;
+            } else {
+                invoiceInput.value = '';
+            }
         }
-    }
 
     // ============================================================
     // PAYMENT METHODS
@@ -1254,7 +1263,7 @@
         document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
     }
 
-    function confirmMultiPay() {
+   function confirmMultiPay() {
         const type1 = document.getElementById('multiType1').value;
         const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
         const type2 = document.getElementById('multiType2').value;
@@ -1313,12 +1322,12 @@
         let html = `<div style="background:#f8f0ff; padding:15px; border-radius:8px;">`;
         html += `<p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}`;
         if (type1 === 'Cheque' && chequeData1) {
-            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no} (${chequeData1.cheque_date})</span>`;
+            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no}</span>`;
         }
         html += `</p>`;
         html += `<p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}`;
         if (type2 === 'Cheque' && chequeData2) {
-            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no} (${chequeData2.cheque_date})</span>`;
+            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no}</span>`;
         }
         html += `</p>`;
         html += `<p><strong>Total:</strong> Rs ${total.toFixed(2)}</p>`;
@@ -1327,8 +1336,6 @@
         details.innerHTML = html;
 
         closeMultiPayModal();
-
-        console.log('MultiPay Data:', multiPayData); // Debug
     }
 
 
@@ -1660,3 +1667,4 @@
 </script>
 {% endblock %}
 
+filterProducts
