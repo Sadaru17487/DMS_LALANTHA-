@@ -2745,7 +2745,27 @@ def create_sales_bill(request):
                             return_type=item_data.get('return_type', 'NONE'),
                             return_reason=item_data.get('return_reason', None),
                         )
-                    
+
+                    # ===== DEBUG: Log all payment-related POST data =====
+                    logger.info("=" * 60)
+                    logger.info("PAYMENT DEBUG START")
+                    logger.info(f"payment_method: '{request.POST.get('payment_method', '')}'")
+                    logger.info(f"cash_amount: '{request.POST.get('cash_amount', '')}'")
+                    logger.info(f"credit_amount: '{request.POST.get('credit_amount', '')}'")
+                    logger.info(f"cheque_amount: '{request.POST.get('cheque_amount', '')}'")
+                    logger.info(f"online_amount: '{request.POST.get('online_amount', '')}'")
+                    logger.info(f"multi_type1: '{request.POST.get('multi_type1', '')}'")
+                    logger.info(f"multi_amount1: '{request.POST.get('multi_amount1', '')}'")
+                    logger.info(f"multi_type2: '{request.POST.get('multi_type2', '')}'")
+                    logger.info(f"multi_amount2: '{request.POST.get('multi_amount2', '')}'")
+                    logger.info(f"multi_cheque_no_1: '{request.POST.get('multi_cheque_no_1', '')}'")
+                    logger.info(f"multi_cheque_bank_1: '{request.POST.get('multi_cheque_bank_1', '')}'")
+                    logger.info(f"multi_cheque_no_2: '{request.POST.get('multi_cheque_no_2', '')}'")
+                    logger.info(f"multi_cheque_bank_2: '{request.POST.get('multi_cheque_bank_2', '')}'")
+                    logger.info(f"net_total: {bill.net_total if hasattr(bill, 'net_total') else 'N/A'}")
+                    logger.info("PAYMENT DEBUG END")
+                    logger.info("=" * 60)
+
                     # ===== PAYMENT PROCESSING =====
                     payment_method = request.POST.get('payment_method', '')
                     cheque_amount = Decimal(request.POST.get('cheque_amount', '0') or '0')
@@ -2754,6 +2774,7 @@ def create_sales_bill(request):
                     online_amount = Decimal(request.POST.get('online_amount', '0') or '0')
                     
                     logger.info(f"Payment method: {payment_method}, Cheque: {cheque_amount}")
+                    
                     
                     # Validate payment matches net total
                     net_total = bill.net_total
