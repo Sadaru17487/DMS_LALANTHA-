@@ -1488,18 +1488,13 @@
             window.history.replaceState({}, document.title, newUrl);
         }
     }
-
+i
     // ============================================================
     // FORM SUBMIT HANDLER
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         setupCustomerSearch();
         checkForNewCustomer();
-
-        const priceIdField = document.getElementById(`hidden_price_id_${i}`);
-        if (priceIdField) {
-            priceIdField.value = item.price_id || '';
-        }
 
         const repSelect = document.getElementById('repSelect');
         if (repSelect) {
@@ -1631,7 +1626,7 @@
             }
 
             const maxItems = 20;
-            for (let i = 1; i <= maxItems; i++) {
+            for (let i = 0; i < 10; i++) {
                 const item = cart[i - 1];
                 const productField = document.getElementById(`hidden_product_${i}`);
                 const qtyField = document.getElementById(`hidden_qty_${i}`);
@@ -1667,4 +1662,3 @@
 </script>
 {% endblock %}
 
-filterProducts
