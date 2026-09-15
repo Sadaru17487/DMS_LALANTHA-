@@ -2457,6 +2457,45 @@ def customer_check_duplicate(request):
     })
 
 
+
+def _build_product_list_for_template(selected_vehicle=None):
+    """Build product_list with prices for template rendering."""
+    products = Product.objects.filter(is_active=True)
+    
+    vehicle_stock_dict = {}
+    if selected_vehicle:
+        try:
+            vehicle = Vehicle.objects.get(id=int(selected_vehicle))
+            for stock in VehicleStock.objects.filter(vehicle=vehicle):
+                vehicle_stock_dict[stock.product_id] = stock.quantity
+        except (ValueError, TypeError, Vehicle.DoesNotExist):
+            pass
+    
+    product_list = []
+    for product in products:
+        try:
+            selling_prices = product.get_selling_prices()
+            price_options = [{
+                'id': p.id,
+                'amount': float(p.amount),
+                'effective_date': p.effective_date.strftime('%Y-%m-%d'),
+                'is_active': p.is_active
+            } for p in selling_prices]
+        except Exception:
+            price_options = []
+        
+        product_list.append({
+            'id': product.id,
+            'name': product.name,
+            'code': product.code,
+            'selling_price': product.selling_price,
+            'unit': product.unit,
+            'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
+            'prices': price_options,
+        })
+    
+    return product_list
+
 @login_required
 @permission_required('create_sales')
 def create_sales_bill(request):
@@ -2999,72 +3038,65 @@ def create_sales_bill(request):
     else:
         form = SalesBillForm()
     
-    #GET REQUEST 
-
-        def _build_product_list_for_template(selected_vehicle=None): 
-                 
-            products = _build_product_list_for_template(selected_vehicle)
-
-            customers = Customer.objects.filter(is_active=True)
-            vehicles = Vehicle.objects.filter(is_active=True)
-            reps = Employee.objects.filter(position='Rep', is_active=True)
-            banks = Bank.objects.filter(is_active=True)
-            
-            vehicle_stock_dict = {}
-            if selected_vehicle:
-                try:
-                    vehicle = Vehicle.objects.get(id=int(selected_vehicle))
-                    for stock in VehicleStock.objects.filter(vehicle=vehicle):
-                        vehicle_stock_dict[stock.product_id] = stock.quantity
-                except (ValueError, TypeError, Vehicle.DoesNotExist):
-                    pass
-            
-            product_list = []
-            for product in products:
-                try:
-                    selling_prices = product.get_selling_prices()
-                    price_options = [{
-                        'id': p.id,
-                        'amount': float(p.amount),
-                        'effective_date': p.effective_date.strftime('%Y-%m-%d'),
-                        'is_active': p.is_active
-                    } for p in selling_prices]
-                except Exception:
-                    price_options = []
-                
-                product_list.append({
-                    'id': product.id,
-                    'name': product.name,
-                    'code': product.code,
-                    'selling_price': product.selling_price,
-                    'unit': product.unit,
-                    'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
-                    'prices': price_options,
-                })
-            
-
-            
-            random_invoice = request.GET.get('invoice_no', '')
-            context = {
-                'form': form,
-                'products': product_list,
-                'customers': customers,
-                'vehicles': vehicles,
-                'reps': reps,
-                'banks': banks,
-                'max_items': MAX_ITEMS,
-                'today': date.today(),
-                'random_invoice': random_invoice,
-                'selected_vehicle': selected_vehicle,
-                'selected_rep': selected_rep,
-                'shop_name': request.GET.get('shop_name', ''),
-                'shop_code': request.GET.get('shop_code', ''),
-                'customer_id': request.GET.get('customer_id', ''),
-                'cart_items': [],
-                'return_mode': False,
-                'duplicate_error': False,
-            }
-            return render(request, 'core/sales_bill.html', context)
+    # ===== GET REQUEST =====
+    products = Product.objects.filter(is_active=True)
+    customers = Customer.objects.filter(is_active=True)
+    vehicles = Vehicle.objects.filter(is_active=True)
+    reps = Employee.objects.filter(position='Rep', is_active=True)
+    banks = Bank.objects.filter(is_active=True)
+    
+    vehicle_stock_dict = {}
+    if selected_vehicle:
+        try:
+            vehicle_id = int(selected_vehicle)
+            vehicle = Vehicle.objects.get(id=vehicle_id)
+            vehicle_stocks = VehicleStock.objects.filter(vehicle=vehicle)
+            for stock in vehicle_stocks:
+                vehicle_stock_dict[stock.product_id] = stock.quantity
+        except (ValueError, TypeError, Vehicle.DoesNotExist):
+            pass
+    
+    product_list = []
+    for product in products:
+        selling_prices = product.get_selling_prices()
+        price_options = [{
+            'id': p.id,
+            'amount': float(p.amount),
+            'effective_date': p.effective_date.strftime('%Y-%m-%d'),
+            'is_active': p.is_active
+        } for p in selling_prices]
+        
+        product_list.append({
+            'id': product.id,
+            'name': product.name,
+            'code': product.code,
+            'selling_price': product.selling_price,
+            'unit': product.unit,
+            'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
+            'prices': price_options,
+        })
+    
+    random_invoice = request.GET.get('invoice_no', '')
+    context = {
+        'form': form,
+        'products': product_list,
+        'customers': customers,
+        'vehicles': vehicles,
+        'reps': reps,
+        'banks': banks,
+        'max_items': MAX_ITEMS,
+        'today': date.today(),
+        'random_invoice': random_invoice,
+        'selected_vehicle': selected_vehicle,
+        'selected_rep': selected_rep,
+        'shop_name': request.GET.get('shop_name', ''),
+        'shop_code': request.GET.get('shop_code', ''),
+        'customer_id': request.GET.get('customer_id', ''),
+        'cart_items': [],
+        'return_mode': False,
+        'duplicate_error': False,
+    }
+    return render(request, 'core/sales_bill.html', context)
 
 
 
