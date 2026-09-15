@@ -2482,6 +2482,8 @@ def create_sales_bill(request):
                     subtotal = Decimal('0')
                     items_to_save = []
                     vehicle = bill.vehicle
+                    product = None
+                    
                     
                     # ===== GET RETURN TYPE =====
                     is_return = request.POST.get('is_return') == 'true'
