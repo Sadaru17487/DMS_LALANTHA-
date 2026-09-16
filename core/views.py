@@ -2514,6 +2514,11 @@ def create_sales_bill(request):
         form = SalesBillForm(request.POST)
         
         if form.is_valid():
+            logger.info("=" * 60)
+            logger.info("BILL SUBMIT DEBUG")
+            for key in sorted(request.POST.keys()):
+                logger.info(f"  {key}: '{request.POST[key]}'")
+            logger.info("=" * 60)
             try:
                 with transaction.atomic():
                     bill = form.save(commit=False)
