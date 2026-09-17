@@ -2820,17 +2820,32 @@ def create_sales_bill(request):
                     
                     # Validate payment matches net total
                     # ===== CALCULATE TOTAL PAID BASED ON PAYMENT METHOD =====
-
-                    net_total = bill.net_total
-                    total_paid = cash_amount + credit_amount + cheque_amount + online_amount
                     
-                    if net_total > 0 and total_paid != net_total:
+                    net_total = bill.net_total
+                    total_paid = Decimal('0')
+
+                    if payment_method == 'multi':
+                        # For Multi Pay, sum both amounts
+                        try:
+                            multi_amt1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
+                        except Exception:
+                            multi_amt1 = Decimal('0')
+                        try:
+                            multi_amt2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
+                        except Exception:
+                            multi_amt2 = Decimal('0')
+                        total_paid = multi_amt1 + multi_amt2
+                        logger.info(f"Multi Pay: amount1={multi_amt1}, amount2={multi_amt2}, total={total_paid}")
+                    else:
+                        total_paid = cash_amount + credit_amount + cheque_amount + online_amount
+
+                    # Validate
+                    if net_total > 0 and abs(total_paid - net_total) > Decimal('0.01'):
                         messages.error(request, f'❌ Payment total ({total_paid}) does not match Bill Total ({net_total})!')
-                        customers = Customer.objects.filter(is_active=True)
                         return render(request, 'core/sales_bill.html', {
                             'form': form,
                             'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': customers,
+                            'customers': Customer.objects.filter(is_active=True),
                             'vehicles': Vehicle.objects.filter(is_active=True),
                             'reps': Employee.objects.filter(position='Rep', is_active=True),
                             'banks': Bank.objects.filter(is_active=True),
@@ -2839,7 +2854,6 @@ def create_sales_bill(request):
                             'selected_rep': selected_rep,
                             'today': date.today(),
                         })
-
                     
                     # ===== CREATE PAYMENTS =====
                     if payment_method == 'cheque' or cheque_amount > 0:
