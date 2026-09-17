@@ -1606,9 +1606,12 @@
                 
             // In the form submit handler, after checking for multiPayData
             // ===== MULTI PAY HIDDEN FIELDS =====
+            document.getElementById('salesForm').addEventListener('submit', function(e) {
+            console.log('SUBMIT HANDLER STARTED');
             console.log('Selected Payment:', selectedPayment);
             console.log('MultiPay Data:', multiPayData);
             console.log('MultiPay hidden fields appended:', fields);
+            console.log('cart:', cart);
 
             // ===== MULTI PAY HIDDEN FIELDS =====
             if (selectedPayment === 'multi' && multiPayData) {
@@ -1655,7 +1658,7 @@
                 }
                 document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
             }
-            
+
             document.getElementById('paymentMethod').value = selectedPayment;
             document.getElementById('hidden_bill_discount_type').value = billDiscountType;
             document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
