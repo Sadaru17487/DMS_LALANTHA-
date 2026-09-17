@@ -916,6 +916,37 @@
         subtotalDisplay.textContent = `Rs ${regularTotal.toFixed(2)}`;
         focValueDisplay.textContent = `Rs ${focTotal.toFixed(2)}`;
         updateBillDiscount();
+        populateHiddenFields();
+    }
+
+    // ===== POPULATE HIDDEN FIELDS FROM CART =====
+    function populateHiddenFields() {
+        const maxItems = 20;
+        for (let i = 1; i <= maxItems; i++) {
+            const item = cart[i - 1];
+            const productField = document.getElementById(`hidden_product_${i}`);
+            const qtyField = document.getElementById(`hidden_qty_${i}`);
+            const rateField = document.getElementById(`hidden_rate_${i}`);
+            const focField = document.getElementById(`hidden_is_foc_${i}`);
+            const priceIdField = document.getElementById(`hidden_price_id_${i}`);
+
+            if (!productField) continue;
+
+            if (item) {
+                const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
+                productField.value = item.id;
+                qtyField.value = qty;
+                rateField.value = item.rate;
+                focField.value = item.is_foc ? 'true' : 'false';
+                if (priceIdField) priceIdField.value = item.price_id || '';
+            } else {
+                productField.value = '';
+                qtyField.value = '0';
+                rateField.value = '0';
+                focField.value = 'false';
+                if (priceIdField) priceIdField.value = '';
+            }
+        }
     }
 
     // ============================================================
@@ -1624,39 +1655,11 @@
                 }
                 document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
             }
-
-            const maxItems = 20;
-            for (let i = 0; i < 10; i++) {
-                const item = cart[i - 1];
-                const productField = document.getElementById(`hidden_product_${i}`);
-                const qtyField = document.getElementById(`hidden_qty_${i}`);
-                const rateField = document.getElementById(`hidden_rate_${i}`);
-                const focField = document.getElementById(`hidden_is_foc_${i}`);
-                const priceIdField = document.getElementById(`hidden_price_id_${i}`);
-
-                if (item) {
-                    const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
-                    productField.value = item.id;
-                    qtyField.value = qty;
-                    rateField.value = item.rate;
-                    focField.value = item.is_foc ? 'true' : 'false';
-                    if (priceIdField) {
-                        priceIdField.value = item.price_id || '';
-                    }
-                } else {
-                    productField.value = '';
-                    qtyField.value = '0';
-                    rateField.value = '0';
-                    focField.value = 'false';
-                    if (priceIdField) {
-                        priceIdField.value = '';
-                    }
-                }
-            }
-
+            
             document.getElementById('paymentMethod').value = selectedPayment;
             document.getElementById('hidden_bill_discount_type').value = billDiscountType;
             document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
+            document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
         });
     });
 </script>
