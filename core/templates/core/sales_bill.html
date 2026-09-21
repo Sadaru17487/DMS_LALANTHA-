@@ -982,43 +982,37 @@
         document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
         document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
 
+        // ✅ ALWAYS update the hidden inputs
         billDiscountType = discountType;
         billDiscountValue = discountValue;
+        document.getElementById('hidden_bill_discount_type').value = discountType || '';
+        document.getElementById('hidden_bill_discount_value').value = discountValue.toFixed(2);
 
-        // ✅ ADD THIS: Update payment inputs to the new net total
-        if (selectedPayment) {
-            if (selectedPayment === 'cash') {
-                const cashInput = document.getElementById('cashAmount');
-                if (cashInput) {
-                    cashInput.value = netTotal.toFixed(2);
-                    updateCashTotal();
-                }
-            } else if (selectedPayment === 'credit') {
-                const creditInput = document.getElementById('creditAmount');
-                if (creditInput) {
-                    creditInput.value = netTotal.toFixed(2);
-                    updateCreditTotal();
-                }
-            } else if (selectedPayment === 'online') {
-                const onlineInput = document.getElementById('onlineAmount');
-                if (onlineInput) {
-                    onlineInput.value = netTotal.toFixed(2);
-                    updateOnlineTotal();
-                }
-            } else if (selectedPayment === 'cheque') {
-                const chequeInput = document.getElementById('chequeAmount');
-                if (chequeInput) chequeInput.value = netTotal.toFixed(2);
-            } else if (selectedPayment === 'multi') {
-                // Reset multi pay when discount changes
-                multiPayData = null;
-                document.getElementById('multi_amount1_hidden').value = '0';
-                document.getElementById('multi_amount2_hidden').value = '0';
-                document.getElementById('paymentDetails').innerHTML = `
-                    <div style="background:#fff3cd; padding:15px; border-radius:8px; color:#856404;">
-                        ⚠️ Bill discount changed. Please re-select Multi Pay and enter the new amounts.
-                    </div>
-                `;
-            }
+        // ✅ SYNC PAYMENT AMOUNT to new net total
+        if (selectedPayment === 'cash') {
+            const el = document.getElementById('cashAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateCashTotal(); }
+        } else if (selectedPayment === 'credit') {
+            const el = document.getElementById('creditAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateCreditTotal(); }
+        } else if (selectedPayment === 'online') {
+            const el = document.getElementById('onlineAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateOnlineTotal(); }
+        } else if (selectedPayment === 'cheque' && chequeData) {
+            // Reset cheque when discount changes
+            chequeData.amount = netTotal;
+            const el = document.getElementById('chequeAmount');
+            if (el) el.value = netTotal.toFixed(2);
+        } else if (selectedPayment === 'multi' && multiPayData) {
+            // Reset multi pay - user must re-enter
+            multiPayData = null;
+            document.getElementById('paymentDetails').innerHTML = `
+                <div style="background:#fff3cd; padding:15px; border-radius:8px; color:#856404;">
+                    ⚠️ Bill total changed. Please re-open Multi Pay and enter new amounts.
+                </div>
+            `;
+            document.getElementById('multi_amount1_hidden').value = '0';
+            document.getElementById('multi_amount2_hidden').value = '0';
         }
     }
 

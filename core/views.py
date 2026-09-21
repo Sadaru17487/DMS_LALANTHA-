@@ -2020,14 +2020,18 @@ def cheque_clear(request, cheque_id):
 
 @login_required
 @permission_required('manage_cheques')
-def bounce_cheque(request, cheque_id):
+def cheque_bounce(request, cheque_id):
+    """Bounce a cheque: reverse payment, create Credit payment, update bill status."""
     cheque = get_object_or_404(Cheque, id=cheque_id)
     bill = cheque.sales_bill
 
     if request.method == 'POST':
         bounce_reason = request.POST.get('bounce_reason')
         add_bank_charge = request.POST.get('add_bank_charge') == 'on'
-        bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0'))
+        try:
+            bank_charge_amount = Decimal(request.POST.get('bank_charge_amount', '0') or '0')
+        except Exception:
+            bank_charge_amount = Decimal('0')
         notes = request.POST.get('notes', '')
 
         if not bounce_reason:
@@ -2043,19 +2047,25 @@ def bounce_cheque(request, cheque_id):
                 cheque.bounced_by = request.user
                 cheque.notes = notes
                 cheque.save()
+                logger.info(f"Cheque {cheque.cheque_no} bounced")
 
                 # 2. Reverse the Cheque payment
                 payment = Payment.objects.filter(
                     bill=bill,
                     type='Cheque',
+                    amount=cheque.amount,
                     is_reversed=False
                 ).first()
+
                 if payment:
                     payment.is_reversed = True
                     payment.reversed_at = timezone.now()
                     payment.reversed_by = request.user
                     payment.reversed_cheque = cheque
                     payment.save()
+                    logger.info(f"Reversed payment {payment.id}")
+                else:
+                    logger.warning(f"No matching payment found for cheque {cheque.cheque_no}")
 
                 # 3. Create a Credit payment for the same amount
                 credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
@@ -2068,56 +2078,72 @@ def bounce_cheque(request, cheque_id):
                         type='Credit',
                         amount=cheque.amount
                     )
+                logger.info(f"Credit payment recorded for {cheque.amount}")
 
-                # 4. Recalculate outstanding
-                non_credit_total = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                credit_total = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+                # 4. Update bill status to PENDING
+                non_credit_total = bill.payments.exclude(type='Credit').aggregate(
+                    total=Sum('amount'))['total'] or Decimal('0')
+                credit_total = bill.payments.filter(type='Credit').aggregate(
+                    total=Sum('amount'))['total'] or Decimal('0')
                 outstanding = bill.net_total - non_credit_total - credit_total
 
-                # 5. Update bill status
                 if outstanding > 0:
                     bill.status = 'PENDING'
                     bill.save()
-                    logger.info(f"Bill {bill.invoice_no} set to PENDING (outstanding: {outstanding})")
-                else:
-                    bill.status = 'COMPLETED'
-                    bill.save()
+                    logger.info(f"Bill set to PENDING with outstanding {outstanding}")
 
-                # 6. Reset Credit Collection
-                collection = CreditCollection.objects.filter(sales_bill=bill).first()
-                if collection:
-                    collection.status = 'PENDING'
-                    collection.date_taken = None
-                    collection.save()
-                else:
-                    CreditCollection.objects.create(
-                        sales_bill=bill,
-                        status='PENDING'
-                    )
+                # 5. Reset Credit Collection
+                try:
+                    collection = CreditCollection.objects.filter(sales_bill=bill).first()
+                    if collection:
+                        collection.status = 'PENDING'
+                        collection.date_taken = None
+                        collection.save()
+                    else:
+                        CreditCollection.objects.create(
+                            sales_bill=bill,
+                            status='PENDING'
+                        )
+                except Exception as e:
+                    logger.warning(f"Credit collection error: {e}")
 
-                # 7. Add bank charge
+                # 6. Add bank charge (safe)
                 if add_bank_charge and bank_charge_amount > 0:
-                    expense = Expense.objects.create(
-                        vehicle=None,
-                        date=timezone.now().date(),
-                        category='Bank Charges',
-                        amount=bank_charge_amount,
-                        note=f'Bank charge for bounced cheque {cheque.cheque_no}',
-                        status='PAID',
-                    )
-                    cheque.bank_charge_amount = bank_charge_amount
-                    cheque.bank_charge_expense = expense
-                    cheque.save()
-                    messages.success(request, f'Bank charge of Rs {bank_charge_amount} added.')
+                    try:
+                        # Use a valid category from Expense.CATEGORY_CHOICES
+                        # If "Bank Charges" is not a valid choice, fall back to "OTHER"
+                        valid_categories = [c[0] for c in Expense.CATEGORY_CHOICES] if hasattr(Expense, 'CATEGORY_CHOICES') else []
+                        category = 'Bank Charges' if 'Bank Charges' in valid_categories else (
+                            'BANK_CHARGES' if 'BANK_CHARGES' in valid_categories else (
+                                'OTHER' if 'OTHER' in valid_categories else (valid_categories[0] if valid_categories else 'OTHER')
+                            )
+                        )
 
-                messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})')
-                return redirect('cheque_list')
+                        expense = Expense.objects.create(
+                            vehicle=None,
+                            date=timezone.now().date(),
+                            category=category,
+                            amount=bank_charge_amount,
+                            note=f'Bank charge for bounced cheque {cheque.cheque_no}',
+                            status='PAID',
+                        )
+                        cheque.bank_charge_amount = bank_charge_amount
+                        cheque.bank_charge_expense = expense
+                        cheque.save()
+                        messages.success(request, f'Bank charge Rs {bank_charge_amount} recorded.')
+                    except Exception as e:
+                        logger.error(f"Bank charge expense failed: {e}")
+                        messages.warning(request, 'Payment reversed but bank charge could not be recorded.')
+
+            messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List.')
+            return redirect('cheque_list')
 
         except Exception as e:
             import traceback
-            logger.error(f"Bounce error: {traceback.format_exc()}")
+            logger.error(f"cheque_bounce FATAL error: {e}")
+            logger.error(traceback.format_exc())
             messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
-            return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
+            return redirect('cheque_list')
 
     return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
@@ -2594,6 +2620,31 @@ def create_sales_bill(request):
                                 rate = product.selling_price
                         
                         discount_value = Decimal(discount_value_str) if discount_value_str else Decimal('0')
+
+                        # ===== BILL DISCOUNT =====
+                        bill_discount_type = request.POST.get('bill_discount_type', '').strip()
+                        bill_discount_value_str = request.POST.get('bill_discount_value', '0').strip()
+
+                        try:
+                            bill_discount_value = Decimal(bill_discount_value_str) if bill_discount_value_str else Decimal('0')
+                        except Exception:
+                            bill_discount_value = Decimal('0')
+
+                        logger.info(f"DISCOUNT - type='{bill_discount_type}', value={bill_discount_value}, subtotal={subtotal}")
+
+                        if bill_discount_type == 'PERCENTAGE' and bill_discount_value > 0:
+                            bill_discount_amount = (subtotal * bill_discount_value) / 100
+                        elif bill_discount_type == 'FIXED' and bill_discount_value > 0:
+                            bill_discount_amount = min(bill_discount_value, subtotal)
+                        else:
+                            bill_discount_amount = Decimal('0')
+
+                        bill.bill_discount_type = bill_discount_type if bill_discount_value > 0 else None
+                        bill.bill_discount_value = bill_discount_value if bill_discount_value > 0 else Decimal('0')
+                        bill.bill_discount_amount = bill_discount_amount
+                        bill.net_total = subtotal - bill_discount_amount
+
+                        logger.info(f"DISCOUNT - amount={bill_discount_amount}, net_total={bill.net_total}")
                         
                         # Calculate discounted rate
                         discounted_rate = rate
