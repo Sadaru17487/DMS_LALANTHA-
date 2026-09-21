@@ -2020,8 +2020,7 @@ def cheque_clear(request, cheque_id):
 
 @login_required
 @permission_required('manage_cheques')
-def cheque_bounce(request, cheque_id):
-    """Bounce a cheque: reverse payment, create Credit payment, update bill status."""
+def bounce_cheque(request, cheque_id):
     cheque = get_object_or_404(Cheque, id=cheque_id)
     bill = cheque.sales_bill
 
@@ -2040,34 +2039,37 @@ def cheque_bounce(request, cheque_id):
 
         try:
             with transaction.atomic():
-                # 1. Mark cheque as bounced
+                # ===== 1. Mark cheque as bounced =====
                 cheque.status = 'BOUNCED'
                 cheque.bounce_reason = bounce_reason
-                cheque.bounced_at = timezone.now()
-                cheque.bounced_by = request.user
+                if hasattr(cheque, 'bounced_at'):
+                    cheque.bounced_at = timezone.now()
+                if hasattr(cheque, 'bounced_by'):
+                    cheque.bounced_by = request.user
                 cheque.notes = notes
                 cheque.save()
-                logger.info(f"Cheque {cheque.cheque_no} bounced")
+                logger.info(f"Cheque {cheque.cheque_no} marked as BOUNCED")
 
-                # 2. Reverse the Cheque payment
+                # ===== 2. Reverse the Cheque payment =====
                 payment = Payment.objects.filter(
                     bill=bill,
                     type='Cheque',
-                    amount=cheque.amount,
                     is_reversed=False
                 ).first()
-
                 if payment:
                     payment.is_reversed = True
-                    payment.reversed_at = timezone.now()
-                    payment.reversed_by = request.user
-                    payment.reversed_cheque = cheque
+                    if hasattr(payment, 'reversed_at'):
+                        payment.reversed_at = timezone.now()
+                    if hasattr(payment, 'reversed_by'):
+                        payment.reversed_by = request.user
+                    if hasattr(payment, 'reversed_cheque'):
+                        payment.reversed_cheque = cheque
                     payment.save()
-                    logger.info(f"Reversed payment {payment.id}")
+                    logger.info(f"Payment {payment.id} reversed")
                 else:
-                    logger.warning(f"No matching payment found for cheque {cheque.cheque_no}")
+                    logger.warning(f"No matching Cheque payment found for bill {bill.invoice_no}")
 
-                # 3. Create a Credit payment for the same amount
+                # ===== 3. Create/Update Credit payment =====
                 credit_payment = Payment.objects.filter(bill=bill, type='Credit').first()
                 if credit_payment:
                     credit_payment.amount += cheque.amount
@@ -2078,72 +2080,116 @@ def cheque_bounce(request, cheque_id):
                         type='Credit',
                         amount=cheque.amount
                     )
-                logger.info(f"Credit payment recorded for {cheque.amount}")
+                logger.info(f"Credit payment set for amount {cheque.amount}")
 
-                # 4. Update bill status to PENDING
+                # ===== 4. Recalculate outstanding =====
                 non_credit_total = bill.payments.exclude(type='Credit').aggregate(
-                    total=Sum('amount'))['total'] or Decimal('0')
+                    total=Sum('amount')
+                )['total'] or Decimal('0')
                 credit_total = bill.payments.filter(type='Credit').aggregate(
-                    total=Sum('amount'))['total'] or Decimal('0')
+                    total=Sum('amount')
+                )['total'] or Decimal('0')
                 outstanding = bill.net_total - non_credit_total - credit_total
 
+                # ===== 5. Update bill status =====
                 if outstanding > 0:
                     bill.status = 'PENDING'
                     bill.save()
-                    logger.info(f"Bill set to PENDING with outstanding {outstanding}")
+                    logger.info(f"Bill {bill.invoice_no} set to PENDING (outstanding: {outstanding})")
+                else:
+                    bill.status = 'COMPLETED'
+                    bill.save()
 
-                # 5. Reset Credit Collection
+                # ===== 6. Reset Credit Collection =====
                 try:
                     collection = CreditCollection.objects.filter(sales_bill=bill).first()
                     if collection:
                         collection.status = 'PENDING'
-                        collection.date_taken = None
+                        if hasattr(collection, 'date_taken'):
+                            collection.date_taken = None
                         collection.save()
                     else:
                         CreditCollection.objects.create(
                             sales_bill=bill,
                             status='PENDING'
                         )
-                except Exception as e:
-                    logger.warning(f"Credit collection error: {e}")
+                    logger.info(f"CreditCollection set to PENDING")
+                except Exception as cc_err:
+                    logger.warning(f"CreditCollection error (non-fatal): {cc_err}")
 
-                # 6. Add bank charge (safe)
+                # ===== 7. Add bank charge (SAFE) =====
                 if add_bank_charge and bank_charge_amount > 0:
                     try:
-                        # Use a valid category from Expense.CATEGORY_CHOICES
-                        # If "Bank Charges" is not a valid choice, fall back to "OTHER"
-                        valid_categories = [c[0] for c in Expense.CATEGORY_CHOICES] if hasattr(Expense, 'CATEGORY_CHOICES') else []
-                        category = 'Bank Charges' if 'Bank Charges' in valid_categories else (
-                            'BANK_CHARGES' if 'BANK_CHARGES' in valid_categories else (
-                                'OTHER' if 'OTHER' in valid_categories else (valid_categories[0] if valid_categories else 'OTHER')
-                            )
-                        )
+                        # Find a valid category from Expense model
+                        valid_cats = []
+                        if hasattr(Expense, 'CATEGORY_CHOICES'):
+                            valid_cats = [c[0] for c in Expense.CATEGORY_CHOICES]
+                        
+                        # Try candidates in order of preference
+                        category_value = None
+                        for candidate in ['Bank Charges', 'BANK_CHARGES', 'Bank_Charges', 'BANK', 'OTHER', 'Other', 'OTHER_EXPENSE']:
+                            if candidate in valid_cats:
+                                category_value = candidate
+                                break
+                        
+                        # Fallback: use first valid category
+                        if not category_value:
+                            category_value = valid_cats[0] if valid_cats else 'OTHER'
+                        
+                        logger.info(f"Using category '{category_value}' for bank charge")
 
-                        expense = Expense.objects.create(
-                            vehicle=None,
-                            date=timezone.now().date(),
-                            category=category,
-                            amount=bank_charge_amount,
-                            note=f'Bank charge for bounced cheque {cheque.cheque_no}',
-                            status='PAID',
-                        )
-                        cheque.bank_charge_amount = bank_charge_amount
-                        cheque.bank_charge_expense = expense
+                        # Build the expense safely
+                        expense_kwargs = {
+                            'date': timezone.now().date(),
+                            'category': category_value,
+                            'amount': bank_charge_amount,
+                        }
+                        
+                        # Only set fields if they exist on the model
+                        expense_fields = [f.name for f in Expense._meta.fields]
+                        if 'vehicle' in expense_fields:
+                            expense_kwargs['vehicle'] = None
+                        if 'note' in expense_fields:
+                            expense_kwargs['note'] = f'Bank charge for bounced cheque {cheque.cheque_no}'
+                        elif 'notes' in expense_fields:
+                            expense_kwargs['notes'] = f'Bank charge for bounced cheque {cheque.cheque_no}'
+                        if 'status' in expense_fields:
+                            expense_kwargs['status'] = 'PAID'
+                        if 'created_by' in expense_fields:
+                            expense_kwargs['created_by'] = request.user
+                        if 'employee' in expense_fields:
+                            expense_kwargs['employee'] = None
+
+                        expense = Expense.objects.create(**expense_kwargs)
+                        logger.info(f"Expense {expense.id} created for bank charge {bank_charge_amount}")
+
+                        # Link to cheque if fields exist
+                        if hasattr(cheque, 'bank_charge_amount'):
+                            cheque.bank_charge_amount = bank_charge_amount
+                        if hasattr(cheque, 'bank_charge_expense'):
+                            cheque.bank_charge_expense = expense
                         cheque.save()
-                        messages.success(request, f'Bank charge Rs {bank_charge_amount} recorded.')
-                    except Exception as e:
-                        logger.error(f"Bank charge expense failed: {e}")
-                        messages.warning(request, 'Payment reversed but bank charge could not be recorded.')
 
-            messages.success(request, f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List.')
-            return redirect('cheque_list')
+                        messages.success(request, f'Bank charge Rs {bank_charge_amount} recorded.')
+                    except Exception as exp_err:
+                        import traceback
+                        logger.error(f"Bank charge expense failed: {exp_err}")
+                        logger.error(traceback.format_exc())
+                        messages.warning(request, 'Payment reversed, but bank charge could not be recorded.')
+
+                # ===== SUCCESS =====
+                messages.success(
+                    request,
+                    f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})'
+                )
+                return redirect('cheque_list')
 
         except Exception as e:
             import traceback
-            logger.error(f"cheque_bounce FATAL error: {e}")
+            logger.error(f"Bounce error FATAL: {e}")
             logger.error(traceback.format_exc())
             messages.error(request, f'❌ Error bouncing cheque: {str(e)}')
-            return redirect('cheque_list')
+            return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
     return render(request, 'core/cheque_bounce.html', {'cheque': cheque})
 
