@@ -2182,7 +2182,7 @@ def bounce_cheque(request, cheque_id):
                     request,
                     f'✅ Cheque {cheque.cheque_no} bounced. Bill {bill.invoice_no} moved to Credit List (Outstanding: Rs {outstanding:.2f})'
                 )
-                return redirect('cheque_list')
+                return redirect('/cheques/')
 
         except Exception as e:
             import traceback
