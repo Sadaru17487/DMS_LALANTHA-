@@ -197,7 +197,19 @@ def sales_list(request):
 @login_required
 @permission_required('view_sales')
 def credit_list(request):
-    """List all credit bills with outstanding balance > 0"""
+    
+    credit_bill_ids = Payment.objects.filter(
+        type='Credit', 
+        is_reversed=False
+    ).values_list('bill_id', flat=True).distinct()
+    
+    pending_bill_ids = SalesBill.objects.filter(
+        status='PENDING'
+    ).values_list('id', flat=True)
+    
+    bills = SalesBill.objects.filter(
+        Q(id__in=credit_bill_ids) | Q(id__in=pending_bill_ids)
+    ).select_related('vehicle', 'rep').order_by('-date', '-created_at')
     
     # ===== GET BILLS WITH CREDIT PAYMENTS OR PENDING STATUS =====
     credit_bill_ids = Payment.objects.filter(type='Credit').values_list('bill_id', flat=True).distinct()
@@ -2082,16 +2094,22 @@ def bounce_cheque(request, cheque_id):
                     )
                 logger.info(f"Credit payment set for amount {cheque.amount}")
 
-                # ===== 4. Recalculate outstanding =====
-                non_credit_total = bill.payments.exclude(type='Credit').aggregate(
-                    total=Sum('amount')
-                )['total'] or Decimal('0')
-                credit_total = bill.payments.filter(type='Credit').aggregate(
-                    total=Sum('amount')
-                )['total'] or Decimal('0')
-                outstanding = bill.net_total - non_credit_total - credit_total
+                # 4. Recalculate outstanding - ONLY count non-reversed non-credit payments
+                non_credit_total = bill.payments.filter(
+                    is_reversed=False
+                ).exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
 
-                # ===== 5. Update bill status =====
+                credit_total = bill.payments.filter(
+                    type='Credit',
+                    is_reversed=False
+                ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+                # Outstanding = Bill Total - (Real payments received, excluding Credit)
+                outstanding = bill.net_total - non_credit_total
+
+                logger.info(f"BOUNCE CALC: net_total={bill.net_total}, non_credit_paid={non_credit_total}, credit_owed={credit_total}, outstanding={outstanding}")
+
+                # 5. Update bill status
                 if outstanding > 0:
                     bill.status = 'PENDING'
                     bill.save()
@@ -2099,7 +2117,8 @@ def bounce_cheque(request, cheque_id):
                 else:
                     bill.status = 'COMPLETED'
                     bill.save()
-
+                    logger.info(f"Bill {bill.invoice_no} kept COMPLETED (outstanding: {outstanding})")
+ 
                 # ===== 6. Reset Credit Collection =====
                 try:
                     collection = CreditCollection.objects.filter(sales_bill=bill).first()
