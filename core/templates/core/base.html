@@ -447,113 +447,154 @@
     </div>
     
     <!-- Navigation -->
-    <div class="sidebar-nav">
-        <div class="nav-section">Main</div>
-        <a href="/" class="{% if request.path == '/' %}active{% endif %}">
-            <i class="fas fa-th-large"></i> Dashboard
-        </a>
+    <div class="nav-section">Main</div>
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+        <i class="fas fa-th-large"></i> Dashboard
+    </a>
         
         <div class="nav-section">Sales</div>
+        {% if request.user.profile.has_permission 'view_sales_list' %}
+        <a href="/sales-list/" class="{% if 'sales-list' in request.path %}active{% endif %}">
+            <i class="fas fa-list"></i> Sales List
+        </a>
+        {% endif %}
 
-                <a href="/sales/" class="{% if request.path == '/sales/' %}active{% endif %}">
-                    <i class="fas fa-plus-circle"></i> New Sale            
-                </a>
-                <a href="/sales-list/" class="{% if 'sales-list' in request.path %}active{% endif %}">
-                    <i class="fas fa-list"></i> Sales List
-                </a>
-                <a href="/credit-list/" class="{% if 'credit-list' in request.path %}active{% endif %}">
-                    <i class="fas fa-hand-holding-usd"></i> Credit List
-                </a>
-                <a href="/cheques/" class="{% if 'cheque' in request.path %}active{% endif %}">
-                    <i class="fas fa-money-check-alt"></i> Cheque List
-                </a>
-                <a href="/customers/" class="{% if 'customer' in request.path %}active{% endif %}">
-                    <i class="fas fa-users"></i> Customers
-                </a>
+        {% if request.user.profile.has_permission 'view_credit_list' %}
+        <a href="/credit-list/" class="{% if 'credit-list' in request.path %}active{% endif %}">
+            <i class="fas fa-hand-holding-usd"></i> Credit List
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'view_cheque_list' %}
+        <a href="/cheques/" class="{% if 'cheque' in request.path and 'bounce' not in request.path %}active{% endif %}">
+            <i class="fas fa-money-check-alt"></i> Cheque List
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'create_sales' %}
+        <a href="/sales/" class="{% if request.path == '/sales/' %}active{% endif %}">
+            <i class="fas fa-plus-circle"></i> New Sale
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'view_customers' %}
+        <a href="/customers/" class="{% if 'customer' in request.path %}active{% endif %}">
+            <i class="fas fa-users"></i> Customers
+        </a>
+        {% endif %}
 
 
 
+        {% if request.user.profile.has_permission 'load_vehicle' or request.user.profile.has_permission 'unload_vehicle' or request.user.profile.has_permission 'vehicle_transfer' %}
         <div class="nav-section">Operations</div>
+        {% endif %}
 
-                <a href="/vehicles/" class="{% if 'vehicle' in request.path %}active{% endif %}">
-                    <i class="fas fa-truck"></i> Vehicles
-                </a>
-                <a href="/load/" class="{% if request.path == '/load/' %}active{% endif %}">
-                    <i class="fas fa-truck"></i> Load Vehicle
-                </a>
-                <a href="/transfers/" class="{% if 'transfer' in request.path %}active{% endif %}">
-                    <i class="fas fa-exchange-alt"></i> Vehicle to Vehicle Transfer
-                </a>
-                <a href="/vehicle-stock/" class="{% if request.path == '/vehicle-stock/' %}active{% endif %}">
-                    <i class="fas fa-warehouse"></i> Vehicle Stock
-                </a>
-                <a href="/unload/" class="{% if request.path == '/unload/' %}active{% endif %}">
-                    <i class="fas fa-undo-alt"></i> Unload Vehicle
-                </a>
-                <a href="/stock-movement-log/" class="{% if 'stock-movement-log' in request.path %}active{% endif %}">
-                    <i class="fas fa-history"></i> Stock Movements
-                </a>
+        {% if request.user.profile.has_permission 'view_vehicles' %}
+        <a href="/vehicles/" class="{% if 'vehicle' in request.path and 'stock' not in request.path and 'transfer' not in request.path %}active{% endif %}">
+            <i class="fas fa-truck"></i> Vehicles
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'load_vehicle' %}
+        <a href="/load/" class="{% if request.path == '/load/' %}active{% endif %}">
+            <i class="fas fa-truck-loading"></i> Load Vehicle
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'vehicle_transfer' %}
+        <a href="/transfers/" class="{% if 'transfer' in request.path %}active{% endif %}">
+            <i class="fas fa-exchange-alt"></i> Vehicle Transfer
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'view_stock' %}
+        <a href="/vehicle-stock/" class="{% if request.path == '/vehicle-stock/' %}active{% endif %}">
+            <i class="fas fa-clipboard-list"></i> Vehicle Stock
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'unload_vehicle' %}
+        <a href="/unload/" class="{% if request.path == '/unload/' %}active{% endif %}">
+            <i class="fas fa-dolly"></i> Unload Vehicle
+        </a>
+        {% endif %}
+
+        {% if request.user.profile.has_permission 'view_transfers' %}
+        <a href="/stock-movement-log/" class="{% if 'stock-movement' in request.path %}active{% endif %}">
+            <i class="fas fa-history"></i> Stock Movements
+        </a>
+        {% endif %}
             
+        {% if request.user.profile.has_permission 'view_reports' %}
         <div class="nav-section">Reports</div>
-
-                <a href="/reports/" class="{% if request.path == '/reports/' %}active{% endif %}">
-                    <i class="fas fa-chart-bar"></i> Reports
-                </a>
-                <a href="/reports/bounced-cheques/" class="report-link">
-                    <span class="link-icon"></span>
-                    <span class="link-text">Bounced Cheques </span>
-                    <span class="link-arrow"> </span>
-                </a>
+        <a href="/reports/" class="{% if request.path == '/reports/' %}active{% endif %}">
+            <i class="fas fa-chart-bar"></i> Reports
+        </a>
+        {% endif %}
         
+        {% if request.user.profile.has_permission 'view_expenses' %}
         <div class="nav-section">Financial</div>
-
-                <a href="/expenses/" class="{% if 'expense' in request.path %}active{% endif %}">
-                    <i class="fas fa-money-bill-wave"></i> Expenses
-                </a>        
+        <a href="/expenses/" class="{% if 'expense' in request.path %}active{% endif %}">
+            <i class="fas fa-money-bill-wave"></i> Expenses
+        </a>
+        {% endif %}      
                 
         
+        {% if request.user.profile.role == 'Admin' %}
         <div class="nav-section">Admin</div>
+        <a href="/users/" class="{% if 'users' in request.path %}active{% endif %}">
+            <i class="fas fa-users-cog"></i> User Management
+        </a>
+        <a href="/register/" class="{% if 'register' in request.path %}active{% endif %}">
+            <i class="fas fa-user-plus"></i> Register User
+        </a>
+        <a href="/admin/" class="{% if request.path == '/admin/' %}active{% endif %}">
+            <i class="fas fa-database"></i> Database
+        </a>
+        {% endif %}
 
-                <a href="/admin-dashboard/" class="{% if 'admin-dashboard' in request.path %}active{% endif %}">
-                    <i class="fas fa-users-cog"></i> User Management
-                </a>
-
-                <a href="/employees/" class="{% if 'employee' in request.path %}active{% endif %}">
-                    <i class="fas fa-user-tie"></i> Employees
-                </a>
-
-                <a href="/admin/" class="{% if request.path == '/admin/' %}active{% endif %}">
-                    <i class="fas fa-database"></i> Database
-                </a>
-
+        {% if request.user.profile.has_permission 'view_products' or request.user.profile.has_permission 'view_stock' %}
         <div class="nav-section">Inventory</div>
+        {% endif %}
 
-                <a href="/products/" class="{% if 'product' in request.path %}active{% endif %}">
-                    <i class="fas fa-box"></i> Products
-                </a>
+        {% if request.user.profile.has_permission 'view_products' %}
+        <a href="/products/" class="{% if 'product' in request.path and 'add' not in request.path %}active{% endif %}">
+            <i class="fas fa-box"></i> Products
+        </a>
+        {% endif %}
 
-                <a href="/categories/" class="{% if 'category' in request.path %}active{% endif %}">
-                    <i class="fas fa-tags"></i> Categories
-                </a>
+        {% if request.user.profile.has_permission 'view_stock' %}
+        <a href="/stock/" class="{% if '/stock/' in request.path %}active{% endif %}">
+            <i class="fas fa-warehouse"></i> Stock View
+        </a>
+        {% endif %}
 
-                <a href="/stock/" class="{% if 'stock' in request.path %}active{% endif %}">
-                    <i class="fas fa-warehouse"></i> Stock View
-                </a>
-
+        {% if request.user.profile.has_permission 'view_purchases' %}
         <div class="nav-section">Purchases</div>
+        <a href="/purchases/" class="{% if 'purchase' in request.path and 'add' not in request.path %}active{% endif %}">
+            <i class="fas fa-shopping-cart"></i> Purchased List
+        </a>
+        {% endif %}
 
-                <a href="/purchases/" class="{% if 'purchase' in request.path and 'add' not in request.path %}active{% endif %}">
-                    <i class="fas fa-shopping-cart"></i> Purchased List
-                </a>
+        {% if request.user.profile.has_permission 'add_purchase' %}
+        <a href="/purchase/add/" class="{% if request.path == '/purchase/add/' %}active{% endif %}">
+            <i class="fas fa-plus-circle"></i> Add Purchase
+        </a>
+        {% endif %}
 
-                <a href="/purchase/add/" class="{% if request.path == '/purchase/add/' %}active{% endif %}">
-                    <i class="fas fa-plus-circle"></i> Add Purchase
-                </a>
+        {% if request.user.profile.has_permission 'view_suppliers' %}
+        <a href="/suppliers/" class="{% if 'supplier' in request.path %}active{% endif %}">
+            <i class="fas fa-building"></i> Suppliers
+        </a>
+        {% endif %}
 
-                <a href="/suppliers/" class="{% if 'supplier' in request.path %}active{% endif %}">
-                    <i class="fas fa-building"></i> Suppliers
-                </a>
-        
+        {% if request.user.profile.has_permission 'view_employees' %}
+        <div class="nav-section">People</div>
+        <a href="/employees/" class="{% if 'employee' in request.path %}active{% endif %}">
+            <i class="fas fa-user-tie"></i> Employees
+        </a>
+        {% endif %}
+
     </div>
     
     <!-- Footer -->

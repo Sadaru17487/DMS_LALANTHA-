@@ -27,41 +27,43 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user in users %}
+                {% for u in users %}
                 <tr>
-                    <td><strong>{{ user.username }}</strong></td>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{{ u.get_full_name|default:"-" }}</td>
                     <td>
-                        <span class="badge-status" style="background:#cce5ff; color:#004085;">
-                            {{ user.profile.role }}
+                        <span class="badge-status {% if u.profile.role == 'Admin' %}admin{% elif u.profile.role == 'Users' %}users{% else %}viewer{% endif %}">
+                            {{ u.profile.role }}
                         </span>
                     </td>
-                    <td>{{ user.profile.phone|default:"-" }}</td>
                     <td>
-                        <span class="badge-status {% if user.is_active %}complete{% else %}pending{% endif %}">
-                            {% if user.is_active %}✅ Active{% else %}❌ Inactive{% endif %}
-                        </span>
-                    </td>
-                    <td>{{ user.profile.created_at|date:"Y-m-d H:i" }}</td>
-                    <td>
-                        {% if user != request.user %}
-                            {% if user.is_active %}
-                                <a href="{% url 'core:toggle_user' user.id %}" class="action-icons">
-                                    <span class="delete" title="Disable">🔴</span>
-                                </a>
-                            {% else %}
-                                <a href="{% url 'core:toggle_user' user.id %}" class="action-icons">
-                                    <span class="pay" title="Enable">🟢</span>
-                                </a>
-                            {% endif %}
+                        {% if u.profile.role == 'Admin' %}
+                            <span style="color:#28a745; font-weight:600;">Full Access</span>
+                        {% elif u.profile.role == 'Users' %}
+                            <span style="color:#007bff;">
+                                {{ u.profile.custom_permissions|length }} permissions
+                            </span>
                         {% else %}
-                            <span style="color:#999; font-size:12px;">You</span>
+                            <span style="color:#6c757d;">Read-only</span>
                         {% endif %}
+                    </td>
+                    <td>{{ u.is_active|yesno:"✅ Active,❌ Inactive" }}</td>
+                    <td>
+                        <div class="action-icons">
+                            {% if u.profile.role != 'Admin' %}
+                                <a href="/users/edit-permissions/{{ u.id }}/" title="Edit Permissions" style="color:#007bff; font-size:18px;">🔐</a>
+                            {% endif %}
+                            {% if u.is_active %}
+                                <a href="/users/toggle/{{ u.id }}/" title="Disable" style="color:#dc3545; font-size:18px;" onclick="return confirm('Disable {{ u.username }}?')">🔴</a>
+                            {% else %}
+                                <a href="/users/toggle/{{ u.id }}/" title="Enable" style="color:#28a745; font-size:18px;">🟢</a>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="empty-state">
-                        <span class="icon">👤</span>
+                    <td colspan="6" style="text-align:center; padding:30px; color:#999;">
                         No users found.
                     </td>
                 </tr>
