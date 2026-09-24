@@ -253,9 +253,14 @@ def credit_list(request):
     
     for bill in bills:
         # Calculate total credit amount for this bill
-        credit_amount = bill.payments.filter(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        credit_amount = bill.payments.filter(
+            type='Credit',
+            is_reversed=False
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         # Total paid (Cash + Cheque + Online) for this bill
-        paid_amount = bill.payments.exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        paid_amount = bill.payments.filter(
+            is_reversed=False
+        ).exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
         
         # Determine credit status
         if paid_amount >= bill.net_total:
