@@ -1,0 +1,138 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load core_extras %}
+{% block title %}Edit Permissions - {{ target_user.username }}{% endblock %}
+
+{% block content %}
+
+<style>
+    /* Same styles as register_user.html */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-weight: 600; color: #555; font-size: 14px; }
+    .form-group input, .form-group select {
+        padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc;
+    }
+    .permission-panel { margin-top: 25px; padding: 20px; background: #f8f9fc; border-radius: 12px; border: 1px solid #e0e4eb; }
+    .presets-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .preset-btn {
+        padding: 8px 18px; border: 2px solid #007bff; background: white; color: #007bff;
+        border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+    }
+    .preset-btn:hover { background: #007bff; color: white; }
+    .preset-btn.clear-btn { border-color: #6c757d; color: #6c757d; }
+    .preset-btn.clear-btn:hover { background: #6c757d; color: white; }
+    .perm-group { margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; }
+    .perm-group h4 { margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 2px solid #e8ecf2; color: #1a2634; font-size: 15px; }
+    .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+    .perm-checkbox { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+    .perm-checkbox:hover { background: #f0f4f9; }
+    .perm-checkbox input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #28a745; }
+    .user-info-box { padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 20px; }
+    .user-info-box strong { color: #0d47a1; }
+    .action-buttons { display: flex; gap: 12px; margin-top: 25px; }
+    .btn-save { background: #28a745; color: white; padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; }
+    .btn-save:hover { background: #218838; }
+    .btn-cancel { background: #e8ecf2; color: #333; padding: 12px 30px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; font-size: 15px; }
+    .btn-cancel:hover { background: #d0d5dd; }
+    @media (max-width: 768px) {
+        .perm-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <h2>✏️ Edit Permissions</h2>
+        <span class="subtitle">Update access for {{ target_user.username }}</span>
+    </div>
+    
+    <div class="card">
+        <div class="user-info-box">
+            <strong>User:</strong> {{ target_user.username }} 
+            {% if target_user.get_full_name %} ({{ target_user.get_full_name }}){% endif %}<br>
+            <strong>Current Role:</strong> {{ profile.get_role_display }}
+        </div>
+        
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" id="roleSelect" required onchange="onRoleChange()">
+                    <option value="Users" {% if profile.role == 'Users' %}selected{% endif %}>Users (custom permissions)</option>
+                    <option value="Admin" {% if profile.role == 'Admin' %}selected{% endif %}>Admin (full access)</option>
+                    <option value="Viewer" {% if profile.role == 'Viewer' %}selected{% endif %}>Viewer (read-only)</option>
+                </select>
+            </div>
+            
+            <div class="permission-panel" id="permissionPanel">
+                <h3>🔐 Permissions</h3>
+                <div class="presets-row">
+                    <button type="button" class="preset-btn" onclick="applyPreset('accountant')">📋 Accountant</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('loader')">📦 Loader</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('sales_rep')">🚚 Sales Rep</button>
+                    <button type="button" class="preset-btn" onclick="applyPreset('viewer')">👁️ Viewer</button>
+                    <button type="button" class="preset-btn" onclick="selectAllPerms()">✅ Select All</button>
+                    <button type="button" class="preset-btn clear-btn" onclick="clearAllPerms()">❌ Clear All</button>
+                </div>
+                
+                {% for module, perms in permission_groups.items %}
+                <div class="perm-group">
+                    <h4>▓▓ {{ module }}</h4>
+                    <div class="perm-grid">
+                        {% for perm_key, perm_label in perms %}
+                        <label class="perm-checkbox">
+                            <input type="checkbox" name="perm_{{ perm_key }}" id="perm_{{ perm_key }}" class="perm-input" data-key="{{ perm_key }}"
+                                   {% if profile.custom_permissions|get_item:perm_key %}checked{% endif %}>
+                            {{ perm_label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <button type="submit" class="btn-save">💾 Save Permissions</button>
+                <a href="/users/" class="btn-cancel">← Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const PRESETS = {
+        accountant: {{ presets.accountant|safe }},
+        loader: {{ presets.loader|safe }},
+        sales_rep: {{ presets.sales_rep|safe }},
+        viewer: {{ presets.viewer|safe }},
+    };
+    
+    function onRoleChange() {
+        const role = document.getElementById('roleSelect').value;
+        const panel = document.getElementById('permissionPanel');
+        panel.style.display = (role === 'Users') ? 'block' : 'none';
+    }
+    
+    function applyPreset(presetName) {
+        document.querySelectorAll('.perm-input').forEach(cb => cb.checked = false);
+        const preset = PRESETS[presetName];
+        if (!preset) return;
+        preset.forEach(permKey => {
+            const cb = document.getElementById(`perm_${permKey}`);
+            if (cb) cb.checked = true;
+        });
+    }
+    
+    function selectAllPerms() {
+        document.querySelectorAll('.perm-input').forEach(cb => cb.checked = true);
+    }
+    
+    function clearAllPerms() {
+        document.querySelectorAll('.perm-input').forEach(cb => cb.checked = false);
+    }
+    
+    document.addEventListener('DOMContentLoaded', onRoleChange);
+</script>
+
+{% endblock %}
