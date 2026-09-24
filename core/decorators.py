@@ -8,9 +8,6 @@ def permission_required(permission):
             if not request.user.is_authenticated:
                 messages.error(request, 'Please login first.')
                 return redirect('/login/')  # ✅ Always returns
-
-            if request.user.is_superuser:
-                return view_func(request, *args, **kwargs)
             
             try:
                 profile = request.user.profile

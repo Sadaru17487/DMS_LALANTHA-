@@ -616,124 +616,23 @@ def register_view(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
         password2 = request.POST.get('password2')
-        email = request.POST.get('email', '')
-        first_name = request.POST.get('first_name', '')
-        last_name = request.POST.get('last_name', '')
         role = request.POST.get('role', 'Viewer')
         phone = request.POST.get('phone', '')
         
-        if not username or not password:
-            messages.error(request, 'Username and password are required.')
-            return redirect('register_user')
-        
         if password != password2:
             messages.error(request, 'Passwords do not match.')
-            return redirect('register_user')
+            return render(request, 'core/register.html')
         
         if User.objects.filter(username=username).exists():
-            messages.error(request, f'Username "{username}" is already taken.')
-            return redirect('register_user')
+            messages.error(request, 'Username already exists.')
+            return render(request, 'core/register.html')
         
-        try:
-            with transaction.atomic():
-                # Create user
-                user = User.objects.create_user(
-                    username=username,
-                    password=password,
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-                
-                # Build custom_permissions dict
-                custom_perms = {}
-                if role == 'Users':
-                    # Read all checkboxes from the form
-                    for module, perms in UserProfile.AVAILABLE_PERMISSIONS.items():
-                        for perm_key, perm_label in perms:
-                            custom_perms[perm_key] = request.POST.get(f'perm_{perm_key}') == 'on'
-                
-                # Create profile
-                UserProfile.objects.create(
-                    user=user,
-                    role=role,
-                    phone=phone,
-                    custom_permissions=custom_perms,
-                    created_by=request.user,
-                )
-                
-                messages.success(request, f'✅ User "{username}" created successfully as {role}.')
-                return redirect('user_management')
-        
-        except Exception as e:
-            import traceback
-            logger.error(f"Register user error: {e}")
-            logger.error(traceback.format_exc())
-            messages.error(request, f'Error creating user: {str(e)}')
-            return redirect('register_user')
+        user = User.objects.create_user(username=username, password=password)
+        UserProfile.objects.create(user=user, role=role, phone=phone)
+        messages.success(request, f'User {username} created successfully!')
+        return redirect('/admin-dashboard/')  # ✅ FIXED
     
-    # GET request
-    # Preserve selected permissions if form had errors
-    selected_perms = {}
-    if request.method == 'GET':
-        # Default: all unchecked
-        for module, perms in UserProfile.AVAILABLE_PERMISSIONS.items():
-            for perm_key, perm_label in perms:
-                selected_perms[perm_key] = False
-    
-    context = {
-        'permission_groups': UserProfile.AVAILABLE_PERMISSIONS,
-        'presets': UserProfile.PERMISSION_PRESETS,
-        'selected_perms': selected_perms,
-    }
-    return render(request, 'core/register_user.html', context)
-
-
-@login_required
-@permission_required('manage_users')
-def edit_user_permissions(request, user_id):
-    """Edit permissions for a Users-role account."""
-    target_user = get_object_or_404(User, id=user_id)
-    profile = target_user.profile
-    
-    if profile.role == 'Admin':
-        messages.error(request, 'Cannot edit permissions for Admin users – they have full access.')
-        return redirect('user_management')
-    
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                # Update role
-                new_role = request.POST.get('role', profile.role)
-                profile.role = new_role
-                
-                # Update permissions
-                custom_perms = {}
-                if new_role == 'Users':
-                    for module, perms in UserProfile.AVAILABLE_PERMISSIONS.items():
-                        for perm_key, perm_label in perms:
-                            custom_perms[perm_key] = request.POST.get(f'perm_{perm_key}') == 'on'
-                else:
-                    custom_perms = {}
-                
-                profile.custom_permissions = custom_perms
-                profile.save()
-                
-                messages.success(request, f'✅ Permissions updated for "{target_user.username}".')
-                return redirect('user_management')
-        
-        except Exception as e:
-            logger.error(f"Edit permissions error: {e}")
-            messages.error(request, f'Error updating permissions: {str(e)}')
-            return redirect('edit_user_permissions', user_id=user_id)
-    
-    context = {
-        'target_user': target_user,
-        'profile': profile,
-        'permission_groups': UserProfile.AVAILABLE_PERMISSIONS,
-        'presets': UserProfile.PERMISSION_PRESETS,
-    }
-    return render(request, 'core/edit_user_permissions.html', context)
+    return render(request, 'core/register.html')
 
 
 @login_required

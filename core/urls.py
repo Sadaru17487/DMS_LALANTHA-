@@ -230,10 +230,5 @@ urlpatterns = [
 
     path('api/set-active-price/', views.set_active_price, name='set_active_price'),
 
-    path('register/', views.register_user, name='register_user'),
-
-    path('users/', views.user_management, name='user_management'),
-
-    path('users/edit-permissions/<int:user_id>/', views.edit_user_permissions, name='edit_user_permissions'),
 
 ]

@@ -354,179 +354,45 @@ class Payment(models.Model):
 
 
 class UserProfile(models.Model):
+    """Extends the built-in User model with role-based permissions"""
+    
     ROLE_CHOICES = [
-        ('Admin', 'Admin'),
-        ('Users', 'Users'),
-        ('Viewer', 'Viewer'),
+        ('Admin', 'Admin - Full Access'),
+        ('Accountant', 'Accountant - Sales & Reports'),
+        ('Loader', 'Loader - Vehicle Loading Only'),
+        ('Viewer', 'Viewer - Read Only Reports'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Users')
-    
-    # ✅ Custom permissions for Users role (Admin selects during registration)
-    custom_permissions = models.JSONField(default=dict, blank=True)
-    
-    # Optional: track who created this user and when
-    created_by = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='created_users'
-    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Viewer')
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
-        return f"{self.user.username} ({self.role})"
-    
-    # ============================================================
-    # ALL AVAILABLE PERMISSIONS (grouped by module)
-    # ============================================================
-    AVAILABLE_PERMISSIONS = {
-        'Sales': [
-            ('view_sales_list', 'View Sales List'),
-            ('create_sales', 'Create New Sale'),
-            ('delete_bills', 'Delete Bills'),
-            ('view_sales_detail', 'View Sale Details'),
-            ('print_sales', 'Print Sales Invoices'),
-        ],
-        'Credit Management': [
-            ('view_credit_list', 'View Credit List'),
-            ('take_bills', 'Take Bills for Collection'),
-            ('return_bills', 'Return Bills (Collected/Not Collected)'),
-            ('pay_now', 'Pay Now (Part Payments)'),
-        ],
-        'Cheque Management': [
-            ('view_cheque_list', 'View Cheque List'),
-            ('deposit_cheque', 'Deposit Cheque'),
-            ('bounce_cheque', 'Bounce Cheque'),
-        ],
-        'Inventory': [
-            ('view_products', 'View Products'),
-            ('view_stock', 'View Stock'),
-            ('add_edit_products', 'Add / Edit Products'),
-            ('view_categories', 'View Categories'),
-        ],
-        'Operations': [
-            ('load_vehicle', 'Load Vehicle'),
-            ('unload_vehicle', 'Unload Vehicle'),
-            ('vehicle_transfer', 'Vehicle to Vehicle Transfer'),
-            ('view_vehicles', 'View Vehicles'),
-            ('view_transfers', 'View Transfer History'),
-        ],
-        'Purchases': [
-            ('view_purchases', 'View Purchases'),
-            ('add_purchase', 'Add Purchase'),
-            ('mark_received', 'Mark Purchase as Received'),
-            ('view_suppliers', 'View Suppliers'),
-        ],
-        'Expenses': [
-            ('view_expenses', 'View Expenses'),
-            ('add_expense', 'Add Expense'),
-            ('approve_expense', 'Approve / Reject / Pay Expense'),
-        ],
-        'People': [
-            ('view_customers', 'View Customers'),
-            ('add_edit_customers', 'Add / Edit Customers'),
-            ('view_employees', 'View Employees'),
-        ],
-        'Reports': [
-            ('view_reports', 'View Reports'),
-            ('export_excel', 'Export Reports to Excel'),
-        ],
-    }
-    
-    # ============================================================
-    # QUICK PRESETS (for admin convenience)
-    # ============================================================
-    PERMISSION_PRESETS = {
-        'accountant': {
-            'view_sales_list', 'create_sales', 'view_sales_detail',
-            'view_credit_list', 'take_bills', 'return_bills', 'pay_now',
-            'view_cheque_list', 'deposit_cheque',
-            'view_products', 'view_stock',
-            'view_expenses', 'add_expense', 'approve_expense',
-            'view_customers',
-            'view_reports', 'export_excel',
-        },
-        'loader': {
-            'view_products', 'view_stock',
-            'load_vehicle', 'unload_vehicle', 'vehicle_transfer',
-            'view_vehicles', 'view_transfers',
-        },
-        'sales_rep': {
-            'view_sales_list', 'create_sales', 'view_sales_detail', 'print_sales',
-            'view_customers', 'add_edit_customers',
-            'view_products', 'view_stock',
-            'load_vehicle',
-            'view_reports',
-        },
-        'viewer': {
-            'view_sales_list', 'view_sales_detail',
-            'view_credit_list',
-            'view_cheque_list',
-            'view_products', 'view_stock',
-            'view_vehicles',
-            'view_purchases', 'view_suppliers',
-            'view_expenses',
-            'view_customers', 'view_employees',
-            'view_reports',
-        },
-    }
-    
-    # ============================================================
-    # HAS_PERMISSION METHOD
-    # ============================================================
+        return f"{self.user.username} - {self.role}"
+
     def has_permission(self, permission):
-        """Check if this user has a specific permission."""
-        # Admin → full access
         if self.role == 'Admin':
             return True
-        
-        # Users → check custom_permissions
-        if self.role == 'Users':
-            return self.custom_permissions.get(permission, False)
-        
-        # Viewer → only read-only permissions
-        if self.role == 'Viewer':
-            viewer_permissions = {
-                'view_sales_list', 'view_sales_detail',
-                'view_credit_list',
-                'view_cheque_list',
-                'view_products', 'view_stock', 'view_categories',
-                'view_vehicles', 'view_transfers',
+        elif self.role == 'Users':          # New combined role
+            # Everything Accountant + Loader could do
+            return permission in [
+                # Sales & Credit
+                'view_sales', 'create_sales', 'view_reports',
+                'view_products', 'view_vehicles', 'load_vehicle',
+                'view_employees', 'view_expenses', 'manage_expenses',
                 'view_purchases', 'view_suppliers',
-                'view_expenses',
-                'view_customers', 'view_employees',
-                'view_reports',
-            }
-            return permission in viewer_permissions
-        
+                'view_customers', 'view_cheques',
+                'view_credit_list', 'credit_collection',
+                'view_transfers', 'manage_transfers',
+                'view_vehicle_stock',
+                'view_collections',
+            ]
+        elif self.role == 'Viewer':
+            return permission in ['view_reports', 'view_products']
         return False
-    
-    def get_granted_permissions_list(self):
-        """Return list of granted permission keys (for display)."""
-        if self.role == 'Admin':
-            all_perms = []
-            for perms in self.AVAILABLE_PERMISSIONS.values():
-                all_perms.extend([p[0] for p in perms])
-            return all_perms
-        
-        if self.role == 'Viewer':
-            viewer_permissions = {
-                'view_sales_list', 'view_sales_detail',
-                'view_credit_list', 'view_cheque_list',
-                'view_products', 'view_stock', 'view_categories',
-                'view_vehicles', 'view_transfers',
-                'view_purchases', 'view_suppliers',
-                'view_expenses',
-                'view_customers', 'view_employees',
-                'view_reports',
-            }
-            return list(viewer_permissions)
-        
-        return [k for k, v in self.custom_permissions.items() if v]
-    
+
 
 class Employee(models.Model):
     POSITION_CHOICES = [
