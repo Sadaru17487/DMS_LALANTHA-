@@ -46,58 +46,69 @@
     <script>
         let searchTimeout = null;
 
-        function loadCustomers() {
-            const search = document.getElementById('instantSearch').value;
-            const type = document.getElementById('typeFilter').value;
-            const status = document.getElementById('statusFilter').value;
-
-            const url = `/api/customers/search/?q=${encodeURIComponent(search)}&type=${type}&status=${status}`;
-            
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    const tbody = document.getElementById('customerTableBody');
-                    if (data.customers.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><span class="icon">👤</span>No customers found.</td></tr>`;
-                        return;
-                    }
-                    let html = '';
-                    data.customers.forEach(c => {
-                        const statusBadge = c.is_active ? '✅ Active' : '❌ Inactive';
-                        html += `
-                            <tr>
-                                <td><strong>${c.code}</strong></td>
-                                <td>${c.name}</td>
-                                <td>${c.customer_type}</td>
-                                <td>${c.phone || '-'}</td>
-                                <td style="font-weight:600;">Rs ${c.total_sales}</td>
-                                <td style="font-weight:600; ${c.outstanding > 0 ? 'color:#dc3545;' : 'color:#28a745;'}">
-                                    Rs ${c.outstanding}
-                                </td>
-                                <td>
-                                    <span class="badge-status ${c.is_active ? 'complete' : 'pending'}">
-                                        ${c.is_active ? '✅ Active' : '❌ Inactive'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="action-icons">
-                                        <a href="/customer/detail/${c.id}/" class="view" title="View">👁️</a>
-                                        <a href="/customer/edit/${c.id}/" class="edit" title="Edit">✏️</a>
-                                        <a href="/customer/toggle/${c.id}/" class="${c.is_active ? 'delete' : 'pay'}" title="${c.is_active ? 'Deactivate' : 'Activate'}" onclick="return confirm('${c.is_active ? 'Deactivate' : 'Activate'} ${c.name}?')">
-                                            ${c.is_active ? '🔴' : '🟢'}
-                                        </a>
-                                        <a href="/customer/delete/${c.id}/" class="delete" title="Delete" onclick="return confirm('Delete ${c.name}?')">🗑️</a>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                    tbody.innerHTML = html;
-                })
-                .catch(() => {
-                    document.getElementById('customerTableBody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;">Error loading customers.</td></tr>`;
+    function loadCustomers() {
+        // ✅ SAFELY READ INPUT VALUES (fallback to empty string if element missing)
+        const searchEl = document.getElementById('instantSearch');
+        const typeEl = document.getElementById('typeFilter');
+        const statusEl = document.getElementById('statusFilter');
+        
+        const search = searchEl ? searchEl.value : '';
+        const type = typeEl ? typeEl.value : '';
+        const status = statusEl ? statusEl.value : '';
+        
+        const url = `/api/customers/search/?q=${encodeURIComponent(search)}&type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('customerTableBody');
+                if (!tbody) return;  // ✅ Safety check
+                
+                if (data.customers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><span class="icon">👤</span>No customers found.</td></tr>`;
+                    return;
+                }
+                
+                let html = '';
+                data.customers.forEach(c => {
+                    const statusBadge = c.is_active ? '✅ Active' : '❌ Inactive';
+                    html += `
+                        <tr>
+                            <td><strong>${c.code}</strong></td>
+                            <td>${c.name}</td>
+                            <td>${c.customer_type}</td>
+                            <td>${c.phone || '-'}</td>
+                            <td style="font-weight:600;">Rs ${c.total_sales}</td>
+                            <td style="font-weight:600; ${c.outstanding > 0 ? 'color:#dc3545;' : 'color:#28a745;'}">
+                                Rs ${c.outstanding}
+                            </td>
+                            <td>
+                                <span class="badge-status ${c.is_active ? 'complete' : 'pending'}">
+                                    ${statusBadge}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-icons">
+                                    <a href="/customer/detail/${c.id}/" class="view" title="View">👁️</a>
+                                    <a href="/customer/edit/${c.id}/" class="edit" title="Edit">✏️</a>
+                                    <a href="/customer/toggle/${c.id}/" class="${c.is_active ? 'delete' : 'pay'}" title="${c.is_active ? 'Deactivate' : 'Activate'}" onclick="return confirm('${c.is_active ? 'Deactivate' : 'Activate'} ${c.name}?')">
+                                        ${c.is_active ? '🔴' : '🟢'}
+                                    </a>
+                                    <a href="/customer/delete/${c.id}/" class="delete" title="Delete" onclick="return confirm('Delete ${c.name}?')">🗑️</a>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                 });
-        }
+                tbody.innerHTML = html;
+            })
+            .catch(() => {
+                const tbody = document.getElementById('customerTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;">Error loading customers.</td></tr>`;
+                }
+            });
+    }
 
         
         // Event listeners for instant search (SAFE VERSION)
