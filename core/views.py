@@ -1173,7 +1173,7 @@ def product_toggle_status(request, product_id):
 def category_list(request):
     """List all categories"""
     try:
-        categories = Category.objects.all().annotate(product_count=Count('products'))
+        categories = Category.objects.all().annotate(product_count=Count('product'))
         
         search = request.GET.get('search', '')
         if search:
