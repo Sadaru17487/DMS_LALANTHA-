@@ -43,6 +43,31 @@
     }
 </style>
 
+    <div class="filter-bar" style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+    <div class="filter-group" style="flex:2;">
+        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Search Customer</label>
+        <input type="text" id="instantSearch" placeholder="Type to search by name, code, or phone..." style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+    </div>
+    <div class="filter-group">
+        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Type</label>
+        <select id="typeFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+            <option value="">All Types</option>
+            <option value="WHOLESALE">Wholesale</option>
+            <option value="RETAIL">Retail</option>
+            <option value="CORPORATE">Corporate</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Status</label>
+        <select id="statusFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+        </select>
+    </div>
+    <button type="button" id="clearFilters" style="padding:10px 20px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Clear</button>
+</div>
+
     <script>
         let searchTimeout = null;
 
@@ -99,21 +124,36 @@
                 });
         }
 
-        // Event listeners for instant search
-        document.getElementById('instantSearch').addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(loadCustomers, 300);
-        });
+        
+        // Event listeners for instant search (SAFE VERSION)
+        const searchInput = document.getElementById('instantSearch');
+        const typeFilter = document.getElementById('typeFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const clearFiltersBtn = document.getElementById('clearFilters');
 
-        document.getElementById('typeFilter').addEventListener('change', loadCustomers);
-        document.getElementById('statusFilter').addEventListener('change', loadCustomers);
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(loadCustomers, 300);
+            });
+        }
 
-        document.getElementById('clearFilters').addEventListener('click', function() {
-            document.getElementById('instantSearch').value = '';
-            document.getElementById('typeFilter').value = '';
-            document.getElementById('statusFilter').value = '';
-            loadCustomers();
-        });
+        if (typeFilter) {
+            typeFilter.addEventListener('change', loadCustomers);
+        }
+
+        if (statusFilter) {
+            statusFilter.addEventListener('change', loadCustomers);
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', function() {
+                if (searchInput) searchInput.value = '';
+                if (typeFilter) typeFilter.value = '';
+                if (statusFilter) statusFilter.value = '';
+                loadCustomers();
+            });
+        }
 
         // Initial load
         loadCustomers();
