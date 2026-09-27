@@ -43,31 +43,6 @@
     }
 </style>
 
-    <div class="filter-bar" style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
-    <div class="filter-group" style="flex:2;">
-        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Search Customer</label>
-        <input type="text" id="instantSearch" placeholder="Type to search by name, code, or phone..." style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
-    </div>
-    <div class="filter-group">
-        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Type</label>
-        <select id="typeFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
-            <option value="">All Types</option>
-            <option value="WHOLESALE">Wholesale</option>
-            <option value="RETAIL">Retail</option>
-            <option value="CORPORATE">Corporate</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Status</label>
-        <select id="statusFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
-            <option value="">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-        </select>
-    </div>
-    <button type="button" id="clearFilters" style="padding:10px 20px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Clear</button>
-</div>
-
     <script>
         let searchTimeout = null;
 
@@ -189,29 +164,29 @@
     </div>
 
     <!-- Filter Bar -->
-    <div class="filter-bar">
+    <div class="filter-bar" style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
         <div class="filter-group" style="flex:2;">
-            <label>Search Customer</label>
-            <input type="text" id="instantSearch" placeholder="Type to search by name, code, or phone..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Search Customer</label>
+            <input type="text" id="instantSearch" placeholder="Type to search by name, code, or phone..." style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
         </div>
         <div class="filter-group">
-            <label>Type</label>
-            <select id="typeFilter" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Type</label>
+            <select id="typeFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
                 <option value="">All Types</option>
-                {% for key, value in customer_types %}
-                    <option value="{{ key }}">{{ value }}</option>
-                {% endfor %}
+                <option value="WHOLESALE">Wholesale</option>
+                <option value="RETAIL">Retail</option>
+                <option value="CORPORATE">Corporate</option>
             </select>
         </div>
         <div class="filter-group">
-            <label>Status</label>
-            <select id="statusFilter" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
+            <label style="display:block; font-size:12px; font-weight:600; color:#555; margin-bottom:4px; text-transform:uppercase;">Status</label>
+            <select id="statusFilter" style="padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px;">
                 <option value="">All</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
             </select>
         </div>
-        <button type="button" class="btn-filter" id="clearFilters" style="background:#6c757d;">Clear</button>
+        <button type="button" id="clearFilters" style="padding:10px 20px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Clear</button>
     </div>
 
     <!-- Table -->
