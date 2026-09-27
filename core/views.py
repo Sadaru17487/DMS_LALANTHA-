@@ -1169,21 +1169,36 @@ def product_toggle_status(request, product_id):
 
 
 @login_required
-@permission_required('manage_products')
+@permission_required('view_categories')   # ✅ New permission key
 def category_list(request):
     """List all categories"""
-    categories = Category.objects.all().annotate(product_count=Count('products'))
+    try:
+        categories = Category.objects.all().annotate(product_count=Count('products'))
+        
+        search = request.GET.get('search', '')
+        if search:
+            categories = categories.filter(name__icontains=search)
+        
+        context = {
+            'categories': categories,
+            'search': search,
+            'total_count': categories.count(),
+        }
+        return render(request, 'core/category_list.html', context)
     
-    search = request.GET.get('search', '')
-    if search:
-        categories = categories.filter(name__icontains=search)
-    
-    context = {
-        'categories': categories,
-        'search': search,
-        'total_count': categories.count(),
-    }
-    return render(request, 'core/category_list.html', context)
+    except Exception as e:
+        import traceback
+        from django.http import HttpResponse
+        error_msg = traceback.format_exc()
+        logger.error(f"CATEGORY LIST ERROR: {e}\n{error_msg}")
+        return HttpResponse(
+            f"<html><body style='font-family:monospace;padding:20px;'>"
+            f"<h1 style='color:red;'>Category List Error</h1>"
+            f"<h2>{type(e).__name__}: {e}</h2>"
+            f"<pre style='background:#f5f5f5;padding:15px;'>{error_msg}</pre>"
+            f"</body></html>",
+            status=500
+        )
 
 
 @login_required
