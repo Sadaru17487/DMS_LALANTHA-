@@ -556,7 +556,7 @@ class Purchase(models.Model):
     due_date = models.DateField(null=True, blank=True)
     tax_rate = models.IntegerField(choices=TAX_RATE_CHOICES, default=0)
     tax_invoice_no = models.CharField(max_length=100, blank=True, null=True, help_text="Tax Invoice Number")
-    
+    is_vat_bill = models.BooleanField(default=False, help_text="Mark if this is a VAT bill")
     # Totals
     subtotal = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)

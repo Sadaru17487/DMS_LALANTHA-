@@ -122,6 +122,16 @@
                 <div class="value">{{ purchase.notes|default:"-" }}</div>
             </div>
         </div>
+        <div class="detail-item">
+            <div class="label">VAT Bill</div>
+            <div class="value">
+                {% if purchase.is_vat_bill %}
+                    <span style="background:#d4edda; color:#155724; padding:3px 12px; border-radius:12px; font-size:13px; font-weight:600;">🧾 YES</span>
+                {% else %}
+                    <span style="color:#999;">No</span>
+                {% endif %}
+            </div>
+        </div>
 
         <!-- Items Table -->
         <h3>🛒 Items</h3>

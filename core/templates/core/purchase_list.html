@@ -205,7 +205,12 @@
             <tbody>
                 {% for purchase in purchases %}
                 <tr>
-                    <td><strong>{{ purchase.invoice_no }}</strong></td>
+                    <td>
+                        <strong>{{ purchase.invoice_no }}</strong>
+                        {% if purchase.is_vat_bill %}
+                            <br><span style="background:#d4edda; color:#155724; padding:1px 8px; border-radius:10px; font-size:10px; font-weight:600;">🧾 VAT</span>
+                        {% endif %}
+                    </td>
                     <td>{{ purchase.supplier.name }}</td>
                     <td>{{ purchase.purchase_date|date:"Y-m-d" }}</td>
                     <td>{{ purchase.get_total_items|floatformat:0 }} Items</td>

@@ -227,6 +227,14 @@
             </select>
         </div>
         <div class="filter-group">
+            <label>Bill Type</label>
+            <select name="bill_type">
+                <option value="">All Bills</option>
+                <option value="VAT" {% if selected_bill_type == 'VAT' %}selected{% endif %}>🧾 VAT Bills Only</option>
+                <option value="NON_VAT" {% if selected_bill_type == 'NON_VAT' %}selected{% endif %}>Non-VAT Bills</option>
+            </select>
+        </div>
+        <div class="filter-group">
             <label>Product</label>
             <select name="product">
                 <option value="">All Products</option>

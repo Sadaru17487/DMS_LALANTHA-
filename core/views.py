@@ -1432,7 +1432,7 @@ def purchase_add(request):
                 pass
         
         tax_rate = int(request.POST.get('tax_rate', 0))
-        tax_invoice_no = request.POST.get('tax_invoice_no', '')
+        is_vat_bill = request.POST.get('is_vat_bill') == 'on'
         paid_amount = Decimal(request.POST.get('paid_amount', '0') or '0')
         notes = request.POST.get('notes', '')
         payment_status = request.POST.get('payment_status', 'PENDING')
@@ -1462,7 +1462,7 @@ def purchase_add(request):
             purchase_date=purchase_date,  # ✅ Use the parsed date
             due_date=due_date,
             tax_rate=tax_rate,
-            tax_invoice_no=tax_invoice_no,
+            is_vat_bill=is_vat_bill,
             paid_amount=paid_amount,
             payment_status=payment_status,
             notes=notes,
@@ -6061,6 +6061,7 @@ def purchase_products_report(request):
     supplier_id = request.GET.get('supplier', '')
     product_id = request.GET.get('product', '')
     category_id = request.GET.get('category', '')
+    bill_type = request.GET.get('bill_type', '')
 
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -6092,7 +6093,7 @@ def purchase_products_report(request):
         wb = Workbook()
         ws = wb.active
         ws.title = "Purchase Products History"
-        headers = ['Date', 'Invoice No', 'Supplier', 'Product', 'Category', 'Qty', 'Unit Price', 'Total Cost', 'FOC?']
+        headers = ['Date', 'Invoice No', 'Supplier', 'Product', 'Category', 'Qty', 'Unit Price', 'Total Cost','VAT?', 'FOC?']
         ws.append(headers)
         for col in range(1, 10):
             ws.cell(row=1, column=col).font = Font(bold=True)
@@ -6106,6 +6107,7 @@ def purchase_products_report(request):
                 float(item.quantity),
                 float(item.cost_price),
                 float(item.total),
+                'Yes' if item.purchase.is_vat_bill else 'No', 
                 'Yes' if item.is_foc else 'No',
             ])
         for col in ws.columns:
@@ -6123,6 +6125,10 @@ def purchase_products_report(request):
     suppliers = Supplier.objects.filter(is_active=True)
     products = Product.objects.filter(is_active=True)
     categories = Category.objects.filter(is_active=True)
+    if bill_type == 'VAT':
+        items = items.filter(purchase__is_vat_bill=True)
+    elif bill_type == 'NON_VAT':
+        items = items.filter(purchase__is_vat_bill=False)
 
     context = {
         'start_date': start_date,
@@ -6140,6 +6146,7 @@ def purchase_products_report(request):
         'selected_supplier': supplier_id,
         'selected_product': product_id,
         'selected_category': category_id,
+        'selected_bill_type': bill_type,
     }
     return render(request, 'core/purchase_products_report.html', context)
 
