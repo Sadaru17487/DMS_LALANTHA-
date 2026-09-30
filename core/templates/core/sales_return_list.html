@@ -1,0 +1,111 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sales Returns - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>📋 Sales Returns List</h2>
+            <span class="subtitle">All return documents</span>
+        </div>
+        <a href="/sales-return/" class="btn">+ New Return</a>
+    </div>
+    
+    <!-- Filters -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>Search</label>
+            <input type="text" name="search" value="{{ search }}" placeholder="Return #, Customer...">
+        </div>
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Type</label>
+            <select name="return_type">
+                <option value="">All Types</option>
+                <option value="GOOD" {% if selected_return_type == 'GOOD' %}selected{% endif %}>✅ Good Return</option>
+                <option value="BAD" {% if selected_return_type == 'BAD' %}selected{% endif %}>❌ Bad Return</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/sales-return-list/" class="btn-clear">Clear</a>
+    </form>
+    
+    <!-- Summary -->
+    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:20px;">
+        <div class="card" style="text-align:center;">
+            <div style="font-size:12px; color:#888; text-transform:uppercase; font-weight:600;">Total Returns</div>
+            <div style="font-size:26px; font-weight:700; color:#1a2634;">{{ total_count }}</div>
+        </div>
+        <div class="card" style="text-align:center;">
+            <div style="font-size:12px; color:#888; text-transform:uppercase; font-weight:600;">Total Return Value</div>
+            <div style="font-size:26px; font-weight:700; color:#dc3545;">Rs {{ total_return_value|floatformat:2 }}</div>
+        </div>
+        <div class="card" style="text-align:center;">
+            <div style="font-size:12px; color:#888; text-transform:uppercase; font-weight:600;">Total Net Credit</div>
+            <div style="font-size:26px; font-weight:700; color:#6f42c1;">Rs {{ total_net_credit|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <!-- Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Return #</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Vehicle</th>
+                    <th>Type</th>
+                    <th style="text-align:right;">Return Value</th>
+                    <th style="text-align:right;">Net Credit</th>
+                    <th>Settlement</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in returns %}
+                <tr>
+                    <td><strong>{{ r.return_no }}</strong></td>
+                    <td>{{ r.date|date:"Y-m-d" }}</td>
+                    <td>{{ r.shop_name|default:"-" }}</td>
+                    <td>{{ r.vehicle.vehicle_number|default:"-" }}</td>
+                    <td>
+                        {% if r.return_type == 'GOOD' %}
+                            <span class="badge-status" style="background:#d4edda; color:#155724;">✅ Good</span>
+                        {% else %}
+                            <span class="badge-status" style="background:#f8d7da; color:#721c24;">❌ Bad</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">Rs {{ r.return_value|floatformat:2 }}</td>
+                    <td style="text-align:right; font-weight:600; color:#6f42c1;">Rs {{ r.net_credit|floatformat:2 }}</td>
+                    <td>{{ r.get_settlement_type_display }}</td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/sales-return-detail/{{ r.id }}/" class="view" title="View">👁️</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="empty-state">
+                        <span class="icon">📋</span>
+                        No returns found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

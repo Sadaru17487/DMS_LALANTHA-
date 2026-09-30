@@ -1,0 +1,549 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sales Return - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .top-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: end; }
+    .top-row .field-group { flex: 1; min-width: 150px; }
+    .top-row .field-group label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; }
+    .top-row .field-group input, .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; }
+    .top-row .field-group input:focus, .top-row .field-group select:focus { border-color: #007bff; outline: none; }
+    
+    .section-box { background: #f8f9fc; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e0e4eb; }
+    .section-box h3 { margin-top: 0; color: #1a2634; display: flex; justify-content: space-between; align-items: center; }
+    .section-box.return-section { border-left: 4px solid #dc3545; }
+    .section-box.exchange-section { border-left: 4px solid #28a745; }
+    
+    .search-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+    .search-bar input { flex: 1; padding: 10px 15px; border: 2px solid #e0e4eb; border-radius: 30px; font-size: 14px; }
+    .search-bar input:focus { border-color: #007bff; outline: none; }
+    
+    .product-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 15px; }
+    .product-card { background: white; border: 2px solid #e8ecf2; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; transition: 0.15s; }
+    .product-card:hover { border-color: #007bff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .product-card .pname { display: block; font-weight: 600; font-size: 13px; color: #1a2634; }
+    .product-card .pprice { display: block; color: #28a745; font-weight: 700; font-size: 13px; margin-top: 3px; }
+    .product-card .pstock { display: inline-block; background: #007bff; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 4px; }
+    
+    table.items-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+    table.items-table th { background: #e8ecf2; padding: 8px 10px; text-align: left; font-size: 12px; font-weight: 600; color: #555; }
+    table.items-table td { padding: 8px 10px; border-bottom: 1px solid #edf1f7; font-size: 13px; }
+    table.items-table td input { width: 100%; padding: 5px 8px; border: 1px solid #d0d5dd; border-radius: 5px; font-size: 13px; text-align: center; }
+    table.items-table .remove-btn { background: #fee; border: none; color: #dc3545; font-size: 16px; cursor: pointer; padding: 3px 8px; border-radius: 5px; }
+    
+    .return-type-box { display: flex; gap: 20px; padding: 15px; background: white; border-radius: 8px; margin-bottom: 15px; }
+    .return-type-box label { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border: 2px solid #e0e4eb; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .return-type-box input { width: 18px; height: 18px; cursor: pointer; }
+    .return-type-box label.good:has(input:checked) { border-color: #28a745; background: #f0fff4; }
+    .return-type-box label.bad:has(input:checked) { border-color: #dc3545; background: #fff5f5; }
+    
+    .totals-box { background: white; padding: 20px; border-radius: 12px; margin-top: 20px; }
+    .totals-box .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #edf1f7; }
+    .totals-box .row:last-child { border-bottom: none; }
+    .totals-box .row .label { font-weight: 600; color: #555; }
+    .totals-box .row .value { font-size: 20px; font-weight: 700; }
+    .totals-box .row .value.return { color: #dc3545; }
+    .totals-box .row .value.exchange { color: #28a745; }
+    .totals-box .row .value.credit { color: #6f42c1; }
+    
+    .settlement-options { display: flex; gap: 15px; flex-wrap: wrap; padding: 15px; background: #f8f9fc; border-radius: 8px; margin-top: 15px; }
+    .settlement-options label { display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: white; border: 2px solid #e0e4eb; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .settlement-options input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
+    .settlement-options label:has(input:checked) { border-color: #6f42c1; background: #f8f0ff; }
+    
+    .btn-add { background: #007bff; color: white; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .btn-save { background: #28a745; color: white; padding: 14px 40px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 16px; }
+    .btn-cancel { background: #e8ecf2; color: #333; padding: 14px 40px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🔄 Sales Return / Exchange</h2>
+            <span class="subtitle">Return #: <strong>{{ next_return_no }}</strong></span>
+        </div>
+        <a href="/sales-return-list/" class="btn" style="background:#6c757d;">📋 View All Returns</a>
+    </div>
+    
+    <form method="POST" id="returnForm">
+        {% csrf_token %}
+        
+        <!-- ===== HEADER ===== -->
+        <div class="card">
+            <div class="top-row">
+                <div class="field-group" style="flex: 1.5;">
+                    <label>🚛 Delivery Vehicle *</label>
+                    <select name="vehicle" id="vehicleSelect" required>
+                        <option value="">-- Select Vehicle --</option>
+                        {% for v in vehicles %}
+                            <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                                {{ v.vehicle_number }} - {{ v.driver_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="field-group" style="flex: 1.5;">
+                    <label>👤 Sales Rep</label>
+                    <select name="rep" id="repSelect">
+                        <option value="">-- Select Rep --</option>
+                        {% for r in reps %}
+                            <option value="{{ r.id }}" {% if selected_rep == r.id|stringformat:"s" %}selected{% endif %}>
+                                {{ r.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="field-group" style="flex: 2; min-width: 250px; position: relative;">
+                    <label>🏪 Customer / Shop *</label>
+                    <input type="text" id="customerSearch" placeholder="Type to search customer..." autocomplete="off">
+                    <div id="customerResults" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:2px solid #e0e4eb; border-radius:8px; max-height:220px; overflow-y:auto; z-index:1000;"></div>
+                    <input type="hidden" name="customer" id="customerId">
+                    <input type="hidden" name="shop_name" id="shopName">
+                    <input type="hidden" name="shop_code" id="shopCode">
+                </div>
+                
+                <div class="field-group">
+                    <label>Date</label>
+                    <input type="date" name="return_date" value="{{ today|date:'Y-m-d' }}">
+                </div>
+                
+                <div class="field-group">
+                    <label>Original Invoice (optional)</label>
+                    <input type="text" name="original_invoice_search" id="originalInvoiceSearch" placeholder="Search invoice no...">
+                </div>
+            </div>
+            
+            <!-- Return Type -->
+            <div class="return-type-box">
+                <label class="good">
+                    <input type="radio" name="return_type" value="GOOD" checked onchange="onReturnTypeChange()">
+                    ✅ Good Return (Stock added back)
+                </label>
+                <label class="bad">
+                    <input type="radio" name="return_type" value="BAD" onchange="onReturnTypeChange()">
+                    ❌ Bad Return (Stock NOT added back)
+                </label>
+            </div>
+            
+            <div class="field-group">
+                <label>Return Reason</label>
+                <select name="return_reason">
+                    <option value="CUSTOMER_REQUEST">Customer Request</option>
+                    <option value="DAMAGED">Damaged</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="WRONG_PRODUCT">Wrong Product</option>
+                    <option value="QUALITY_ISSUE">Quality Issue</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- ===== RETURNED ITEMS ===== -->
+        <div class="section-box return-section">
+            <h3>↩️ Returned Items (Customer gives back)</h3>
+            
+            <div class="search-bar">
+                <input type="text" id="returnProductSearch" placeholder="🔍 Search product to add to return..." oninput="filterReturnProducts()">
+            </div>
+            <div class="product-results" id="returnProductResults">
+                <div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">Type to search products...</div>
+            </div>
+            
+            <table class="items-table" id="returnItemsTable">
+                <thead>
+                    <tr>
+                        <th style="width:35%;">Product</th>
+                        <th style="width:15%;">Qty</th>
+                        <th style="width:20%;">Rate (Rs)</th>
+                        <th style="width:20%;">Total (Rs)</th>
+                        <th style="width:10%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="returnItemsBody">
+                    <tr><td colspan="5" style="text-align:center;color:#999;padding:15px;">No items yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- ===== EXCHANGE ITEMS ===== -->
+        <div class="section-box exchange-section">
+            <h3>🔄 Exchange Items (New products given to customer - optional)</h3>
+            
+            <div class="search-bar">
+                <input type="text" id="exchangeProductSearch" placeholder="🔍 Search product to give in exchange..." oninput="filterExchangeProducts()">
+            </div>
+            <div class="product-results" id="exchangeProductResults">
+                <div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">Type to search products...</div>
+            </div>
+            
+            <table class="items-table" id="exchangeItemsTable">
+                <thead>
+                    <tr>
+                        <th style="width:35%;">Product</th>
+                        <th style="width:15%;">Qty</th>
+                        <th style="width:20%;">Rate (Rs)</th>
+                        <th style="width:20%;">Total (Rs)</th>
+                        <th style="width:10%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="exchangeItemsBody">
+                    <tr><td colspan="5" style="text-align:center;color:#999;padding:15px;">No exchange items.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- ===== TOTALS & SETTLEMENT ===== -->
+        <div class="totals-box">
+            <div class="row">
+                <span class="label">Return Value:</span>
+                <span class="value return" id="returnValueDisplay">Rs 0.00</span>
+            </div>
+            <div class="row">
+                <span class="label">Exchange Value:</span>
+                <span class="value exchange" id="exchangeValueDisplay">Rs 0.00</span>
+            </div>
+            <div class="row">
+                <span class="label">Net Credit to Customer:</span>
+                <span class="value credit" id="netCreditDisplay">Rs 0.00</span>
+            </div>
+            
+            <div class="settlement-options">
+                <div style="width:100%; font-weight:600; color:#333; margin-bottom:10px;">💰 Apply Credit To:</div>
+                <label>
+                    <input type="radio" name="settlement_type" value="CREDIT" checked>
+                    Customer Credit Outstanding
+                </label>
+                <label>
+                    <input type="radio" name="settlement_type" value="DAY_BILL">
+                    Deduct from Today's Bill
+                </label>
+                <label>
+                    <input type="radio" name="settlement_type" value="CASH">
+                    Cash Refund
+                </label>
+                <label>
+                    <input type="radio" name="settlement_type" value="NONE">
+                    No Settlement (Full Exchange)
+                </label>
+            </div>
+        </div>
+        
+        <div class="field-group" style="margin-top: 15px;">
+            <label>Notes</label>
+            <textarea name="notes" rows="2" placeholder="Additional notes..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;"></textarea>
+        </div>
+        
+        <!-- ===== ACTION BUTTONS ===== -->
+        <div style="display:flex; gap:15px; margin-top:25px;">
+            <button type="submit" class="btn-save">💾 Save Return</button>
+            <a href="/sales/" class="btn-cancel">← Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // ============================================================
+    // PRODUCT DATA
+    // ============================================================
+    const allProducts = [
+        {% for p in products %}
+        {
+            id: {{ p.id }},
+            name: "{{ p.name|escapejs }}",
+            code: "{{ p.code|escapejs }}",
+            price: {{ p.selling_price }},
+            stock: {{ p.vehicle_stock }},
+            unit: "{{ p.unit|escapejs }}"
+        },
+        {% endfor %}
+    ];
+    
+    // ============================================================
+    // STATE
+    // ============================================================
+    let returnItems = [];
+    let exchangeItems = [];
+    
+    // ============================================================
+    // PRODUCT SEARCH - RETURN
+    // ============================================================
+    function filterReturnProducts() {
+        const q = document.getElementById('returnProductSearch').value.toLowerCase().trim();
+        const container = document.getElementById('returnProductResults');
+        
+        if (q.length < 2) {
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">Type to search products...</div>';
+            return;
+        }
+        
+        const matches = allProducts.filter(p =>
+            p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+        );
+        
+        if (matches.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">No products found.</div>';
+            return;
+        }
+        
+        container.innerHTML = matches.map(p => `
+            <div class="product-card" onclick="addReturnItem(${p.id})">
+                <span class="pname">${p.name}</span>
+                <span class="pprice">Rs ${p.price.toFixed(2)}</span>
+                <span class="pstock">Stock: ${p.stock}</span>
+            </div>
+        `).join('');
+    }
+    
+    // ============================================================
+    // PRODUCT SEARCH - EXCHANGE
+    // ============================================================
+    function filterExchangeProducts() {
+        const q = document.getElementById('exchangeProductSearch').value.toLowerCase().trim();
+        const container = document.getElementById('exchangeProductResults');
+        
+        if (q.length < 2) {
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">Type to search products...</div>';
+            return;
+        }
+        
+        const matches = allProducts.filter(p =>
+            p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)
+        );
+        
+        if (matches.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; color:#999; padding:10px;">No products found.</div>';
+            return;
+        }
+        
+        container.innerHTML = matches.map(p => `
+            <div class="product-card" onclick="addExchangeItem(${p.id})">
+                <span class="pname">${p.name}</span>
+                <span class="pprice">Rs ${p.price.toFixed(2)}</span>
+                <span class="pstock">Stock: ${p.stock}</span>
+            </div>
+        `).join('');
+    }
+    
+    // ============================================================
+    // ADD RETURN ITEM
+    // ============================================================
+    function addReturnItem(productId) {
+        const product = allProducts.find(p => p.id === productId);
+        if (!product) return;
+        
+        const existing = returnItems.findIndex(i => i.id === productId);
+        if (existing >= 0) {
+            returnItems[existing].qty += 1;
+            returnItems[existing].total = returnItems[existing].qty * returnItems[existing].rate;
+        } else {
+            returnItems.push({
+                id: product.id,
+                name: product.name,
+                qty: 1,
+                rate: product.price,
+                total: product.price,
+            });
+        }
+        renderReturnItems();
+    }
+    
+    function removeReturnItem(index) {
+        returnItems.splice(index, 1);
+        renderReturnItems();
+    }
+    
+    function updateReturnItem(index, field, value) {
+        const val = parseFloat(value) || 0;
+        returnItems[index][field] = val;
+        returnItems[index].total = returnItems[index].qty * returnItems[index].rate;
+        renderReturnItems();
+    }
+    
+    function renderReturnItems() {
+        const body = document.getElementById('returnItemsBody');
+        if (returnItems.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:15px;">No items yet.</td></tr>';
+        } else {
+            body.innerHTML = returnItems.map((item, idx) => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td><input type="number" step="0.01" value="${item.qty}" onchange="updateReturnItem(${idx}, 'qty', this.value)"></td>
+                    <td><input type="number" step="0.01" value="${item.rate}" onchange="updateReturnItem(${idx}, 'rate', this.value)"></td>
+                    <td>Rs ${item.total.toFixed(2)}</td>
+                    <td><button type="button" class="remove-btn" onclick="removeReturnItem(${idx})">✕</button></td>
+                </tr>
+            `).join('');
+        }
+        recalcTotals();
+    }
+    
+    // ============================================================
+    // ADD EXCHANGE ITEM
+    // ============================================================
+    function addExchangeItem(productId) {
+        const product = allProducts.find(p => p.id === productId);
+        if (!product) return;
+        
+        const existing = exchangeItems.findIndex(i => i.id === productId);
+        if (existing >= 0) {
+            exchangeItems[existing].qty += 1;
+            exchangeItems[existing].total = exchangeItems[existing].qty * exchangeItems[existing].rate;
+        } else {
+            exchangeItems.push({
+                id: product.id,
+                name: product.name,
+                qty: 1,
+                rate: product.price,
+                total: product.price,
+            });
+        }
+        renderExchangeItems();
+    }
+    
+    function removeExchangeItem(index) {
+        exchangeItems.splice(index, 1);
+        renderExchangeItems();
+    }
+    
+    function updateExchangeItem(index, field, value) {
+        const val = parseFloat(value) || 0;
+        exchangeItems[index][field] = val;
+        exchangeItems[index].total = exchangeItems[index].qty * exchangeItems[index].rate;
+        renderExchangeItems();
+    }
+    
+    function renderExchangeItems() {
+        const body = document.getElementById('exchangeItemsBody');
+        if (exchangeItems.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:15px;">No exchange items.</td></tr>';
+        } else {
+            body.innerHTML = exchangeItems.map((item, idx) => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td><input type="number" step="0.01" value="${item.qty}" onchange="updateExchangeItem(${idx}, 'qty', this.value)"></td>
+                    <td><input type="number" step="0.01" value="${item.rate}" onchange="updateExchangeItem(${idx}, 'rate', this.value)"></td>
+                    <td>Rs ${item.total.toFixed(2)}</td>
+                    <td><button type="button" class="remove-btn" onclick="removeExchangeItem(${idx})">✕</button></td>
+                </tr>
+            `).join('');
+        }
+        recalcTotals();
+    }
+    
+    // ============================================================
+    // RECALC TOTALS
+    // ============================================================
+    function recalcTotals() {
+        const returnVal = returnItems.reduce((s, i) => s + i.total, 0);
+        const exchangeVal = exchangeItems.reduce((s, i) => s + i.total, 0);
+        const netCredit = returnVal - exchangeVal;
+        
+        document.getElementById('returnValueDisplay').textContent = `Rs ${returnVal.toFixed(2)}`;
+        document.getElementById('exchangeValueDisplay').textContent = `Rs ${exchangeVal.toFixed(2)}`;
+        document.getElementById('netCreditDisplay').textContent = `Rs ${netCredit.toFixed(2)}`;
+    }
+    
+    // ============================================================
+    // RETURN TYPE
+    // ============================================================
+    function onReturnTypeChange() {
+        const type = document.querySelector('input[name="return_type"]:checked').value;
+        console.log('Return type:', type);
+    }
+    
+    // ============================================================
+    // CUSTOMER SEARCH
+    // ============================================================
+    let customerSearchTimeout;
+    document.getElementById('customerSearch').addEventListener('input', function() {
+        clearTimeout(customerSearchTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            document.getElementById('customerResults').style.display = 'none';
+            return;
+        }
+        customerSearchTimeout = setTimeout(() => searchCustomers(q), 300);
+    });
+    
+    function searchCustomers(q) {
+        fetch(`/api/customers/search/?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                const results = document.getElementById('customerResults');
+                if (data.customers.length === 0) {
+                    results.innerHTML = '<div style="padding:10px;color:#999;">No customers found.</div>';
+                    results.style.display = 'block';
+                    return;
+                }
+                results.innerHTML = data.customers.map(c => `
+                    <div style="padding:10px 14px; cursor:pointer; border-bottom:1px solid #eee;" onclick="selectCustomer(${c.id}, '${c.name.replace(/'/g, "\\'")}', '${c.code}')">
+                        <div style="font-weight:600;">${c.name}</div>
+                        <div style="font-size:12px;color:#888;">${c.code}</div>
+                    </div>
+                `).join('');
+                results.style.display = 'block';
+            })
+            .catch(() => {});
+    }
+    
+    function selectCustomer(id, name, code) {
+        document.getElementById('customerId').value = id;
+        document.getElementById('shopName').value = name;
+        document.getElementById('shopCode').value = code;
+        document.getElementById('customerSearch').value = name;
+        document.getElementById('customerResults').style.display = 'none';
+    }
+    
+    // ============================================================
+    // FORM SUBMIT - POPULATE HIDDEN FIELDS
+    // ============================================================
+    document.getElementById('returnForm').addEventListener('submit', function(e) {
+        if (!document.getElementById('vehicleSelect').value) {
+            e.preventDefault();
+            alert('Please select a vehicle.');
+            return;
+        }
+        if (!document.getElementById('customerId').value) {
+            e.preventDefault();
+            alert('Please select a customer.');
+            return;
+        }
+        if (returnItems.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one returned item.');
+            return;
+        }
+        
+        // Clear existing hidden fields
+        document.querySelectorAll('.hidden-item').forEach(el => el.remove());
+        
+        const form = document.getElementById('returnForm');
+        
+        // Add return items as hidden fields
+        returnItems.forEach((item, idx) => {
+            const i = idx + 1;
+            form.innerHTML += `
+                <input type="hidden" class="hidden-item" name="return_product_${i}" value="${item.id}">
+                <input type="hidden" class="hidden-item" name="return_qty_${i}" value="${item.qty}">
+                <input type="hidden" class="hidden-item" name="return_rate_${i}" value="${item.rate}">
+            `;
+        });
+        
+        // Add exchange items as hidden fields
+        exchangeItems.forEach((item, idx) => {
+            const i = idx + 1;
+            form.innerHTML += `
+                <input type="hidden" class="hidden-item" name="exchange_product_${i}" value="${item.id}">
+                <input type="hidden" class="hidden-item" name="exchange_qty_${i}" value="${item.qty}">
+                <input type="hidden" class="hidden-item" name="exchange_rate_${i}" value="${item.rate}">
+            `;
+        });
+    });
+</script>
+
+{% endblock %}

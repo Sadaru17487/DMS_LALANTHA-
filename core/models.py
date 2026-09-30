@@ -1144,3 +1144,99 @@ class PurchasePayment(models.Model):
     
     class Meta:
         ordering = ['-payment_date']
+
+
+# ============================================================
+# SALES RETURN MODULE
+# ============================================================
+
+class SalesReturn(models.Model):
+    """Main sales return / exchange document."""
+    
+    RETURN_TYPES = [
+        ('GOOD', '✅ Good Return'),
+        ('BAD', '❌ Bad Return'),
+    ]
+    
+    SETTLEMENT_TYPES = [
+        ('CREDIT', 'Customer Credit Outstanding'),
+        ('DAY_BILL', "Deduct from Today's Bill"),
+        ('CASH', 'Cash Refund'),
+        ('NONE', 'No Settlement (Full Exchange)'),
+    ]
+    
+    # ===== REFERENCE =====
+    return_no = models.CharField(max_length=50, unique=True, help_text="Auto-generated return number")
+    date = models.DateField(default=date.today)
+    
+    # ===== WHO =====
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='returns')
+    rep = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='returns')
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='returns')
+    shop_name = models.CharField(max_length=200, blank=True)
+    shop_code = models.CharField(max_length=50, blank=True)
+    
+    # ===== RETURN TYPE =====
+    return_type = models.CharField(max_length=10, choices=RETURN_TYPES, default='GOOD')
+    return_reason = models.CharField(max_length=50, blank=True, null=True)
+    
+    # ===== LINK TO ORIGINAL SALE (optional) =====
+    original_invoice = models.ForeignKey(
+        SalesBill, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='returns'
+    )
+    
+    # ===== TOTALS =====
+    return_value = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                        help_text="Total value of returned items")
+    exchange_value = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                          help_text="Total value of new items given in exchange")
+    net_credit = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                      help_text="Return Value - Exchange Value")
+    
+    # ===== SETTLEMENT =====
+    settlement_type = models.CharField(max_length=20, choices=SETTLEMENT_TYPES, default='CREDIT')
+    applied_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                          help_text="Amount applied to credit/bill")
+    cash_refunded = models.DecimalField(max_digits=15, decimal_places=2, default=0,
+                                         help_text="Cash given to customer")
+    
+    # ===== META =====
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_returns')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+    
+    def __str__(self):
+        return f"{self.return_no} - {self.shop_name or 'N/A'}"
+
+
+class SalesReturnItem(models.Model):
+    """Items returned by the customer (stock goes back on Good Return)."""
+    return_doc = models.ForeignKey(SalesReturn, on_delete=models.CASCADE, related_name='returned_items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    rate = models.DecimalField(max_digits=15, decimal_places=2)
+    total = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"
+
+
+class SalesReturnExchangeItem(models.Model):
+    """New items given to the customer in exchange (always a sale)."""
+    return_doc = models.ForeignKey(SalesReturn, on_delete=models.CASCADE, related_name='exchange_items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    rate = models.DecimalField(max_digits=15, decimal_places=2)
+    total = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"
+
+    

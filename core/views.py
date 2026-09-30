@@ -7223,4 +7223,383 @@ def set_active_price(request):
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
+# ============================================================
+# SALES RETURN MODULE
+# ============================================================
+
+def generate_return_no():
+    """Generate a unique return number like RET-2026-00001."""
+    year = date.today().year
+    last = SalesReturn.objects.filter(return_no__startswith=f'RET-{year}-').order_by('-return_no').first()
+    if last:
+        try:
+            last_num = int(last.return_no.split('-')[-1])
+            new_num = last_num + 1
+        except:
+            new_num = 1
+    else:
+        new_num = 1
+    return f'RET-{year}-{new_num:05d}'
+
+
+@login_required
+@permission_required('create_sales')
+def create_sales_return(request):
+    """Create a new sales return with exchange and settlement."""
+    MAX_ITEMS = 20
+    
+    selected_vehicle = request.GET.get('vehicle') or request.session.get('last_vehicle_id')
+    selected_rep = request.GET.get('rep') or request.session.get('last_rep_id')
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # ===== HEADER =====
+                vehicle_id = request.POST.get('vehicle')
+                rep_id = request.POST.get('rep')
+                customer_id = request.POST.get('customer')
+                shop_name = request.POST.get('shop_name', '').strip()
+                shop_code = request.POST.get('shop_code', '').strip()
+                return_date_str = request.POST.get('return_date', '')
+                return_type = request.POST.get('return_type', 'GOOD')
+                return_reason = request.POST.get('return_reason', '') or None
+                original_invoice_id = request.POST.get('original_invoice', '')
+                settlement_type = request.POST.get('settlement_type', 'CREDIT')
+                notes = request.POST.get('notes', '')
+                
+                if not vehicle_id:
+                    messages.error(request, 'Please select a vehicle.')
+                    return redirect('/sales-return/')
+                
+                vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+                
+                rep = None
+                if rep_id and rep_id.isdigit():
+                    try:
+                        rep = Employee.objects.get(id=rep_id)
+                    except Employee.DoesNotExist:
+                        pass
+                
+                customer = None
+                if customer_id and customer_id.isdigit():
+                    try:
+                        customer = Customer.objects.get(id=customer_id)
+                        shop_name = customer.name
+                        shop_code = customer.code
+                    except Customer.DoesNotExist:
+                        pass
+                
+                # Parse date
+                if return_date_str:
+                    try:
+                        return_date = datetime.strptime(return_date_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        return_date = date.today()
+                else:
+                    return_date = date.today()
+                
+                # Original invoice
+                original_invoice = None
+                if original_invoice_id and original_invoice_id.isdigit():
+                    try:
+                        original_invoice = SalesBill.objects.get(id=original_invoice_id)
+                    except SalesBill.DoesNotExist:
+                        pass
+                
+                # ===== CREATE RETURN DOC =====
+                return_doc = SalesReturn.objects.create(
+                    return_no=generate_return_no(),
+                    date=return_date,
+                    vehicle=vehicle,
+                    rep=rep,
+                    customer=customer,
+                    shop_name=shop_name,
+                    shop_code=shop_code,
+                    return_type=return_type,
+                    return_reason=return_reason,
+                    original_invoice=original_invoice,
+                    settlement_type=settlement_type,
+                    notes=notes,
+                    created_by=request.user,
+                )
+                
+                # ===== PROCESS RETURNED ITEMS =====
+                return_value = Decimal('0')
+                for i in range(1, MAX_ITEMS + 1):
+                    product_id = request.POST.get(f'return_product_{i}')
+                    qty_str = request.POST.get(f'return_qty_{i}', '0')
+                    rate_str = request.POST.get(f'return_rate_{i}', '0')
+                    
+                    if not product_id or not qty_str or qty_str == '0':
+                        continue
+                    
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        qty = Decimal(qty_str)
+                        rate = Decimal(rate_str or '0')
+                    except Exception:
+                        continue
+                    
+                    total = qty * rate
+                    
+                    SalesReturnItem.objects.create(
+                        return_doc=return_doc,
+                        product=product,
+                        quantity=qty,
+                        rate=rate,
+                        total=total,
+                    )
+                    
+                    # ===== STOCK HANDLING =====
+                    # Good Return → add back to vehicle
+                    # Bad Return  → no stock change
+                    if return_type == 'GOOD':
+                        vehicle_stock, _ = VehicleStock.objects.get_or_create(
+                            vehicle=vehicle, product=product
+                        )
+                        vehicle_stock.quantity += qty
+                        vehicle_stock.save()
+                        logger.info(f"GOOD RETURN: +{qty} {product.name} → {vehicle.vehicle_number}")
+                    else:
+                        logger.info(f"BAD RETURN: {qty} {product.name} NOT added back")
+                    
+                    return_value += total
+                
+                # ===== PROCESS EXCHANGE ITEMS =====
+                exchange_value = Decimal('0')
+                for i in range(1, MAX_ITEMS + 1):
+                    product_id = request.POST.get(f'exchange_product_{i}')
+                    qty_str = request.POST.get(f'exchange_qty_{i}', '0')
+                    rate_str = request.POST.get(f'exchange_rate_{i}', '0')
+                    
+                    if not product_id or not qty_str or qty_str == '0':
+                        continue
+                    
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        qty = Decimal(qty_str)
+                        rate = Decimal(rate_str or '0')
+                    except Exception:
+                        continue
+                    
+                    total = qty * rate
+                    
+                    SalesReturnExchangeItem.objects.create(
+                        return_doc=return_doc,
+                        product=product,
+                        quantity=qty,
+                        rate=rate,
+                        total=total,
+                    )
+                    
+                    # Exchange items ALWAYS deduct from vehicle stock (they're a sale)
+                    vehicle_stock = VehicleStock.objects.filter(vehicle=vehicle, product=product).first()
+                    if not vehicle_stock or vehicle_stock.quantity < qty:
+                        messages.error(request, f'❌ Not enough stock on {vehicle.vehicle_number} for {product.name} (exchange)')
+                        return redirect('/sales-return/')
+                    
+                    vehicle_stock.quantity -= qty
+                    vehicle_stock.save()
+                    logger.info(f"EXCHANGE: -{qty} {product.name} from {vehicle.vehicle_number}")
+                    
+                    exchange_value += total
+                
+                # ===== CALCULATE NET CREDIT =====
+                net_credit = return_value - exchange_value
+                
+                return_doc.return_value = return_value
+                return_doc.exchange_value = exchange_value
+                return_doc.net_credit = net_credit
+                
+                # ===== APPLY SETTLEMENT =====
+                applied_amount = Decimal('0')
+                cash_refunded = Decimal('0')
+                
+                if net_credit > 0:
+                    if settlement_type == 'CREDIT' and customer:
+                        # Apply to customer's oldest outstanding bill
+                        outstanding_bills = SalesBill.objects.filter(
+                            Q(shop_code=customer.code) | Q(shop_name=customer.name),
+                            status__in=['PENDING', 'COMPLETED']
+                        ).order_by('date')
+                        
+                        remaining = net_credit
+                        for bill in outstanding_bills:
+                            if remaining <= 0:
+                                break
+                            bill_paid = bill.payments.exclude(type='Credit').aggregate(
+                                t=Sum('amount'))['t'] or Decimal('0')
+                            bill_outstanding = bill.net_total - bill_paid
+                            
+                            if bill_outstanding > 0:
+                                apply_amt = min(remaining, bill_outstanding)
+                                Payment.objects.create(
+                                    bill=bill,
+                                    type='Cash',  # Will show as a cash-like adjustment
+                                    amount=apply_amt
+                                )
+                                remaining -= apply_amt
+                                applied_amount += apply_amt
+                                logger.info(f"Applied Rs {apply_amt} to bill {bill.invoice_no}")
+                        
+                        # If still remaining, create a general credit note (future enhancement)
+                        if remaining > 0:
+                            logger.warning(f"Unapplied credit: Rs {remaining} for customer {customer.name}")
+                    
+                    elif settlement_type == 'DAY_BILL':
+                        # Apply to today's bill for the customer
+                        today_bill = SalesBill.objects.filter(
+                            date=return_date,
+                            shop_code=shop_code
+                        ).first()
+                        if today_bill:
+                            apply_amt = min(net_credit, today_bill.net_total)
+                            today_bill.net_total -= apply_amt
+                            today_bill.save()
+                            applied_amount = apply_amt
+                            logger.info(f"Applied Rs {apply_amt} to today's bill {today_bill.invoice_no}")
+                    
+                    elif settlement_type == 'CASH':
+                        cash_refunded = net_credit
+                        # Optionally create an Expense record for cash out
+                        try:
+                            Expense.objects.create(
+                                date=return_date,
+                                category='OTHER',
+                                amount=net_credit,
+                                note=f'Cash refund for return {return_doc.return_no}',
+                                status='PAID',
+                            )
+                        except Exception as e:
+                            logger.warning(f"Could not record cash refund expense: {e}")
+                
+                return_doc.applied_amount = applied_amount
+                return_doc.cash_refunded = cash_refunded
+                return_doc.save()
+                
+                # ===== SESSION PERSISTENCE =====
+                try:
+                    request.session['last_vehicle_id'] = int(vehicle.id)
+                    if rep:
+                        request.session['last_rep_id'] = int(rep.id)
+                    request.session.modified = True
+                except Exception:
+                    pass
+                
+                messages.success(
+                    request, 
+                    f'✅ Return {return_doc.return_no} saved! '
+                    f'Return: Rs {return_value} | '
+                    f'Exchange: Rs {exchange_value} | '
+                    f'Net Credit: Rs {net_credit}'
+                )
+                return redirect('/sales-return-list/')
         
+        except Exception as e:
+            import traceback
+            logger.error(f"create_sales_return error: {e}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('/sales-return/')
+    
+    # ===== GET REQUEST =====
+    vehicles = Vehicle.objects.filter(is_active=True)
+    reps = Employee.objects.filter(position='Rep', is_active=True)
+    customers = Customer.objects.filter(is_active=True)
+    products = Product.objects.filter(is_active=True)
+    
+    # Build product list with vehicle stock
+    vehicle_stock_dict = {}
+    if selected_vehicle:
+        try:
+            v = Vehicle.objects.get(id=int(selected_vehicle))
+            for stock in VehicleStock.objects.filter(vehicle=v):
+                vehicle_stock_dict[stock.product_id] = stock.quantity
+        except Exception:
+            pass
+    
+    product_list = []
+    for p in products:
+        product_list.append({
+            'id': p.id,
+            'name': p.name,
+            'code': p.code,
+            'selling_price': float(p.selling_price or 0),
+            'unit': p.unit,
+            'vehicle_stock': vehicle_stock_dict.get(p.id, 0),
+        })
+    
+    # Auto-generate return number
+    next_return_no = generate_return_no()
+    
+    context = {
+        'vehicles': vehicles,
+        'reps': reps,
+        'customers': customers,
+        'products': product_list,
+        'selected_vehicle': selected_vehicle,
+        'selected_rep': selected_rep,
+        'today': date.today(),
+        'next_return_no': next_return_no,
+    }
+    return render(request, 'core/sales_return.html', context)
+
+
+@login_required
+@permission_required('view_sales_list')
+def sales_return_list(request):
+    """List all sales returns."""
+    returns = SalesReturn.objects.all().select_related('vehicle', 'rep', 'customer').order_by('-date', '-created_at')
+    
+    # Filters
+    search = request.GET.get('search', '')
+    if search:
+        returns = returns.filter(
+            Q(return_no__icontains=search) |
+            Q(shop_name__icontains=search) |
+            Q(shop_code__icontains=search)
+        )
+    
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    if start_date:
+        returns = returns.filter(date__gte=start_date)
+    if end_date:
+        returns = returns.filter(date__lte=end_date)
+    
+    return_type = request.GET.get('return_type', '')
+    if return_type:
+        returns = returns.filter(return_type=return_type)
+    
+    total_count = returns.count()
+    total_return_value = returns.aggregate(t=Sum('return_value'))['t'] or Decimal('0')
+    total_net_credit = returns.aggregate(t=Sum('net_credit'))['t'] or Decimal('0')
+    
+    context = {
+        'returns': returns,
+        'search': search,
+        'start_date': start_date,
+        'end_date': end_date,
+        'selected_return_type': return_type,
+        'total_count': total_count,
+        'total_return_value': total_return_value,
+        'total_net_credit': total_net_credit,
+        'today': date.today(),
+    }
+    return render(request, 'core/sales_return_list.html', context)
+
+
+@login_required
+@permission_required('view_sales_list')
+def sales_return_detail(request, return_id):
+    """View a single return document."""
+    return_doc = get_object_or_404(SalesReturn, id=return_id)
+    returned_items = return_doc.returned_items.select_related('product')
+    exchange_items = return_doc.exchange_items.select_related('product')
+    
+    context = {
+        'return_doc': return_doc,
+        'returned_items': returned_items,
+        'exchange_items': exchange_items,
+    }
+    return render(request, 'core/sales_return_detail.html', context)        

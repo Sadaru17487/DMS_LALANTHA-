@@ -229,6 +229,11 @@ urlpatterns = [
     path('api/add-product-price/', views.add_product_price, name='add_product_price'),
 
     path('api/set-active-price/', views.set_active_price, name='set_active_price'),
+    # ===== SALES RETURN =====
+    path('sales-return/', views.create_sales_return, name='create_sales_return'),
 
+    path('sales-return-list/', views.sales_return_list, name='sales_return_list'),
+
+    path('sales-return-detail/<int:return_id>/', views.sales_return_detail, name='sales_return_detail'),
 
 ]

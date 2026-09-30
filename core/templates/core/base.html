@@ -200,6 +200,15 @@
             <i class="fas fa-money-check-alt"></i> Cheque List
         </a>
         {% endif %}
+
+        {% if request.user.profile|has_perm:'create_sales' %}
+        <a href="/sales-return/" class="{% if request.path == '/sales-return/' %}active{% endif %}">
+            <i class="fas fa-undo-alt"></i> Sales Return
+        </a>
+        <a href="/sales-return-list/" class="{% if 'sales-return-list' in request.path %}active{% endif %}">
+            <i class="fas fa-list"></i> Return List
+        </a>
+        {% endif %}
         
         {% if request.user.profile|has_perm:'view_customers' %}
         <a href="/customers/" class="{% if 'customer' in request.path %}active{% endif %}">

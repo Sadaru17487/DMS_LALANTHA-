@@ -1,0 +1,73 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ return_doc.return_no }} - Return Detail{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🔄 Return {{ return_doc.return_no }}</h2>
+            <span class="subtitle">{{ return_doc.date|date:"F j, Y" }}</span>
+        </div>
+        <a href="/sales-return-list/" class="btn" style="background:#6c757d;">← Back to List</a>
+    </div>
+    
+    <div class="card">
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:20px;">
+            <div><strong>Customer:</strong><br>{{ return_doc.shop_name }}</div>
+            <div><strong>Vehicle:</strong><br>{{ return_doc.vehicle.vehicle_number }}</div>
+            <div><strong>Rep:</strong><br>{{ return_doc.rep.name|default:"-" }}</div>
+            <div><strong>Return Type:</strong><br>
+                {% if return_doc.return_type == 'GOOD' %}
+                    <span style="color:#28a745;">✅ Good Return</span>
+                {% else %}
+                    <span style="color:#dc3545;">❌ Bad Return</span>
+                {% endif %}
+            </div>
+            <div><strong>Reason:</strong><br>{{ return_doc.return_reason|default:"-" }}</div>
+            <div><strong>Settlement:</strong><br>{{ return_doc.get_settlement_type_display }}</div>
+            <div><strong>Created By:</strong><br>{{ return_doc.created_by.username|default:"-" }}</div>
+            <div><strong>Created At:</strong><br>{{ return_doc.created_at|date:"Y-m-d H:i" }}</div>
+        </div>
+        
+        <h3 style="color:#dc3545; border-bottom:2px solid #f8d7da; padding-bottom:8px;">↩️ Returned Items</h3>
+        <table style="width:100%; margin-bottom:20px;">
+            <thead><tr style="background:#f8d7da;"><th>Product</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Total</th></tr></thead>
+            <tbody>
+                {% for item in returned_items %}
+                <tr><td>{{ item.product.name }}</td><td style="text-align:right;">{{ item.quantity }}</td><td style="text-align:right;">Rs {{ item.rate|floatformat:2 }}</td><td style="text-align:right;">Rs {{ item.total|floatformat:2 }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if exchange_items %}
+        <h3 style="color:#28a745; border-bottom:2px solid #d4edda; padding-bottom:8px;">🔄 Exchange Items</h3>
+        <table style="width:100%; margin-bottom:20px;">
+            <thead><tr style="background:#d4edda;"><th>Product</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Total</th></tr></thead>
+            <tbody>
+                {% for item in exchange_items %}
+                <tr><td>{{ item.product.name }}</td><td style="text-align:right;">{{ item.quantity }}</td><td style="text-align:right;">Rs {{ item.rate|floatformat:2 }}</td><td style="text-align:right;">Rs {{ item.total|floatformat:2 }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        
+        <div style="background:#f8f9fc; padding:20px; border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; padding:8px 0;"><span>Return Value:</span><strong>Rs {{ return_doc.return_value|floatformat:2 }}</strong></div>
+            <div style="display:flex; justify-content:space-between; padding:8px 0;"><span>Exchange Value:</span><strong>Rs {{ return_doc.exchange_value|floatformat:2 }}</strong></div>
+            <div style="display:flex; justify-content:space-between; padding:8px 0; border-top:2px solid #e0e4eb; margin-top:8px;"><span style="font-size:18px;">Net Credit:</span><strong style="font-size:22px; color:#6f42c1;">Rs {{ return_doc.net_credit|floatformat:2 }}</strong></div>
+            <div style="display:flex; justify-content:space-between; padding:8px 0;"><span>Applied Amount:</span><strong>Rs {{ return_doc.applied_amount|floatformat:2 }}</strong></div>
+            {% if return_doc.cash_refunded > 0 %}
+            <div style="display:flex; justify-content:space-between; padding:8px 0;"><span>Cash Refunded:</span><strong style="color:#dc3545;">Rs {{ return_doc.cash_refunded|floatformat:2 }}</strong></div>
+            {% endif %}
+        </div>
+        
+        {% if return_doc.notes %}
+        <div style="margin-top:15px;"><strong>Notes:</strong> {{ return_doc.notes }}</div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
