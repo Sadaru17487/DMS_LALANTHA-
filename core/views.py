@@ -25,7 +25,8 @@ from .models import (
     Category, Employee, Product, ProductPrice, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, PurchasePayment,
-    PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession
+    PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession,
+    SalesReturn, SalesReturnItem, SalesReturnExchangeItem
 )
 from openpyxl import Workbook
 from openpyxl.styles import Font
