@@ -1,0 +1,141 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Return {{ return_doc.return_no }} - Print{% endblock %}
+
+{% block content %}
+
+<style>
+    .print-container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; }
+    .print-header { text-align: center; border-bottom: 3px solid #1a2634; padding-bottom: 15px; margin-bottom: 20px; }
+    .print-header h1 { margin: 0; color: #1a2634; }
+    .print-header .sub { color: #666; font-size: 14px; margin-top: 4px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+    .info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #e0e4eb; }
+    .info-row .label { font-weight: 600; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table th { background: #f8f9fc; padding: 10px; text-align: left; border-bottom: 2px solid #1a2634; font-size: 13px; }
+    table td { padding: 8px 10px; border-bottom: 1px solid #edf1f7; font-size: 13px; }
+    table td:last-child, table th:last-child { text-align: right; }
+    .totals-box { background: #f8f9fc; padding: 15px 20px; border-radius: 8px; margin-top: 15px; }
+    .totals-box .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals-box .row.grand { border-top: 2px solid #1a2634; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge.good { background: #d4edda; color: #155724; }
+    .badge.bad { background: #f8d7da; color: #721c24; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; border-top: 1px dashed #ccc; }
+    .signatures div { text-align: center; }
+    .signatures .line { display: block; width: 200px; border-top: 1px solid #333; margin-bottom: 5px; }
+    .no-print { display: block; text-align: center; margin-top: 20px; }
+    @media print {
+        .no-print, .sidebar, .sidebar-toggle { display: none !important; }
+        .main-content { margin: 0 !important; padding: 0 !important; }
+        .print-container { box-shadow: none; }
+    }
+</style>
+
+<div class="print-container">
+    <div class="print-header">
+        <h1>LALANTHA DISTRIBUTORS</h1>
+        <div class="sub">Sales Return / Exchange Slip</div>
+        <div style="margin-top: 10px;">
+            <span class="badge {% if return_doc.return_type == 'GOOD' %}good{% else %}bad{% endif %}">
+                {% if return_doc.return_type == 'GOOD' %}✅ GOOD RETURN{% else %}❌ BAD RETURN{% endif %}
+            </span>
+        </div>
+    </div>
+    
+    <div class="info-grid">
+        <div>
+            <div class="info-row"><span class="label">Return #:</span><span>{{ return_doc.return_no }}</span></div>
+            <div class="info-row"><span class="label">Date:</span><span>{{ return_doc.date|date:"Y-m-d" }}</span></div>
+            <div class="info-row"><span class="label">Customer:</span><span>{{ return_doc.shop_name }}</span></div>
+            <div class="info-row"><span class="label">Code:</span><span>{{ return_doc.shop_code|default:"-" }}</span></div>
+        </div>
+        <div>
+            <div class="info-row"><span class="label">Vehicle:</span><span>{{ return_doc.vehicle.vehicle_number }}</span></div>
+            <div class="info-row"><span class="label">Rep:</span><span>{{ return_doc.rep.name|default:"-" }}</span></div>
+            <div class="info-row"><span class="label">Reason:</span><span>{{ return_doc.return_reason|default:"-" }}</span></div>
+            <div class="info-row"><span class="label">Original Inv:</span><span>{{ return_doc.original_invoice.invoice_no|default:"-" }}</span></div>
+        </div>
+    </div>
+    
+    <h3 style="color:#dc3545;">↩️ Returned Items</h3>
+    <table>
+        <thead>
+            <tr><th>#</th><th>Product</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for item in returned_items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>Rs {{ item.rate|floatformat:2 }}</td>
+                <td>Rs {{ item.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if exchange_items %}
+    <h3 style="color:#28a745;">🔄 Exchange Items</h3>
+    <table>
+        <thead>
+            <tr><th>#</th><th>Product</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for item in exchange_items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>Rs {{ item.rate|floatformat:2 }}</td>
+                <td>Rs {{ item.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    
+    <div class="totals-box">
+        <div class="row"><span>Return Value:</span><span>Rs {{ return_doc.return_value|floatformat:2 }}</span></div>
+        <div class="row"><span>Exchange Value:</span><span>Rs {{ return_doc.exchange_value|floatformat:2 }}</span></div>
+        <div class="row grand">
+            <span>Net Credit to Customer:</span>
+            <span>Rs {{ return_doc.net_credit|floatformat:2 }}</span>
+        </div>
+        <div class="row" style="margin-top:10px; font-size:13px; color:#666;">
+            <span>Settlement:</span>
+            <span>{{ return_doc.get_settlement_type_display }}</span>
+        </div>
+    </div>
+    
+    {% if return_doc.notes %}
+    <div style="margin-top:15px; padding:10px; background:#f8f9fc; border-radius:6px;">
+        <strong>Notes:</strong> {{ return_doc.notes }}
+    </div>
+    {% endif %}
+    
+    <div class="signatures">
+        <div>
+            <span class="line"></span>
+            <div>Customer Signature</div>
+        </div>
+        <div>
+            <span class="line"></span>
+            <div>Sales Rep Signature</div>
+        </div>
+        <div>
+            <span class="line"></span>
+            <div>Authorized Signature</div>
+        </div>
+    </div>
+    
+    <div class="no-print">
+        <button onclick="window.print()" style="padding:12px 40px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:16px;">🖨️ Print</button>
+        <a href="/sales-return-detail/{{ return_doc.id }}/" style="margin-left:15px; padding:12px 40px; background:#6c757d; color:white; border-radius:8px; font-weight:600; text-decoration:none; display:inline-block;">← Back</a>
+    </div>
+</div>
+
+{% endblock %}

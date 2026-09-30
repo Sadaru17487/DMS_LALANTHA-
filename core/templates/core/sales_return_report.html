@@ -1,0 +1,207 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Sales Return Report - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-container { max-width: 1400px; margin: 0 auto; }
+    .header-box {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white; padding: 25px 30px; border-radius: 12px;
+        margin-bottom: 25px; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 15px;
+    }
+    .header-box h1 { font-size: 26px; font-weight: 400; margin: 0; }
+    .header-box .sub { color: #8aa3c9; font-size: 14px; }
+    .header-box .date-badge { background: rgba(255,255,255,0.1); padding: 8px 18px; border-radius: 20px; font-size: 14px; color: #a0c4ff; }
+    
+    .filter-box {
+        background: white; padding: 20px; border-radius: 12px;
+        margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex; flex-wrap: wrap; gap: 15px; align-items: end;
+    }
+    .filter-box .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-box .filter-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; }
+    .filter-box .filter-group input,
+    .filter-box .filter-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; min-width: 140px; }
+    .btn-filter { background: #007bff; color: white; padding: 8px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 42px; }
+    .btn-clear { background: #6c757d; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; height: 42px; display: inline-flex; align-items: center; }
+    .btn-excel { background: #28a745; color: white; padding: 8px 20px; border-radius: 8px; text-decoration: none; height: 42px; display: inline-flex; align-items: center; margin-left: auto; font-weight: 600; }
+    
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: white; padding: 18px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; border-top: 4px solid #ccc; }
+    .summary-card.blue { border-top-color: #007bff; }
+    .summary-card.green { border-top-color: #28a745; }
+    .summary-card.red { border-top-color: #dc3545; }
+    .summary-card.purple { border-top-color: #6f42c1; }
+    .summary-card.orange { border-top-color: #fd7e14; }
+    .summary-card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
+    .summary-card.blue .value { color: #007bff; }
+    .summary-card.green .value { color: #28a745; }
+    .summary-card.red .value { color: #dc3545; }
+    .summary-card.purple .value { color: #6f42c1; }
+    .summary-card.orange .value { color: #fd7e14; }
+    
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table th { background: #f8f9fc; padding: 10px 12px; text-align: left; font-weight: 600; color: #555; border-bottom: 2px solid #e0e4eb; }
+    table td { padding: 10px 12px; border-bottom: 1px solid #edf1f7; }
+    table td:last-child, table th:last-child { text-align: right; }
+    .badge { padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge.good { background: #d4edda; color: #155724; }
+    .badge.bad { background: #f8d7da; color: #721c24; }
+    .footer { text-align: center; margin-top: 25px; padding: 15px; color: #999; font-size: 13px; }
+</style>
+
+<div class="report-container">
+    <div class="header-box">
+        <div>
+            <h1>🔄 Sales Return Report</h1>
+            <div class="sub">All returns with exchange and settlement details</div>
+        </div>
+        <div class="date-badge">
+            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+        </div>
+    </div>
+    
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Return Type</label>
+            <select name="return_type">
+                <option value="">All Types</option>
+                <option value="GOOD" {% if selected_return_type == 'GOOD' %}selected{% endif %}>✅ Good</option>
+                <option value="BAD" {% if selected_return_type == 'BAD' %}selected{% endif %}>❌ Bad</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>{{ v.vehicle_number }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Rep</label>
+            <select name="rep">
+                <option value="">All Reps</option>
+                {% for r in reps %}
+                    <option value="{{ r.id }}" {% if selected_rep == r.id|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Settlement</label>
+            <select name="settlement">
+                <option value="">All</option>
+                <option value="CREDIT" {% if selected_settlement == 'CREDIT' %}selected{% endif %}>Credit</option>
+                <option value="DAY_BILL" {% if selected_settlement == 'DAY_BILL' %}selected{% endif %}>Day Bill</option>
+                <option value="CASH" {% if selected_settlement == 'CASH' %}selected{% endif %}>Cash Refund</option>
+                <option value="NONE" {% if selected_settlement == 'NONE' %}selected{% endif %}>No Settlement</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/sales-return/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+    </form>
+    
+    <div class="summary-grid">
+        <div class="summary-card blue">
+            <div class="label">Total Returns</div>
+            <div class="value">{{ total_count }}</div>
+        </div>
+        <div class="summary-card red">
+            <div class="label">Return Value</div>
+            <div class="value">Rs {{ total_return_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card green">
+            <div class="label">Exchange Value</div>
+            <div class="value">Rs {{ total_exchange_value|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card purple">
+            <div class="label">Net Credit</div>
+            <div class="value">Rs {{ total_net_credit|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card orange">
+            <div class="label">Cash Refunded</div>
+            <div class="value">Rs {{ total_cash_refunded|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <div class="summary-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="summary-card green" style="text-align:left; padding:15px 25px;">
+            <span class="label">✅ Good Returns:</span>
+            <span style="font-size:22px; font-weight:700; color:#28a745; margin-left:10px;">{{ good_count }}</span>
+        </div>
+        <div class="summary-card red" style="text-align:left; padding:15px 25px;">
+            <span class="label">❌ Bad Returns:</span>
+            <span style="font-size:22px; font-weight:700; color:#dc3545; margin-left:10px;">{{ bad_count }}</span>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>📋 Return Details</h3>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Return #</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Vehicle</th>
+                        <th>Rep</th>
+                        <th>Type</th>
+                        <th>Reason</th>
+                        <th style="text-align:right;">Return</th>
+                        <th style="text-align:right;">Exchange</th>
+                        <th style="text-align:right;">Net Credit</th>
+                        <th>Settlement</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in returns %}
+                    <tr>
+                        <td><a href="/sales-return-detail/{{ r.id }}/" style="color:#007bff; text-decoration:none;"><strong>{{ r.return_no }}</strong></a></td>
+                        <td>{{ r.date|date:"Y-m-d" }}</td>
+                        <td>{{ r.shop_name|default:"-" }}</td>
+                        <td>{{ r.vehicle.vehicle_number|default:"-" }}</td>
+                        <td>{{ r.rep.name|default:"-" }}</td>
+                        <td>
+                            {% if r.return_type == 'GOOD' %}
+                                <span class="badge good">✅ Good</span>
+                            {% else %}
+                                <span class="badge bad">❌ Bad</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.return_reason|default:"-" }}</td>
+                        <td style="text-align:right; color:#dc3545;">Rs {{ r.return_value|floatformat:2 }}</td>
+                        <td style="text-align:right; color:#28a745;">Rs {{ r.exchange_value|floatformat:2 }}</td>
+                        <td style="text-align:right; color:#6f42c1; font-weight:600;">Rs {{ r.net_credit|floatformat:2 }}</td>
+                        <td>{{ r.get_settlement_type_display }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="11" style="text-align:center;color:#999;padding:20px;">No returns found for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+    </div>
+</div>
+
+{% endblock %}

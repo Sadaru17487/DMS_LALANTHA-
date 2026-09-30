@@ -321,6 +321,13 @@
             <i class="fas fa-ban"></i> Bounced Cheques
         </a>
         {% endif %}
+
+        {% if request.user.profile|has_perm:'view_reports' %}
+        <a href="/reports/sales-return/" class="{% if 'sales-return' in request.path and 'detail' not in request.path and 'list' not in request.path %}active{% endif %}">
+            <i class="fas fa-undo-alt"></i> Sales Return Report
+        </a>
+        {% endif %}
+        
         
         <!-- ===== ADMIN (Admin only) ===== -->
         {% if request.user.profile.role == 'Admin' %}

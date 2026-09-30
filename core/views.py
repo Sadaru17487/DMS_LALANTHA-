@@ -22,7 +22,7 @@ from django.utils import timezone
 from .decorators import permission_required
 from .forms import ProductForm, VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
-    Category, Employee, Product, ProductPrice, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
+    Category, Employee, Product, ProductPrice, SystemSettings, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, PurchasePayment,
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession,
@@ -7224,9 +7224,6 @@ def set_active_price(request):
         return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
-# ============================================================
-# SALES RETURN MODULE
-# ============================================================
 
 def generate_return_no():
     """Generate a unique return number like RET-2026-00001."""
@@ -7289,7 +7286,7 @@ def create_sales_return(request):
                         shop_code = customer.code
                     except Customer.DoesNotExist:
                         pass
-                
+
                 # Parse date
                 if return_date_str:
                     try:
@@ -7306,6 +7303,19 @@ def create_sales_return(request):
                         original_invoice = SalesBill.objects.get(id=original_invoice_id)
                     except SalesBill.DoesNotExist:
                         pass
+
+                # ===== CHECK RETURN WINDOW =====
+                
+                if original_invoice:
+                    settings_obj = SystemSettings.get_settings()
+                    days_diff = (return_date - original_invoice.date).days
+                    if days_diff > settings_obj.return_window_days:
+                        messages.error(
+                            request,
+                            f'❌ Return window expired. This invoice is {days_diff} days old. '
+                            f'Maximum allowed: {settings_obj.return_window_days} days.'
+                        )
+                        return redirect('/sales-return/')     
                 
                 # ===== CREATE RETURN DOC =====
                 return_doc = SalesReturn.objects.create(
@@ -7603,4 +7613,133 @@ def sales_return_detail(request, return_id):
         'returned_items': returned_items,
         'exchange_items': exchange_items,
     }
-    return render(request, 'core/sales_return_detail.html', context)        
+    return render(request, 'core/sales_return_detail.html', context)     
+
+@login_required
+@permission_required('view_reports')
+def sales_return_report(request):
+    """Detailed Sales Return Report with filters and Excel export."""
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    return_type = request.GET.get('return_type', '')
+    vehicle_id = request.GET.get('vehicle', '')
+    rep_id = request.GET.get('rep', '')
+    settlement = request.GET.get('settlement', '')
+    
+    try:
+        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
+    
+    returns = SalesReturn.objects.filter(
+        date__gte=start_date_obj,
+        date__lte=end_date_obj
+    ).select_related('vehicle', 'rep', 'customer', 'original_invoice').order_by('-date', '-created_at')
+    
+    if return_type:
+        returns = returns.filter(return_type=return_type)
+    if vehicle_id and vehicle_id.isdigit():
+        returns = returns.filter(vehicle_id=int(vehicle_id))
+    if rep_id and rep_id.isdigit():
+        returns = returns.filter(rep_id=int(rep_id))
+    if settlement:
+        returns = returns.filter(settlement_type=settlement)
+    
+    # Summary
+    total_count = returns.count()
+    total_return_value = returns.aggregate(t=Sum('return_value'))['t'] or Decimal('0')
+    total_exchange_value = returns.aggregate(t=Sum('exchange_value'))['t'] or Decimal('0')
+    total_net_credit = returns.aggregate(t=Sum('net_credit'))['t'] or Decimal('0')
+    total_cash_refunded = returns.aggregate(t=Sum('cash_refunded'))['t'] or Decimal('0')
+    good_count = returns.filter(return_type='GOOD').count()
+    bad_count = returns.filter(return_type='BAD').count()
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Sales Return Report"
+        
+        # Header info
+        ws.append(['Sales Return Report'])
+        ws.append([f'From: {start_date}', f'To: {end_date}'])
+        ws.append([])
+        ws.append(['Return #', 'Date', 'Customer', 'Vehicle', 'Rep', 'Type', 'Reason',
+                   'Return Value', 'Exchange Value', 'Net Credit', 'Settlement', 'Applied', 'Cash Refunded'])
+        for col in range(1, 14):
+            ws.cell(row=4, column=col).font = Font(bold=True)
+        
+        for r in returns:
+            ws.append([
+                r.return_no,
+                r.date.strftime('%Y-%m-%d'),
+                r.shop_name or 'N/A',
+                r.vehicle.vehicle_number if r.vehicle else 'N/A',
+                r.rep.name if r.rep else 'N/A',
+                r.get_return_type_display(),
+                r.return_reason or '-',
+                float(r.return_value),
+                float(r.exchange_value),
+                float(r.net_credit),
+                r.get_settlement_type_display(),
+                float(r.applied_amount),
+                float(r.cash_refunded),
+            ])
+        
+        ws.append([])
+        ws.append(['TOTALS', '', '', '', '', '', '',
+                   float(total_return_value), float(total_exchange_value),
+                   float(total_net_credit), '', '', float(total_cash_refunded)])
+        for col in range(1, 14):
+            ws.cell(row=ws.max_row, column=col).font = Font(bold=True)
+        
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Sales_Return_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'returns': returns,
+        'total_count': total_count,
+        'total_return_value': total_return_value,
+        'total_exchange_value': total_exchange_value,
+        'total_net_credit': total_net_credit,
+        'total_cash_refunded': total_cash_refunded,
+        'good_count': good_count,
+        'bad_count': bad_count,
+        'selected_return_type': return_type,
+        'selected_vehicle': vehicle_id,
+        'selected_rep': rep_id,
+        'selected_settlement': settlement,
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'reps': Employee.objects.filter(position='Rep', is_active=True),
+        'today': today,
+    }
+    return render(request, 'core/sales_return_report.html', context)
+
+@login_required
+@permission_required('view_sales_list')
+def sales_return_print(request, return_id):
+    """Printable sales return slip."""
+    return_doc = get_object_or_404(SalesReturn, id=return_id)
+    context = {
+        'return_doc': return_doc,
+        'returned_items': return_doc.returned_items.select_related('product'),
+        'exchange_items': return_doc.exchange_items.select_related('product'),
+    }
+    return render(request, 'core/sales_return_print.html', context)   

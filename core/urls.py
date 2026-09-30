@@ -235,5 +235,10 @@ urlpatterns = [
     path('sales-return-list/', views.sales_return_list, name='sales_return_list'),
 
     path('sales-return-detail/<int:return_id>/', views.sales_return_detail, name='sales_return_detail'),
+    # ===== SALES RETURN - PHASE 2 =====
+    path('reports/sales-return/', views.sales_return_report, name='sales_return_report'),
 
+    path('sales-return-print/<int:return_id>/', views.sales_return_print, name='sales_return_print'),
+
+    
 ]

@@ -63,6 +63,11 @@
             <div style="display:flex; justify-content:space-between; padding:8px 0;"><span>Cash Refunded:</span><strong style="color:#dc3545;">Rs {{ return_doc.cash_refunded|floatformat:2 }}</strong></div>
             {% endif %}
         </div>
+
+        <div style="display:flex; gap:10px;">
+            <a href="/sales-return-print/{{ return_doc.id }}/" target="_blank" class="btn" style="background:#17a2b8;">🖨️ Print Slip</a>
+            <a href="/sales-return-list/" class="btn" style="background:#6c757d;">← Back</a>
+        </div>
         
         {% if return_doc.notes %}
         <div style="margin-top:15px;"><strong>Notes:</strong> {{ return_doc.notes }}</div>

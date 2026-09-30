@@ -1239,4 +1239,26 @@ class SalesReturnExchangeItem(models.Model):
     def __str__(self):
         return f"{self.product.name} x{self.quantity}"
 
+
+class SystemSettings(models.Model):
+    """Global system settings for the DMS."""
+    return_window_days = models.IntegerField(default=30, help_text="Max days after sale to accept a return")
+    require_return_approval_above = models.DecimalField(
+        max_digits=15, decimal_places=2, default=50000,
+        help_text="Returns above this amount require approval"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "System Settings"
+    
+    def __str__(self):
+        return "System Settings"
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the singleton settings object."""
+        obj, _ = cls.objects.get_or_create(id=1)
+        return obj
+
     
