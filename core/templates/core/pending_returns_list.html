@@ -1,0 +1,99 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Pending Returns - Approval{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>⏳ Pending Return Approvals</h2>
+            <span class="subtitle">Returns that exceed the approval threshold</span>
+        </div>
+    </div>
+    
+    <div class="card" style="padding:15px 20px; background:#fff3cd; border-left:4px solid #ffc107;">
+        ⚠️ <strong>{{ total_count }}</strong> return{{ total_count|pluralize }} awaiting your approval.
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Return #</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Type</th>
+                    <th style="text-align:right;">Return</th>
+                    <th style="text-align:right;">Exchange</th>
+                    <th style="text-align:right;">Net Credit</th>
+                    <th>Created By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in returns %}
+                <tr>
+                    <td><strong>{{ r.return_no }}</strong></td>
+                    <td>{{ r.date|date:"Y-m-d" }}</td>
+                    <td>{{ r.shop_name }}</td>
+                    <td>
+                        {% if r.return_type == 'GOOD' %}✅ Good{% else %}❌ Bad{% endif %}
+                    </td>
+                    <td style="text-align:right;">Rs {{ r.return_value|floatformat:2 }}</td>
+                    <td style="text-align:right;">Rs {{ r.exchange_value|floatformat:2 }}</td>
+                    <td style="text-align:right; font-weight:600; color:#6f42c1;">Rs {{ r.net_credit|floatformat:2 }}</td>
+                    <td>{{ r.created_by.username|default:"-" }}</td>
+                    <td>
+                        <div class="action-icons">
+                            <a href="/sales-return-detail/{{ r.id }}/" class="view" title="View">👁️</a>
+                            <form method="POST" action="/sales-return/approve/{{ r.id }}/" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" style="background:#28a745; color:white; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:600; font-size:12px;">✅ Approve</button>
+                            </form>
+                            <button type="button" onclick="openRejectModal({{ r.id }}, '{{ r.return_no }}')" style="background:#dc3545; color:white; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:600; font-size:12px;">❌ Reject</button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" style="text-align:center; color:#999; padding:30px;">
+                    ✅ No pending approvals. All returns are cleared.
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal-overlay" id="rejectModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:16px; max-width:450px; width:90%;">
+        <h3>❌ Reject Return</h3>
+        <p>Rejecting: <strong id="rejectReturnNo"></strong></p>
+        <form method="POST" id="rejectForm" action="">
+            {% csrf_token %}
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600;">Rejection Reason *</label>
+                <textarea name="rejection_reason" rows="3" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="closeRejectModal()" style="flex:1; padding:10px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" style="flex:1; padding:10px; background:#dc3545; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Confirm Reject</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openRejectModal(id, returnNo) {
+        document.getElementById('rejectReturnNo').textContent = returnNo;
+        document.getElementById('rejectForm').action = `/sales-return/reject/${id}/`;
+        document.getElementById('rejectModal').style.display = 'flex';
+    }
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+</script>
+
+{% endblock %}

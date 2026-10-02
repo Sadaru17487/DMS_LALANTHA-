@@ -1208,6 +1208,21 @@ class SalesReturn(models.Model):
     notes = models.TextField(blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_returns')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    APPROVAL_STATUS = [
+        ('AUTO', 'Auto-Approved'),
+        ('PENDING', 'Pending Approval'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+    
+    approval_status = models.CharField(max_length=10, choices=APPROVAL_STATUS, default='AUTO')
+    approved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_returns'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, null=True)
     
     class Meta:
         ordering = ['-date', '-created_at']
@@ -1261,4 +1276,48 @@ class SystemSettings(models.Model):
         obj, _ = cls.objects.get_or_create(id=1)
         return obj
 
+
+class SupplierReturn(models.Model):
+    """Return bad stock back to supplier."""
+    return_no = models.CharField(max_length=50, unique=True)
+    date = models.DateField(default=date.today)
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='returns')
+    original_purchase = models.ForeignKey(Purchase, on_delete=models.SET_NULL, null=True, blank=True, related_name='returns')
+    reason = models.CharField(max_length=50, blank=True)
+    total_value = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    notes = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_supplier_returns')
+    created_at = models.DateTimeField(auto_now_add=True)
     
+    class Meta:
+        ordering = ['-date', '-created_at']
+    
+    def __str__(self):
+        return f"{self.return_no} - {self.supplier.name}"
+
+
+class SupplierReturnItem(models.Model):
+    return_doc = models.ForeignKey(SupplierReturn, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    rate = models.DecimalField(max_digits=15, decimal_places=2)
+    total = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity}"   
+
+
+class BadStockLog(models.Model):
+    """Track all bad returns for loss analysis."""
+    return_doc = models.ForeignKey(SalesReturn, on_delete=models.CASCADE, related_name='bad_stock_logs')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=15, decimal_places=2)
+    cost_value = models.DecimalField(max_digits=15, decimal_places=2, help_text="Estimated loss value")
+    reason = models.CharField(max_length=50, blank=True)
+    logged_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.product.name} x{self.quantity} ({self.reason})"
+
+    
+     

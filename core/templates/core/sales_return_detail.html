@@ -14,6 +14,11 @@
         <a href="/sales-return-list/" class="btn" style="background:#6c757d;">← Back to List</a>
     </div>
     
+    <div style="display:flex; gap:10px;">
+            <a href="/sales-return-print/{{ return_doc.id }}/" target="_blank" class="btn" style="background:#17a2b8;">🖨️ Print Slip</a>
+            <a href="/sales-return-list/" class="btn" style="background:#6c757d;">← Back</a>
+        </div>
+    
     <div class="card">
         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:20px;">
             <div><strong>Customer:</strong><br>{{ return_doc.shop_name }}</div>
@@ -64,10 +69,7 @@
             {% endif %}
         </div>
 
-        <div style="display:flex; gap:10px;">
-            <a href="/sales-return-print/{{ return_doc.id }}/" target="_blank" class="btn" style="background:#17a2b8;">🖨️ Print Slip</a>
-            <a href="/sales-return-list/" class="btn" style="background:#6c757d;">← Back</a>
-        </div>
+        
         
         {% if return_doc.notes %}
         <div style="margin-top:15px;"><strong>Notes:</strong> {{ return_doc.notes }}</div>

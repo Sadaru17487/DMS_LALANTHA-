@@ -1,0 +1,129 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Return Analytics{% endblock %}
+
+{% block content %}
+
+<style>
+    .analytics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; border-top: 4px solid #ccc; }
+    .stat-card.blue { border-top-color: #007bff; }
+    .stat-card.red { border-top-color: #dc3545; }
+    .stat-card.green { border-top-color: #28a745; }
+    .stat-card.purple { border-top-color: #6f42c1; }
+    .stat-card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .stat-card .value { font-size: 26px; font-weight: 700; margin-top: 5px; }
+    .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-row .bar-label { width: 150px; font-size: 13px; font-weight: 600; color: #333; }
+    .bar-row .bar-track { flex: 1; background: #e8ecf2; border-radius: 20px; height: 24px; overflow: hidden; }
+    .bar-row .bar-fill { height: 100%; background: linear-gradient(90deg, #dc3545, #e83e8c); display: flex; align-items: center; padding-left: 10px; color: white; font-size: 12px; font-weight: 600; }
+    .bar-row .bar-value { width: 100px; text-align: right; font-weight: 600; color: #333; }
+    @media (max-width: 768px) {
+        .analytics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <h2>📊 Return Analytics</h2>
+        <span class="subtitle">Insights on return trends and reasons</span>
+    </div>
+    
+    <form method="GET" class="filter-bar">
+        <div class="filter-group"><label>From</label><input type="date" name="start_date" value="{{ start_date }}"></div>
+        <div class="filter-group"><label>To</label><input type="date" name="end_date" value="{{ end_date }}"></div>
+        <button type="submit" class="btn-filter">🔍 Apply</button>
+    </form>
+    
+    <div class="analytics-grid">
+        <div class="stat-card blue">
+            <div class="label">Total Returns</div>
+            <div class="value">{{ total_returns }}</div>
+        </div>
+        <div class="stat-card green">
+            <div class="label">✅ Good Returns</div>
+            <div class="value" style="color:#28a745;">{{ good_count }}</div>
+        </div>
+        <div class="stat-card red">
+            <div class="label">❌ Bad Returns</div>
+            <div class="value" style="color:#dc3545;">{{ bad_count }}</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="label">Bad Stock Loss</div>
+            <div class="value" style="color:#6f42c1;">Rs {{ total_bad_loss|floatformat:0 }}</div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 20px;">
+        <h3>🎯 Top Return Reasons</h3>
+        <div class="bar-chart">
+            {% for reason in reason_data %}
+            <div class="bar-row">
+                <span class="bar-label">{{ reason.return_reason|default:"Unknown"|title }}</span>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width: {% widthratio reason.count total_returns 100 %}%;">
+                        {{ reason.count }}
+                    </div>
+                </div>
+                <span class="bar-value">Rs {{ reason.value|floatformat:0 }}</span>
+            </div>
+            {% empty %}
+            <div style="text-align:center; color:#999; padding:15px;">No returns in this period.</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 20px;">
+        <h3>📈 Monthly Trend</h3>
+        <table style="width:100%;">
+            <thead style="background:#f8f9fc;">
+                <tr>
+                    <th style="padding:10px;">Month</th>
+                    <th style="padding:10px; text-align:right;">✅ Good</th>
+                    <th style="padding:10px; text-align:right;">❌ Bad</th>
+                    <th style="padding:10px; text-align:right;">Total Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for month, data in monthly_data %}
+                <tr>
+                    <td style="padding:10px;"><strong>{{ month }}</strong></td>
+                    <td style="padding:10px; text-align:right; color:#28a745;">{{ data.good }}</td>
+                    <td style="padding:10px; text-align:right; color:#dc3545;">{{ data.bad }}</td>
+                    <td style="padding:10px; text-align:right;">Rs {{ data.value|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" style="text-align:center; padding:15px; color:#999;">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="card">
+        <h3>🏆 Top Returned Products</h3>
+        <table style="width:100%;">
+            <thead style="background:#f8f9fc;">
+                <tr>
+                    <th style="padding:10px;">Product</th>
+                    <th style="padding:10px; text-align:right;">Total Qty</th>
+                    <th style="padding:10px; text-align:right;">Total Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in product_returns %}
+                <tr>
+                    <td style="padding:10px;">{{ p.product__name }}</td>
+                    <td style="padding:10px; text-align:right;">{{ p.total_qty|floatformat:0 }}</td>
+                    <td style="padding:10px; text-align:right; font-weight:600;">Rs {{ p.total_value|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" style="text-align:center; padding:15px; color:#999;">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

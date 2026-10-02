@@ -240,5 +240,17 @@ urlpatterns = [
 
     path('sales-return-print/<int:return_id>/', views.sales_return_print, name='sales_return_print'),
 
+    path('supplier-return/', views.create_supplier_return, name='create_supplier_return'),
+
+    path('supplier-return-list/', views.supplier_return_list, name='supplier_return_list'),
+
+    path('sales-return/approve/<int:return_id>/', views.approve_return, name='approve_return'),
+
+    path('sales-return/reject/<int:return_id>/', views.reject_return, name='reject_return'),
+
+    path('sales-return/pending/', views.pending_returns_list, name='pending_returns_list'),
+
+    path('reports/return-analytics/', views.return_analytics_report, name='return_analytics_report'),
+
     
 ]

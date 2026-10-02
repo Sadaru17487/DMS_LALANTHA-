@@ -22,11 +22,11 @@ from django.utils import timezone
 from .decorators import permission_required
 from .forms import ProductForm, VehicleLoadForm, SalesBillForm, EmployeeForm
 from .models import (
-    Category, Employee, Product, ProductPrice, SystemSettings, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
+    BadStockLog, Category, Employee, Product, ProductPrice, SystemSettings, VehicleLoad, WarehouseStock, Vehicle, VehicleStock,
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, PurchasePayment,
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession,
-    SalesReturn, SalesReturnItem, SalesReturnExchangeItem
+    SalesReturn, SalesReturnItem, SalesReturnExchangeItem, SupplierReturn, SupplierReturnItem
 )
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -46,6 +46,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
 from .models import Product, ProductPrice
+from datetime import timedelta
 import logging
 logger = logging.getLogger(__name__)
 
@@ -7375,6 +7376,21 @@ def create_sales_return(request):
                         logger.info(f"BAD RETURN: {qty} {product.name} NOT added back")
                     
                     return_value += total
+
+                if return_type == 'GOOD':
+                    vehicle_stock, _ = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
+                    vehicle_stock.quantity += qty
+                    vehicle_stock.save()
+                else:
+                    # BAD RETURN: log the loss
+                    BadStockLog.objects.create(
+                        return_doc=return_doc,
+                        product=product,
+                        quantity=qty,
+                        cost_value=product.cost_price * qty,
+                        reason=return_reason or 'DAMAGED',
+                    )
+                    logger.info(f"BAD STOCK LOG: {qty} {product.name} = Rs {product.cost_price * qty}")
                 
                 # ===== PROCESS EXCHANGE ITEMS =====
                 exchange_value = Decimal('0')
@@ -7421,6 +7437,23 @@ def create_sales_return(request):
                 return_doc.return_value = return_value
                 return_doc.exchange_value = exchange_value
                 return_doc.net_credit = net_credit
+
+                # ===== CHECK APPROVAL THRESHOLD =====
+                settings_obj = SystemSettings.get_settings()
+                net_credit_for_approval = return_value - exchange_value
+
+                if net_credit_for_approval > settings_obj.require_return_approval_above:
+                    return_doc.approval_status = 'PENDING'
+                    return_doc.save()
+                    logger.info(f"Return {return_doc.return_no} requires approval (amount: {net_credit_for_approval})")
+                    messages.warning(
+                        request,
+                        f'⚠️ Return {return_doc.return_no} saved but requires approval. '
+                        f'Amount (Rs {net_credit_for_approval}) exceeds Rs {settings_obj.require_return_approval_above}.'
+                    )
+                else:
+                    return_doc.approval_status = 'AUTO'
+                    return_doc.save()
                 
                 # ===== APPLY SETTLEMENT =====
                 applied_amount = Decimal('0')
@@ -7742,4 +7775,279 @@ def sales_return_print(request, return_id):
         'returned_items': return_doc.returned_items.select_related('product'),
         'exchange_items': return_doc.exchange_items.select_related('product'),
     }
-    return render(request, 'core/sales_return_print.html', context)   
+    return render(request, 'core/sales_return_print.html', context)  
+
+
+@login_required
+@permission_required('approve_expense')
+def approve_return(request, return_id):
+    """Approve a pending return."""
+    return_doc = get_object_or_404(SalesReturn, id=return_id)
+    if return_doc.approval_status != 'PENDING':
+        messages.error(request, 'This return is not pending approval.')
+        return redirect('pending_returns_list')
+    
+    if request.method == 'POST':
+        return_doc.approval_status = 'APPROVED'
+        return_doc.approved_by = request.user
+        return_doc.approved_at = timezone.now()
+        return_doc.save()
+        messages.success(request, f'✅ Return {return_doc.return_no} approved.')
+        return redirect('pending_returns_list')
+    return redirect('pending_returns_list')
+
+
+@login_required
+@permission_required('approve_expense')
+def reject_return(request, return_id):
+    """Reject a pending return."""
+    return_doc = get_object_or_404(SalesReturn, id=return_id)
+    if return_doc.approval_status != 'PENDING':
+        messages.error(request, 'This return is not pending approval.')
+        return redirect('pending_returns_list')
+    
+    if request.method == 'POST':
+        reason = request.POST.get('rejection_reason', '')
+        return_doc.approval_status = 'REJECTED'
+        return_doc.approved_by = request.user
+        return_doc.approved_at = timezone.now()
+        return_doc.rejection_reason = reason
+        return_doc.save()
+        messages.warning(request, f'Return {return_doc.return_no} rejected.')
+        return redirect('pending_returns_list')
+    return redirect('pending_returns_list')
+
+
+@login_required
+@permission_required('view_sales_list')
+def pending_returns_list(request):
+    """List all returns pending approval."""
+    returns = SalesReturn.objects.filter(
+        approval_status='PENDING'
+    ).select_related('vehicle', 'rep', 'customer').order_by('-created_at')
+    
+    context = {
+        'returns': returns,
+        'total_count': returns.count(),
+    }
+    return render(request, 'core/pending_returns_list.html', context)
+
+
+def generate_supplier_return_no():
+    year = date.today().year
+    last = SupplierReturn.objects.filter(return_no__startswith=f'SRET-{year}-').order_by('-return_no').first()
+    if last:
+        try:
+            new_num = int(last.return_no.split('-')[-1]) + 1
+        except:
+            new_num = 1
+    else:
+        new_num = 1
+    return f'SRET-{year}-{new_num:05d}'
+
+
+@login_required
+@permission_required('add_purchase')
+def create_supplier_return(request):
+    """Return stock back to supplier from warehouse."""
+    MAX_ITEMS = 20
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                supplier_id = request.POST.get('supplier')
+                date_str = request.POST.get('return_date', '')
+                reason = request.POST.get('reason', '')
+                notes = request.POST.get('notes', '')
+                original_purchase_id = request.POST.get('original_purchase', '')
+                
+                if not supplier_id:
+                    messages.error(request, 'Supplier is required.')
+                    return redirect('/supplier-return/')
+                
+                supplier = get_object_or_404(Supplier, id=supplier_id)
+                
+                return_date = date.today()
+                if date_str:
+                    try:
+                        return_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                
+                original_purchase = None
+                if original_purchase_id and original_purchase_id.isdigit():
+                    try:
+                        original_purchase = Purchase.objects.get(id=original_purchase_id)
+                    except Purchase.DoesNotExist:
+                        pass
+                
+                return_doc = SupplierReturn.objects.create(
+                    return_no=generate_supplier_return_no(),
+                    date=return_date,
+                    supplier=supplier,
+                    reason=reason,
+                    notes=notes,
+                    original_purchase=original_purchase,
+                    created_by=request.user,
+                )
+                
+                total_value = Decimal('0')
+                for i in range(1, MAX_ITEMS + 1):
+                    product_id = request.POST.get(f'product_{i}')
+                    qty_str = request.POST.get(f'qty_{i}', '0')
+                    rate_str = request.POST.get(f'rate_{i}', '0')
+                    
+                    if not product_id or not qty_str or qty_str == '0':
+                        continue
+                    
+                    try:
+                        product = Product.objects.get(id=product_id)
+                        qty = Decimal(qty_str)
+                        rate = Decimal(rate_str or '0')
+                    except Exception:
+                        continue
+                    
+                    total = qty * rate
+                    
+                    SupplierReturnItem.objects.create(
+                        return_doc=return_doc,
+                        product=product,
+                        quantity=qty,
+                        rate=rate,
+                        total=total,
+                    )
+                    
+                    # Deduct from warehouse stock
+                    warehouse_stock = WarehouseStock.objects.filter(product=product).first()
+                    if warehouse_stock:
+                        warehouse_stock.quantity -= qty
+                        warehouse_stock.save()
+                        logger.info(f"Supplier Return: -{qty} {product.name} from warehouse")
+                    
+                    total_value += total
+                
+                return_doc.total_value = total_value
+                return_doc.save()
+                
+                messages.success(request, f'✅ Supplier Return {return_doc.return_no} saved. Total: Rs {total_value}')
+                return redirect('/supplier-return-list/')
+        
+        except Exception as e:
+            import traceback
+            logger.error(f"Supplier return error: {e}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f'Error: {str(e)}')
+            return redirect('/supplier-return/')
+    
+    suppliers = Supplier.objects.filter(is_active=True)
+    products = Product.objects.filter(is_active=True)
+    
+    stock_dict = {s.product_id: s.quantity for s in WarehouseStock.objects.all()}
+    product_list = [{
+        'id': p.id, 'name': p.name, 'code': p.code,
+        'cost_price': float(p.cost_price or 0),
+        'stock': float(stock_dict.get(p.id, 0)),
+    } for p in products]
+    
+    context = {
+        'suppliers': suppliers,
+        'products': product_list,
+        'today': date.today(),
+        'next_return_no': generate_supplier_return_no(),
+    }
+    return render(request, 'core/supplier_return.html', context)
+
+
+@login_required
+@permission_required('view_purchases')
+def supplier_return_list(request):
+    """List all supplier returns."""
+    returns = SupplierReturn.objects.all().select_related('supplier').order_by('-date', '-created_at')
+    
+    search = request.GET.get('search', '')
+    if search:
+        returns = returns.filter(Q(return_no__icontains=search) | Q(supplier__name__icontains=search))
+    
+    total_count = returns.count()
+    total_value = returns.aggregate(t=Sum('total_value'))['t'] or Decimal('0')
+    
+    context = {
+        'returns': returns,
+        'search': search,
+        'total_count': total_count,
+        'total_value': total_value,
+        'today': date.today(),
+    }
+    return render(request, 'core/supplier_return_list.html', context)
+
+@login_required
+@permission_required('view_reports')
+def return_analytics_report(request):
+    """Analytics on return reasons and trends."""
+    today = date.today()
+    start_date = request.GET.get('start_date', (today - timedelta(days=90)).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    
+    try:
+        start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_obj = today - timedelta(days=90)
+        end_obj = today
+    
+    returns = SalesReturn.objects.filter(date__gte=start_obj, date__lte=end_obj)
+    
+    # Reason breakdown
+    reason_data = returns.values('return_reason').annotate(
+        count=Count('id'),
+        value=Sum('return_value')
+    ).order_by('-count')
+    
+    # Monthly trend
+    monthly_data = {}
+    for r in returns:
+        key = r.date.strftime('%Y-%m')
+        if key not in monthly_data:
+            monthly_data[key] = {'good': 0, 'bad': 0, 'value': Decimal('0')}
+        if r.return_type == 'GOOD':
+            monthly_data[key]['good'] += 1
+        else:
+            monthly_data[key]['bad'] += 1
+        monthly_data[key]['value'] += r.return_value
+    
+    # Product-wise top returns
+    product_returns = SalesReturnItem.objects.filter(
+        return_doc__date__gte=start_obj,
+        return_doc__date__lte=end_obj
+    ).values('product__name').annotate(
+        total_qty=Sum('quantity'),
+        total_value=Sum('total')
+    ).order_by('-total_value')[:10]
+    
+    # Bad stock loss total
+    total_bad_loss = BadStockLog.objects.filter(
+        return_doc__date__gte=start_obj,
+        return_doc__date__lte=end_obj
+    ).aggregate(t=Sum('cost_value'))['t'] or Decimal('0')
+    
+    # Good vs Bad counts
+    total_returns = returns.count()
+    good_count = returns.filter(return_type='GOOD').count()
+    bad_count = returns.filter(return_type='BAD').count()
+    total_value = returns.aggregate(t=Sum('return_value'))['t'] or Decimal('0')
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'reason_data': reason_data,
+        'monthly_data': sorted(monthly_data.items()),
+        'product_returns': product_returns,
+        'total_bad_loss': total_bad_loss,
+        'total_returns': total_returns,
+        'good_count': good_count,
+        'bad_count': bad_count,
+        'total_value': total_value,
+        'today': today,
+    }
+    return render(request, 'core/return_analytics_report.html', context)
+

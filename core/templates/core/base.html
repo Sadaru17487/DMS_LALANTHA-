@@ -209,6 +209,12 @@
             <i class="fas fa-list"></i> Return List
         </a>
         {% endif %}
+
+        {% if request.user.profile|has_perm:'approve_expense' %}
+        <a href="/sales-return/pending/" class="{% if 'pending' in request.path %}active{% endif %}">
+            <i class="fas fa-clock"></i> Pending Approvals
+        </a>
+        {% endif %}
         
         {% if request.user.profile|has_perm:'view_customers' %}
         <a href="/customers/" class="{% if 'customer' in request.path %}active{% endif %}">
@@ -296,12 +302,19 @@
             <i class="fas fa-plus-circle"></i> Add Purchase
         </a>
         {% endif %}
+
+        {% if request.user.profile|has_perm:'add_purchase' %}
+        <a href="/supplier-return/" class="{% if 'supplier-return' in request.path and 'list' not in request.path %}active{% endif %}">
+            <i class="fas fa-undo-alt"></i> Supplier Return
+        </a>
+        {% endif %}
         
         {% if request.user.profile|has_perm:'view_suppliers' %}
         <a href="/suppliers/" class="{% if 'supplier' in request.path %}active{% endif %}">
             <i class="fas fa-building"></i> Suppliers
         </a>
         {% endif %}
+
         
         <!-- ===== FINANCIAL ===== -->
         {% if request.user.profile|has_perm:'view_expenses' %}
@@ -325,6 +338,12 @@
         {% if request.user.profile|has_perm:'view_reports' %}
         <a href="/reports/sales-return/" class="{% if 'sales-return' in request.path and 'detail' not in request.path and 'list' not in request.path %}active{% endif %}">
             <i class="fas fa-undo-alt"></i> Sales Return Report
+        </a>
+        {% endif %}
+
+        {% if request.user.profile|has_perm:'view_reports' %}
+        <a href="/reports/return-analytics/" class="{% if 'return-analytics' in request.path %}active{% endif %}">
+            <i class="fas fa-chart-line"></i> Return Analytics
         </a>
         {% endif %}
         

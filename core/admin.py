@@ -7,6 +7,7 @@ from .models import Customer
 from .models import Expense
 from .models import Vehicle
 from .models import StockTransfer
+from .models import SystemSettings
 
 admin.site.register(Product)
 admin.site.register(WarehouseStock)
@@ -30,5 +31,5 @@ admin.site.register(Cheque)
 admin.site.register(Customer)
 admin.site.register(Expense)
 admin.site.register(StockTransfer)
-
+admin.site.register(SystemSettings)
 
