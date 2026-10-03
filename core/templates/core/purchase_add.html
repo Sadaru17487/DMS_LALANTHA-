@@ -272,27 +272,15 @@
             const product = products[productId];
             
             if (!isFoc) {
-                // ===== REGULAR ITEM: Auto-fill from product =====
-                if (costInput) costInput.value = product.cost;
-                if (wholesaleInput) wholesaleInput.value = product.wholesale;
-            } else {
-                // ===== FOC ITEM: Keep cost/wholesale at 0 =====
-                // Cost and wholesale remain editable, but default to 0
-                if (costInput && (costInput.value === '' || parseFloat(costInput.value) === 0)) {
-                    costInput.value = 0;
-                }
-                if (wholesaleInput && (wholesaleInput.value === '' || parseFloat(wholesaleInput.value) === 0)) {
-                    wholesaleInput.value = 0;
-                }
-            }
-        } else {
-            // No product selected - clear fields
-            if (costInput) costInput.value = 0;
-            if (wholesaleInput) wholesaleInput.value = 0;
+            // Regular item: auto-fill from product
+            if (costInput) costInput.value = product.cost;
+            if (wholesaleInput) wholesaleInput.value = product.wholesale;
         }
-        
-        updateItemTotals(index);
+        // FOC items keep whatever the user typed (or empty)
     }
+    
+    updateItemTotals(index);
+}
 
     function addItemRow(isFoc) {
         const container = document.getElementById('itemsContainer');
@@ -483,15 +471,42 @@
         }
         
         let valid = true;
+        let regularItemCount = 0;
+        let focItemCount = 0;
+
         rows.forEach(row => {
             const product = row.querySelector('.product-select').value;
             const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
             const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-            if (!product || cost <= 0 || qty <= 0) valid = false;
+            const isFoc = row.dataset.isFoc === 'true';
+            
+            if (!product || qty <= 0) {
+                // Both FOC and regular need product + qty
+                valid = false;
+                return;
+            }
+            
+            if (!isFoc) {
+                regularItemCount++;
+                // Regular items need cost price
+                if (cost <= 0) {
+                    valid = false;
+                }
+            } else {
+                focItemCount++;
+                // FOC items do NOT need cost price
+            }
         });
+
         if (!valid) {
             e.preventDefault();
-            alert('Please ensure all items have a product, cost price, and quantity.');
+            alert('Please ensure all items have a product and quantity. Regular items also need a cost price.');
+            return;
+        }
+
+        if (regularItemCount === 0 && focItemCount === 0) {
+            e.preventDefault();
+            alert('Please add at least one item (regular or FOC).');
             return;
         }
     });

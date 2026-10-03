@@ -1493,16 +1493,27 @@ def purchase_add(request):
                 continue
             
             product = get_object_or_404(Product, id=product_id)
-            
+
             if is_foc:
-                cost_price = Decimal('0')
-                retail_price = Decimal('0')
-                wholesale_price = Decimal('0')
+                
+                if cost_price is None or cost_price == '':
+                    cost_price = Decimal('0')
+                if wholesale_price is None or wholesale_price == '':
+                    wholesale_price = Decimal('0')
+                if retail_price is None or retail_price == '':
+                    retail_price = Decimal('0')
+                
                 total = Decimal('0')
+                retail_total = Decimal('0')
+                wholesale_total = Decimal('0')
+                
             else:
+                
                 if cost_price <= 0:
                     continue
                 total = quantity * cost_price
+                retail_total = quantity * retail_price
+                wholesale_total = quantity * wholesale_price
             
             PurchaseItem.objects.create(
                 purchase=purchase,
