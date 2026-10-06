@@ -4468,6 +4468,7 @@ def session_complete(request):
 
 
 @login_required
+@permission_required('pay_now')
 def pay_credit_bill(request):
     """
     Handle credit payment (part or full) with optional cheque details.
