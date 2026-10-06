@@ -64,6 +64,7 @@ urlpatterns = [
     path('purchases/', views.purchase_list, name='purchase_list'),
 
     path('purchase/add/', views.purchase_add, name='purchase_add'),
+
     path('purchase/detail/<int:purchase_id>/', views.purchase_detail, name='purchase_detail'),
 
     path('purchase/receive/<int:purchase_id>/', views.purchase_receive, name='purchase_receive'),
