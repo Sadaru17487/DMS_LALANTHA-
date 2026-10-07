@@ -4477,7 +4477,7 @@ def pay_credit_bill(request):
     import traceback
     
     if request.method != 'POST':
-        return redirect('credit_list')
+        return redirect('/credit-list/')
     
     try:
         # ===== GET FORM DATA =====
@@ -4493,24 +4493,24 @@ def pay_credit_bill(request):
         # ===== VALIDATE BILL ID =====
         if not bill_id or not bill_id.isdigit():
             messages.error(request, '❌ Invalid bill ID.')
-            return redirect('credit_list')
+            return redirect('/credit-list/')
         
         try:
             bill = SalesBill.objects.get(id=int(bill_id))
         except SalesBill.DoesNotExist:
             messages.error(request, f'❌ Bill not found.')
-            return redirect('credit_list')
+            return redirect('/credit-list/')
         
         # ===== PARSE AMOUNT SAFELY =====
         try:
             amount = Decimal(amount_str)
         except Exception:
             messages.error(request, f'❌ Invalid amount: "{amount_str}".')
-            return redirect('credit_list')
+            return redirect('/credit-list/')
         
         if amount <= 0:
             messages.error(request, '❌ Amount must be greater than zero.')
-            return redirect('credit_list')
+            return redirect('/credit-list/')
         
         # ===== CALCULATE OUTSTANDING =====
         non_credit_total = bill.payments.filter(
@@ -4522,7 +4522,7 @@ def pay_credit_bill(request):
         
         if amount > outstanding:
             messages.error(request, f'❌ Amount Rs {amount} exceeds outstanding Rs {outstanding}.')
-            return redirect('credit_list')
+            return redirect('/credit-list/')
         
         # ===== PARSE PAYMENT DATE =====
         payment_date = date.today()
@@ -4598,14 +4598,14 @@ def pay_credit_bill(request):
                 bill.paid_amount = new_paid
                 bill.save()
         
-        return redirect('credit_list')
+        return redirect('/credit-list/')
     
     except Exception as e:
         error_msg = traceback.format_exc()
         logger.error(f"pay_credit_bill FATAL: {e}")
         logger.error(error_msg)
         messages.error(request, f'❌ Payment error: {str(e)}')
-        return redirect('credit_list')
+        return redirect('/credit-list/')
 
 
 @login_required
