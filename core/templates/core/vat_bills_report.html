@@ -1,0 +1,109 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}VAT Bills Report{% endblock %}
+
+{% block content %}
+
+<style>
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
+    .summary-card { background: white; padding: 18px 20px; border-radius: 12px; text-align: center; border-top: 4px solid #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .summary-card.blue { border-top-color: #007bff; }
+    .summary-card.orange { border-top-color: #fd7e14; }
+    .summary-card.green { border-top-color: #28a745; }
+    .summary-card.purple { border-top-color: #6f42c1; }
+    .summary-card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
+    .badge-type { padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-type.sales { background: #cce5ff; color: #004085; }
+    .badge-type.purchase { background: #ffe5cc; color: #7a3a00; }
+</style>
+
+<div class="container">
+    <div class="page-title">
+        <div>
+            <h2>🧾 VAT Bills Report</h2>
+            <span class="subtitle">Sales + Purchase VAT bills</span>
+        </div>
+    </div>
+    
+    <form method="GET" class="filter-bar">
+        <div class="filter-group"><label>From</label><input type="date" name="start_date" value="{{ start_date }}"></div>
+        <div class="filter-group"><label>To</label><input type="date" name="end_date" value="{{ end_date }}"></div>
+        <div class="filter-group">
+            <label>Bill Type</label>
+            <select name="bill_type">
+                <option value="ALL" {% if bill_type == 'ALL' %}selected{% endif %}>🧾 All VAT Bills</option>
+                <option value="SALES" {% if bill_type == 'SALES' %}selected{% endif %}>🟦 Sales VAT Only</option>
+                <option value="PURCHASE" {% if bill_type == 'PURCHASE' %}selected{% endif %}>🟧 Purchase VAT Only</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Get Report</button>
+        <a href="/reports/vat-bills/" class="btn-clear">Clear</a>
+        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel" style="background:#28a745; color:white; padding:8px 20px; border-radius:8px; text-decoration:none; margin-left:auto; font-weight:600;">📥 Excel</a>
+    </form>
+    
+    <div class="summary-grid">
+        <div class="summary-card blue">
+            <div class="label">Sales VAT Bills</div>
+            <div class="value" style="color:#007bff;">{{ sales_count }}</div>
+            <div style="font-size:13px; color:#666;">Rs {{ sales_total|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card orange">
+            <div class="label">Purchase VAT Bills</div>
+            <div class="value" style="color:#fd7e14;">{{ purchase_count }}</div>
+            <div style="font-size:13px; color:#666;">Rs {{ purchase_total|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card green">
+            <div class="label">Sales VAT Tax</div>
+            <div class="value" style="color:#28a745;">Rs {{ sales_tax|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card purple">
+            <div class="label">Purchase VAT Tax</div>
+            <div class="value" style="color:#6f42c1;">Rs {{ purchase_tax|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Invoice #</th>
+                    <th>Party</th>
+                    <th>Vehicle</th>
+                    <th style="text-align:right;">Subtotal</th>
+                    <th style="text-align:right;">Tax</th>
+                    <th style="text-align:right;">Total</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in all_bills %}
+                <tr>
+                    <td>{{ b.date|date:"Y-m-d" }}</td>
+                    <td>
+                        <span class="badge-type {% if b.type == 'SALES' %}sales{% else %}purchase{% endif %}">
+                            {{ b.type_label }}
+                        </span>
+                    </td>
+                    <td><strong>{{ b.invoice }}</strong></td>
+                    <td>{{ b.party }}</td>
+                    <td>{{ b.vehicle }}</td>
+                    <td style="text-align:right;">Rs {{ b.subtotal|floatformat:2 }}</td>
+                    <td style="text-align:right;">Rs {{ b.tax|floatformat:2 }}</td>
+                    <td style="text-align:right; font-weight:600; color:#6f42c1;">Rs {{ b.total|floatformat:2 }}</td>
+                    <td>
+                        <a href="{{ b.detail_url }}" style="color:#007bff; text-decoration:none; font-weight:600;">👁️ View</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" style="text-align:center; padding:40px; color:#999;">No VAT bills found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

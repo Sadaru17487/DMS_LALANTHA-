@@ -74,6 +74,12 @@
                     <td>{{ bill.date|date:"Y-m-d" }}</td>
                     <td>{{ bill.created_at|date:"H:i:s" }}</td>
                     <td>
+                        <strong>{{ bill.invoice_no }}</strong>
+                        {% if bill.is_vat_bill %}
+                            <br><span style="background:#d4edda; color:#155724; padding:1px 8px; border-radius:10px; font-size:10px; font-weight:600;">🧾 VAT</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         <span class="badge-status {% if bill.display_status == 'COMPLETE' %}complete{% else %}credit{% endif %}">
                             {{ bill.display_status }}
                         </span>

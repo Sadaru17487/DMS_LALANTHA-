@@ -219,31 +219,41 @@
             <!-- ===== TOP ROW ===== -->
             <div class="top-row">
                 <!-- Vehicle -->
-                <div class="field-group" style="flex: 1.5;">
+                <div class="field-group" style="flex: 1.5; position:relative;">
                     <label>🚛 Delivery Vehicle *</label>
-                    <select name="vehicle" id="vehicleSelect" required>
-                        <option value="">-- Select Vehicle --</option>
-                        {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}" {% if selected_vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
-                                {{ vehicle.vehicle_number }} - {{ vehicle.driver_name }}
-                            </option>
-                        {% endfor %}
-                    </select>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <select name="vehicle" id="vehicleSelect" required>
+                            <option value="">-- Select Vehicle --</option>
+                            {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}" {% if selected_vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ vehicle.vehicle_number }} - {{ vehicle.driver_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="vehicleLockBtn" onclick="unlockVehicle()" 
+                                style="display:none; padding:8px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
+                                title="Change Vehicle">🔒</button>
+                    </div>
                 </div>
+
 
                 <!-- Rep -->
-                <div class="field-group" style="flex: 1.5;">
+                <div class="field-group" style="flex: 1.5; position:relative;">
                     <label>👤 Sales Rep</label>
-                    <select name="rep" id="repSelect">
-                        <option value="">-- Select Rep --</option>
-                        {% for rep in reps %}
-                            <option value="{{ rep.id }}" data-rep-code="{{ rep.rep_code|default:'' }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
-                                {{ rep.name }} ({{ rep.get_position_display }})
-                            </option>
-                        {% endfor %}
-                    </select>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <select name="rep" id="repSelect">
+                            <option value="">-- Select Rep --</option>
+                            {% for rep in reps %}
+                                <option value="{{ rep.id }}" data-rep-code="{{ rep.rep_code|default:'' }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ rep.name }} ({{ rep.get_position_display }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="repLockBtn" onclick="unlockRep()" 
+                                style="display:none; padding:8px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
+                                title="Change Rep">🔒</button>
+                    </div>
                 </div>
-
                 <!-- Customer Search -->
                 <div class="field-group" style="position:relative; flex: 2; min-width:250px;">
                     <label>Search Customer <span class="required" style="color:#dc3545;">*</span></label>
@@ -279,11 +289,13 @@
                     <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}">
                 </div>
 
-                <div class="field-group" style="flex: 0.5; min-width: 80px;">
-                    <label>TAX</label>
-                    <input type="text" value="0%" readonly style="background:#f0f0f0; text-align:center;">
+                <div class="field-group" style="flex: 0.8; min-width: 120px;">
+                    <label>&nbsp;</label>
+                    <label style="display:flex; align-items:center; gap:6px; padding:10px; background:#f8f9fc; border-radius:8px; border:2px solid #e0e4eb; cursor:pointer;">
+                        <input type="checkbox" name="is_vat_bill" id="isVatBill" style="width:18px; height:18px; accent-color:#28a745;">
+                        <span style="font-weight:600; font-size:13px;">🧾 VAT Bill</span>
+                    </label>
                 </div>
-            </div>
 
             <!-- ===== PRODUCT SEARCH ===== -->
             <div class="search-bar">
@@ -1587,6 +1599,80 @@
             window.history.replaceState({}, document.title, newUrl);
         }
     }
+
+    function lockVehicle() {
+        const sel = document.getElementById('vehicleSelect');
+        const btn = document.getElementById('vehicleLockBtn');
+        if (sel.value) {
+            sel.style.background = '#f0f4f9';
+            sel.style.color = '#666';
+            sel.dataset.locked = 'true';
+            btn.style.display = 'inline-block';
+            // Prevent changes via keydown
+            sel.addEventListener('mousedown', preventChange);
+            sel.addEventListener('keydown', preventChange);
+            sel.addEventListener('focus', function() { this.blur(); });
+        }
+    }
+
+    function preventChange(e) {
+        if (this.dataset.locked === 'true') {
+            e.preventDefault();
+        }
+    }
+
+    function unlockVehicle() {
+        const sel = document.getElementById('vehicleSelect');
+        const btn = document.getElementById('vehicleLockBtn');
+        sel.disabled = false;
+        sel.style.background = '#fafbfc';
+        sel.style.cursor = 'pointer';
+        btn.style.display = 'none';
+        localStorage.removeItem('locked_vehicle_id');
+    }
+
+    function lockRep() {
+        const sel = document.getElementById('repSelect');
+        const btn = document.getElementById('repLockBtn');
+        if (sel.value) {
+            sel.disabled = true;
+            sel.style.background = '#f0f4f9';
+            sel.style.cursor = 'not-allowed';
+            btn.style.display = 'inline-block';
+            localStorage.setItem('locked_rep_id', sel.value);
+        }
+    }
+
+    function unlockRep() {
+        const sel = document.getElementById('repSelect');
+        const btn = document.getElementById('repLockBtn');
+        sel.disabled = false;
+        sel.style.background = '#fafbfc';
+        sel.style.cursor = 'pointer';
+        btn.style.display = 'none';
+        localStorage.removeItem('locked_rep_id');
+    }
+
+    // Auto-lock when user selects
+    document.getElementById('vehicleSelect').addEventListener('change', function() {
+        if (this.value) lockVehicle();
+    });
+
+    document.getElementById('repSelect').addEventListener('change', function() {
+        if (this.value) lockRep();
+    });
+
+    // Restore locks on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        // Vehicle
+        if (document.getElementById('vehicleSelect').value) {
+            lockVehicle();
+        }
+        // Rep
+        if (document.getElementById('repSelect').value) {
+            lockRep();
+        }
+    });
 
     // ============================================================
     // FORM SUBMIT HANDLER

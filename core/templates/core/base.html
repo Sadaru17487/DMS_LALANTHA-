@@ -194,7 +194,13 @@
             <i class="fas fa-hand-holding-usd"></i> Credit List
         </a>
         {% endif %}
-        
+
+        {% if request.user.profile|has_perm:'take_bills' or request.user.profile|has_perm:'view_credit_list' %}
+        <a href="/today-collections/" class="{% if 'today-collections' in request.path %}active{% endif %}">
+            <i class="fas fa-clipboard-check"></i> Today's Collections
+        </a>
+        {% endif %}
+                
         {% if request.user.profile|has_perm:'view_cheque_list' %}
         <a href="/cheques/" class="{% if 'cheque' in request.path %}active{% endif %}">
             <i class="fas fa-money-check-alt"></i> Cheque List

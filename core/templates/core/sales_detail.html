@@ -44,6 +44,13 @@
         </div>
         <a href="/sales-list/" class="btn" style="background:#6c757d;">← Back to List</a>
     </div>
+    <div><strong>VAT Bill:</strong><br>
+        {% if bill.is_vat_bill %}
+            <span style="color:#28a745; font-weight:600;">🧾 YES</span>
+        {% else %}
+            <span style="color:#999;">No</span>
+        {% endif %}
+    </div>
 
     <!-- Bill Info -->
     <div class="card">

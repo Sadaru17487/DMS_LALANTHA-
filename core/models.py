@@ -245,6 +245,7 @@ class SalesBill(models.Model):
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_vat_bill = models.BooleanField(default=False, help_text="Mark if this is a VAT bill")
 
     def __str__(self):
         return f"{self.invoice_no} - {self.shop_name} ({self.vehicle.vehicle_number})"
@@ -351,6 +352,13 @@ class Payment(models.Model):
     reversed_at = models.DateTimeField(blank=True, null=True)
     reversed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payments')
     reversed_cheque = models.ForeignKey('Cheque', on_delete=models.SET_NULL, null=True, blank=True)
+    collected_by_vehicle = models.ForeignKey(
+        'Vehicle', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='payments_collected'
+    )
 
 
 class UserProfile(models.Model):

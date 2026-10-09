@@ -2885,6 +2885,7 @@ def create_sales_bill(request):
                             bill.date = date.today()
                     else:
                         bill.date = date.today()
+                        bill.is_vat_bill = request.POST.get('is_vat_bill') == 'on'
                     
                     # Set rep if provided
                     rep_id = request.POST.get('rep')
@@ -4540,6 +4541,22 @@ def pay_credit_bill(request):
                 amount=amount,
             )
             logger.info(f"Payment created: {payment_method} Rs {amount} for {bill.invoice_no}")
+
+            # Get vehicle
+            vehicle_id = request.POST.get('collected_by_vehicle', '')
+            collected_vehicle = None
+            if vehicle_id and vehicle_id.isdigit():
+                try:
+                    collected_vehicle = Vehicle.objects.get(id=int(vehicle_id))
+                except Vehicle.DoesNotExist:
+                    pass
+
+            Payment.objects.create(
+                bill=bill,
+                type=payment_method,
+                amount=amount,
+                collected_by_vehicle=collected_vehicle,  # ✅ Add this
+            )
             
             # ===== IF CHEQUE, CREATE CHEQUE RECORD =====
             if payment_method == 'Cheque':
@@ -8129,4 +8146,184 @@ def return_analytics_report(request):
         'today': today,
     }
     return render(request, 'core/return_analytics_report.html', context)
+
+@login_required
+@permission_required('view_credit_list')
+def today_collections(request):
+    """Show today's collection session - bills taken and their status."""
+    today = date.today()
+    selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
+    selected_rep = request.GET.get('rep', '')
+    
+    try:
+        filter_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+    except ValueError:
+        filter_date = today
+    
+    # Get collections for this date
+    collections = CreditCollection.objects.filter(
+        date_taken__date=filter_date
+    ).select_related('sales_bill', 'sales_bill__vehicle', 'rep', 'sales_bill__customer')
+    
+    if selected_rep and selected_rep.isdigit():
+        collections = collections.filter(rep_id=int(selected_rep))
+    
+    # Split by status
+    taken = collections.filter(status='TAKEN')
+    collected = collections.filter(status='COLLECTED')
+    not_collected = collections.filter(status='NOT_COLLECTED')
+    
+    total_amount = collections.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
+    taken_amount = taken.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
+    collected_amount = collected.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
+    
+    reps = Employee.objects.filter(position='Rep', is_active=True)
+    vehicles = Vehicle.objects.filter(is_active=True)
+    
+    context = {
+        'collections': collections,
+        'taken': taken,
+        'collected': collected,
+        'not_collected': not_collected,
+        'total_amount': total_amount,
+        'taken_amount': taken_amount,
+        'collected_amount': collected_amount,
+        'total_count': collections.count(),
+        'taken_count': taken.count(),
+        'collected_count': collected.count(),
+        'not_collected_count': not_collected.count(),
+        'filter_date': filter_date,
+        'selected_date': selected_date,
+        'selected_rep': selected_rep,
+        'reps': reps,
+        'vehicles': vehicles,
+        'today': today,
+    }
+    return render(request, 'core/today_collections.html', context)
+
+@login_required
+@permission_required('view_reports')
+def vat_bills_report(request):
+    """Combined VAT Bills Report - Sales + Purchases."""
+    today = date.today()
+    start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
+    end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    bill_type = request.GET.get('bill_type', 'ALL')  # ALL / SALES / PURCHASE
+    
+    try:
+        start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+    except ValueError:
+        start_obj = today.replace(day=1)
+        end_obj = today
+    
+    # Sales VAT bills
+    sales_vat = []
+    if bill_type in ['ALL', 'SALES']:
+        sales_bills = SalesBill.objects.filter(
+            is_vat_bill=True,
+            date__gte=start_obj,
+            date__lte=end_obj
+        ).select_related('vehicle', 'rep', 'customer').order_by('-date')
+        for b in sales_bills:
+            sales_vat.append({
+                'type': 'SALES',
+                'type_label': '🟦 Sales',
+                'date': b.date,
+                'invoice': b.invoice_no,
+                'party': b.shop_name or b.shop_code or 'N/A',
+                'vehicle': b.vehicle.vehicle_number if b.vehicle else '-',
+                'subtotal': b.subtotal,
+                'tax': b.tax_amount if hasattr(b, 'tax_amount') else Decimal('0'),
+                'total': b.net_total,
+                'bill_id': b.id,
+                'detail_url': f'/sales-detail/{b.id}/',
+            })
+    
+    # Purchase VAT bills
+    purchase_vat = []
+    if bill_type in ['ALL', 'PURCHASE']:
+        purchase_bills = Purchase.objects.filter(
+            is_vat_bill=True,
+            purchase_date__gte=start_obj,
+            purchase_date__lte=end_obj
+        ).select_related('supplier').order_by('-purchase_date')
+        for p in purchase_bills:
+            purchase_vat.append({
+                'type': 'PURCHASE',
+                'type_label': '🟧 Purchase',
+                'date': p.purchase_date,
+                'invoice': p.invoice_no,
+                'party': p.supplier.name,
+                'vehicle': '-',
+                'subtotal': p.subtotal,
+                'tax': p.tax_amount,
+                'total': p.total,
+                'bill_id': p.id,
+                'detail_url': f'/purchase/detail/{p.id}/',
+            })
+    
+    # Combine and sort by date
+    all_bills = sales_vat + purchase_vat
+    all_bills.sort(key=lambda x: x['date'], reverse=True)
+    
+    # Summary
+    sales_count = len(sales_vat)
+    purchase_count = len(purchase_vat)
+    sales_total = sum(b['total'] for b in sales_vat) if sales_vat else Decimal('0')
+    purchase_total = sum(b['total'] for b in purchase_vat) if purchase_vat else Decimal('0')
+    sales_tax = sum(b['tax'] for b in sales_vat) if sales_vat else Decimal('0')
+    purchase_tax = sum(b['tax'] for b in purchase_vat) if purchase_vat else Decimal('0')
+    
+    # Excel export
+    if request.GET.get('export') == 'xlsx':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "VAT Bills Report"
+        ws.append(['VAT Bills Report'])
+        ws.append([f'From: {start_date}', f'To: {end_date}', f'Type: {bill_type}'])
+        ws.append([])
+        headers = ['Date', 'Type', 'Invoice #', 'Party', 'Vehicle', 'Subtotal', 'Tax', 'Total']
+        ws.append(headers)
+        for col in range(1, 9):
+            ws.cell(row=4, column=col).font = Font(bold=True)
+        for b in all_bills:
+            ws.append([
+                b['date'].strftime('%Y-%m-%d'),
+                b['type'],
+                b['invoice'],
+                b['party'],
+                b['vehicle'],
+                float(b['subtotal']),
+                float(b['tax']),
+                float(b['total']),
+            ])
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="VAT_Bills_Report_{start_date}_to_{end_date}.xlsx"'
+        wb.save(response)
+        return response
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'start_date_obj': start_obj,
+        'end_date_obj': end_obj,
+        'bill_type': bill_type,
+        'all_bills': all_bills,
+        'sales_count': sales_count,
+        'purchase_count': purchase_count,
+        'sales_total': sales_total,
+        'purchase_total': purchase_total,
+        'sales_tax': sales_tax,
+        'purchase_tax': purchase_tax,
+        'today': today,
+    }
+    return render(request, 'core/vat_bills_report.html', context)
 

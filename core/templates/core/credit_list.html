@@ -294,7 +294,7 @@
                             <a href="/sales-detail/{{ item.bill.id }}/" class="view" title="View">👁️</a>
                             
                             <!-- Pay Now -->
-                            <button type="button" class="pay" title="Pay Now" onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }})">💰</button>
+                           <button type="button" class="pay" onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }}, {{ item.bill.vehicle.id|default:'null' }})">💰</button>
                             
                             <!-- Return (only for TAKEN) -->
                             {% if item.collection.status == 'TAKEN' %}
@@ -436,6 +436,16 @@
                     <option value="Cheque">Cheque</option>
                     <option value="Bank Transfer">Bank Transfer</option>
                     <option value="Online">Online Payment</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Collecting Vehicle <span class="required">*</span></label>
+                <select name="collected_by_vehicle" id="payVehicle" required>
+                    <option value="">-- Select Vehicle --</option>
+                    {% for v in vehicles %}
+                        <option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>
+                    {% endfor %}
                 </select>
             </div>
             
@@ -588,6 +598,13 @@
         document.getElementById('payChequeDate').value = '';
         document.getElementById('payChequeBank').value = '';
         document.getElementById('payNowModal').classList.add('show');
+
+        if (originalVehicleId) {
+            document.getElementById('payVehicle').value = originalVehicleId;
+        }
+        
+        document.getElementById('payNowModal').classList.add('show');
+
     }
 
     function closePayNowModal() {

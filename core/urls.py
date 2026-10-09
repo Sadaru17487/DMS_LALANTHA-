@@ -253,5 +253,9 @@ urlpatterns = [
 
     path('reports/return-analytics/', views.return_analytics_report, name='return_analytics_report'),
 
+    path('today-collections/', views.today_collections, name='today_collections'),
+
+    path('reports/vat-bills/', views.vat_bills_report, name='vat_bills_report'),
+
     
 ]

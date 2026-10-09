@@ -1,0 +1,213 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Today's Collections - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+
+<style>
+    .collection-header {
+        background: linear-gradient(135deg, #1a2634, #2c3e50);
+        color: white;
+        padding: 20px 25px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .collection-header h2 { margin: 0; font-size: 24px; }
+    .summary-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-card {
+        background: white;
+        padding: 15px 20px;
+        border-radius: 12px;
+        text-align: center;
+        border-top: 4px solid #ccc;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .summary-card.taken { border-top-color: #007bff; }
+    .summary-card.collected { border-top-color: #28a745; }
+    .summary-card.not-collected { border-top-color: #dc3545; }
+    .summary-card.total { border-top-color: #6f42c1; }
+    .summary-card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-card .value { font-size: 24px; font-weight: 700; margin-top: 5px; }
+    .summary-card.taken .value { color: #007bff; }
+    .summary-card.collected .value { color: #28a745; }
+    .summary-card.not-collected .value { color: #dc3545; }
+    .summary-card.total .value { color: #6f42c1; }
+    
+    .action-buttons-cell { display: flex; gap: 5px; }
+    .action-buttons-cell button, .action-buttons-cell a {
+        padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; color: white; text-decoration: none;
+    }
+    .btn-mark-collected { background: #28a745; }
+    .btn-mark-not-collected { background: #dc3545; }
+    .btn-pay { background: #007bff; }
+</style>
+
+<div class="collection-header">
+    <div>
+        <h2>📤 Today's Collection Session</h2>
+        <div style="color:#8aa3c9; font-size:14px;">Manage bills taken for collection today</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.1); padding:8px 18px; border-radius:20px;">
+        {{ filter_date|date:"F j, Y" }}
+    </div>
+</div>
+
+<form method="GET" class="filter-bar">
+    <div class="filter-group">
+        <label>Date</label>
+        <input type="date" name="date" value="{{ selected_date }}">
+    </div>
+    <div class="filter-group">
+        <label>Rep</label>
+        <select name="rep">
+            <option value="">All Reps</option>
+            {% for r in reps %}
+                <option value="{{ r.id }}" {% if selected_rep == r.id|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn-filter">🔍 Filter</button>
+    <a href="/today-collections/" class="btn-clear">Today</a>
+</form>
+
+<div class="summary-row">
+    <div class="summary-card total">
+        <div class="label">Total Bills</div>
+        <div class="value">{{ total_count }}</div>
+        <div style="font-size:13px; color:#666;">Rs {{ total_amount|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card taken">
+        <div class="label">⏳ Taken</div>
+        <div class="value">{{ taken_count }}</div>
+        <div style="font-size:13px; color:#666;">Rs {{ taken_amount|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card collected">
+        <div class="label">✅ Collected</div>
+        <div class="value">{{ collected_count }}</div>
+        <div style="font-size:13px; color:#666;">Rs {{ collected_amount|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card not-collected">
+        <div class="label">❌ Not Collected</div>
+        <div class="value">{{ not_collected_count }}</div>
+    </div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Rep</th>
+                <th style="text-align:right;">Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in collections %}
+            <tr>
+                <td><strong>{{ c.sales_bill.invoice_no }}</strong></td>
+                <td>{{ c.sales_bill.shop_name|default:"-" }}</td>
+                <td>{{ c.rep.name|default:"-" }}</td>
+                <td style="text-align:right; font-weight:600;">Rs {{ c.sales_bill.net_total|floatformat:2 }}</td>
+                <td>
+                    {% if c.status == 'TAKEN' %}
+                        <span class="badge-status" style="background:#cce5ff; color:#004085;">⏳ TAKEN</span>
+                    {% elif c.status == 'COLLECTED' %}
+                        <span class="badge-status" style="background:#d4edda; color:#155724;">✅ COLLECTED</span>
+                    {% elif c.status == 'NOT_COLLECTED' %}
+                        <span class="badge-status" style="background:#f8d7da; color:#721c24;">❌ NOT COLLECTED</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-buttons-cell">
+                        {% if c.status == 'TAKEN' %}
+                            <button onclick="markCollected({{ c.id }})" class="btn-mark-collected">✅ Collected</button>
+                            <button onclick="openNotCollectedModal({{ c.id }}, '{{ c.sales_bill.invoice_no }}')" class="btn-mark-not-collected">❌ Not</button>
+                            <button onclick="openPayNowFromCollection({{ c.sales_bill.id }}, '{{ c.sales_bill.invoice_no }}', {{ c.sales_bill.net_total }}, {{ c.sales_bill.vehicle.id|default:'null' }})" class="btn-pay">💰 Pay</button>
+                        {% endif %}
+                        <a href="/sales-detail/{{ c.sales_bill.id }}/" style="background:#6c757d; padding:5px 10px; border-radius:6px; color:white; text-decoration:none; font-size:12px;">👁️ View</a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center; padding:40px; color:#999;">
+                <div style="font-size:48px; margin-bottom:10px;">📭</div>
+                No collection bills for this date.
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Not Collected Modal -->
+<div class="modal-overlay" id="notCollectedModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:16px; max-width:450px; width:90%;">
+        <h3>❌ Mark as Not Collected</h3>
+        <p>Invoice: <strong id="ncInvoiceNo"></strong></p>
+        <form method="POST" id="ncForm" action="/credit-collection/return/">
+            {% csrf_token %}
+            <input type="hidden" name="collection_id" id="ncCollectionId">
+            <input type="hidden" name="action" value="not_collected">
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600;">Reason *</label>
+                <select name="reason" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                    <option value="">-- Select Reason --</option>
+                    <option value="CUSTOMER_NOT_AVAILABLE">Customer Not Available</option>
+                    <option value="REFUSED_TO_PAY">Refused to Pay</option>
+                    <option value="INSUFFICIENT_FUNDS">Insufficient Funds</option>
+                    <option value="CUSTOMER_REQUESTED_DELAY">Customer Requested Delay</option>
+                    <option value="OTHER">Other</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="closeNotCollectedModal()" style="flex:1; padding:10px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" style="flex:1; padding:10px; background:#dc3545; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Confirm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function markCollected(collectionId) {
+    if (!confirm('Mark this bill as collected?')) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/credit-collection/return/';
+    form.innerHTML = `
+        {% csrf_token %}
+        <input type="hidden" name="collection_id" value="${collectionId}">
+        <input type="hidden" name="action" value="collected">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function openNotCollectedModal(collectionId, invoiceNo) {
+    document.getElementById('ncCollectionId').value = collectionId;
+    document.getElementById('ncInvoiceNo').textContent = invoiceNo;
+    document.getElementById('notCollectedModal').style.display = 'flex';
+}
+
+function closeNotCollectedModal() {
+    document.getElementById('notCollectedModal').style.display = 'none';
+}
+
+function openPayNowFromCollection(billId, invoiceNo, amount, vehicleId) {
+    // Redirect to credit list with pay modal open
+    window.location.href = `/credit-list/?pay_bill=${billId}`;
+}
+</script>
+
+{% endblock %}
