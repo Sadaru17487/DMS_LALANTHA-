@@ -47,6 +47,7 @@ from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
 from .models import Product, ProductPrice
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 import logging
 logger = logging.getLogger(__name__)
 
@@ -399,67 +400,143 @@ def credit_collection_take(request):
 @login_required
 def credit_collection_return(request):
     """
-    Handles marking a collected bill as COLLECTED or NOT_COLLECTED,
-    or returning bills back to credit list.
-    Redirects back to where the user came from (Today's Collections OR Credit List).
+    Handles:
+      - action='collected'      → records payment, updates CreditCollection
+      - action='not_collected'  → marks reason
+    Always redirects back to Today's Collections (or Credit List).
     """
     if request.method != 'POST':
         return redirect('/credit-list/')
     
-    # ===== Determine where to redirect back to =====
+    # Where to go back to
     next_url = request.POST.get('next', '') or request.META.get('HTTP_REFERER', '')
-    if not next_url or 'today-collections' not in next_url and 'credit-list' not in next_url:
-        next_url = '/credit-list/'
+    if not next_url or ('today-collections' not in next_url and 'credit-list' not in next_url):
+        next_url = '/today-collections/'
     
-    collection_id = request.POST.get('collection_id', '').strip()
-    action = request.POST.get('action', '').strip()
+    collection_id = (request.POST.get('collection_id') or '').strip()
+    action = (request.POST.get('action') or '').strip()
     
+    # ===== VALIDATE ID =====
     if not collection_id or not collection_id.isdigit():
-        messages.error(request, '❌ Invalid collection ID.')
+        messages.error(request, f'❌ Invalid collection ID received: "{collection_id}"')
         return redirect(next_url)
     
     try:
-        collection = CreditCollection.objects.get(id=int(collection_id))
+        collection = CreditCollection.objects.select_related('sales_bill').get(id=int(collection_id))
     except CreditCollection.DoesNotExist:
         messages.error(request, '❌ Collection record not found.')
         return redirect(next_url)
     
-    # ===== HANDLE COLLECTED =====
-    if action == 'collected':
-        collection.status = 'COLLECTED'
-        collection.date_collected = date.today()
-        collection.collected_by = request.user
-        collection.save()
-        messages.success(request, f'✅ Bill {collection.sales_bill.invoice_no} marked as COLLECTED.')
-        return redirect(next_url)
+    bill = collection.sales_bill
     
-    # ===== HANDLE NOT COLLECTED =====
-    elif action == 'not_collected':
-        # ✅ Accept BOTH field names (frontend may send either)
+    # ================================================================
+    # NOT COLLECTED
+    # ================================================================
+    if action == 'not_collected':
         reason = (
             request.POST.get('not_collected_reason', '').strip()
             or request.POST.get('reason', '').strip()
         )
-        
         if not reason:
-            messages.error(request, '❌ Please select a reason for not collected.')
+            messages.error(request, '❌ Please select a reason.')
             return redirect(next_url)
         
         collection.status = 'NOT_COLLECTED'
         collection.not_collected_reason = reason
         collection.save()
-        messages.warning(request, f'⚠️ Bill {collection.sales_bill.invoice_no} marked as NOT COLLECTED. Reason: {reason}')
+        
+        messages.warning(request, f'⚠️ Bill {bill.invoice_no} marked as NOT COLLECTED (Reason: {reason}).')
         return redirect(next_url)
     
-    # ===== HANDLE RETURN (return bill back to credit list) =====
-    elif action == 'return':
-        collection.status = 'RETURNED'
-        collection.save()
-        messages.info(request, f'↩️ Bill {collection.sales_bill.invoice_no} returned.')
+    # ================================================================
+    # COLLECTED (with payment)
+    # ================================================================
+    elif action == 'collected':
+        # ---- Parse amount ----
+        try:
+            amount = Decimal((request.POST.get('amount') or '0').strip() or '0')
+        except Exception:
+            messages.error(request, '❌ Invalid amount.')
+            return redirect(next_url)
+        
+        if amount <= 0:
+            messages.error(request, '❌ Amount must be greater than zero.')
+            return redirect(next_url)
+        
+        payment_method = (request.POST.get('payment_method') or 'Cash').strip()
+        
+        # ---- Vehicle ----
+        collected_vehicle = None
+        v_id = (request.POST.get('collected_by_vehicle') or '').strip()
+        if v_id.isdigit():
+            try:
+                collected_vehicle = Vehicle.objects.get(id=int(v_id))
+            except Vehicle.DoesNotExist:
+                pass
+        
+        with transaction.atomic():
+            # ---- Create Payment ----
+            Payment.objects.create(
+                bill=bill,
+                type=payment_method,
+                amount=amount,
+                collected_by_vehicle=collected_vehicle,
+            )
+            
+            # ---- If Cheque, create Cheque record ----
+            if payment_method == 'Cheque':
+                cheque_no = (request.POST.get('cheque_no') or '').strip()
+                cheque_date_s = (request.POST.get('cheque_date') or '').strip()
+                bank_id = (request.POST.get('cheque_bank') or '').strip()
+                if cheque_no and cheque_date_s and bank_id.isdigit():
+                    try:
+                        cd = datetime.strptime(cheque_date_s, '%Y-%m-%d').date()
+                        bank = Bank.objects.get(id=int(bank_id))
+                        Cheque.objects.create(
+                            cheque_no=cheque_no,
+                            bank=bank,
+                            cheque_date=cd,
+                            amount=amount,
+                            sales_bill=bill,
+                            customer_name=(bill.shop_name or bill.shop_code or 'N/A')[:200],
+                            status='PENDING',
+                        )
+                    except Exception as e:
+                        logger.warning(f"Cheque create failed: {e}")
+            
+            # ---- Update CreditCollection ----
+            collection.status = 'COLLECTED'
+            collection.date_collected = date.today()
+            collection.collected_by = request.user
+            collection.collection_amount = amount
+            collection.payment_method = payment_method
+            collection.save()
+            
+            # ---- Compute outstanding ----
+            paid_total = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+            outstanding = (bill.net_total or Decimal('0')) - paid_total
+            
+            if outstanding <= Decimal('0.01'):
+                # Fully paid → clear from credit list
+                bill.status = 'COMPLETED'
+                bill.save()
+                messages.success(
+                    request,
+                    f'✅ Bill {bill.invoice_no} FULLY PAID — cleared from Credit List.'
+                )
+            else:
+                # Partial → stays in credit list
+                messages.success(
+                    request,
+                    f'✅ Part payment Rs {amount:.2f} recorded for {bill.invoice_no}. '
+                    f'Remaining: Rs {outstanding:.2f} — bill stays in Credit List.'
+                )
+        
         return redirect(next_url)
     
+    # ================================================================
     else:
-        messages.error(request, f'❌ Unknown action: {action}')
+        messages.error(request, f'❌ Unknown action: "{action}"')
         return redirect(next_url)
 
 
@@ -8250,6 +8327,7 @@ def today_collections(request):
             'reps': reps,
             'vehicles': vehicles,
             'today': today,
+            'banks': Bank.objects.all(),
         }
         return render(request, 'core/today_collections.html', context)
     

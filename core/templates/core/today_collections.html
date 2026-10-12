@@ -31,13 +31,14 @@
     .summary-card.total .value { color: #6f42c1; }
     .action-buttons-cell { display: flex; gap: 5px; flex-wrap: wrap; }
     .action-buttons-cell button, .action-buttons-cell a {
-        padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+        padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer;
         font-weight: 600; font-size: 12px; color: white; text-decoration: none;
         display: inline-block;
     }
     .btn-mark-collected { background: #28a745; }
+    .btn-mark-collected:hover { background: #218838; }
     .btn-mark-not-collected { background: #dc3545; }
-    .btn-pay { background: #007bff; }
+    .btn-mark-not-collected:hover { background: #c82333; }
     .btn-view { background: #6c757d; }
     .badge-status { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
     .modal-overlay {
@@ -136,11 +137,21 @@
                 <td>
                     <div class="action-buttons-cell">
                         {% if c.status == 'TAKEN' %}
-                            <button onclick="markCollected({{ c.id }})" class="btn-mark-collected">✅ Collected</button>
-                            <button onclick="openNotCollectedModal({{ c.id }}, '{{ c.sales_bill.invoice_no }}')" class="btn-mark-not-collected">❌ Not</button>
+                            <button type="button" class="btn-mark-collected"
+                                    onclick="openCollectedModal(
+                                        {{ c.id }},
+                                        '{{ c.sales_bill.invoice_no|escapejs }}',
+                                        {{ c.collection_amount|default:c.sales_bill.net_total|floatformat:2 }},
+                                        {{ c.sales_bill.vehicle.id|default:'null' }}
+                                    )">
+                                ✅ Collected
+                            </button>
+                            <button type="button" class="btn-mark-not-collected"
+                                    onclick="openNotCollectedModal({{ c.id }}, '{{ c.sales_bill.invoice_no|escapejs }}')">
+                                ❌ Not
+                            </button>
                         {% endif %}
                         {% if c.sales_bill.id %}
-                            <a href="/credit-list/?bill_id={{ c.sales_bill.id }}" class="btn-pay">💰 Pay</a>
                             <a href="/sales-detail/{{ c.sales_bill.id }}/" class="btn-view">👁️ View</a>
                         {% endif %}
                     </div>
@@ -156,22 +167,98 @@
     </table>
 </div>
 
-<!-- Not Collected Modal -->
+<!-- ========== COLLECTED (PAYMENT) MODAL ========== -->
+<div class="modal-overlay" id="collectedModal">
+    <div style="background:white; padding:30px; border-radius:16px; max-width:520px; width:90%; max-height:90vh; overflow-y:auto;">
+        <h3 style="margin-top:0;">💰 Collect Payment</h3>
+        <p style="margin:5px 0;">Invoice: <strong id="colInvoiceNo"></strong></p>
+        <p style="margin:5px 0;">Expected: <strong style="color:#dc3545;" id="colOutstanding"></strong></p>
+
+        <form method="POST" id="colForm" action="/credit-collection/return/" style="margin-top:15px;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="/today-collections/">
+            <input type="hidden" name="collection_id" id="colCollectionId">
+            <input type="hidden" name="action" value="collected">
+
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600; font-size:13px;">Collecting Vehicle *</label>
+                <select name="collected_by_vehicle" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                    <option value="">-- Select Vehicle --</option>
+                    {% for v in vehicles %}
+                        <option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600; font-size:13px;">Amount Collected (Rs) *</label>
+                <input type="number" step="0.01" name="amount" id="colAmount" required
+                       style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                <small style="color:#888; font-size:12px;">Enter full amount to clear bill, or partial amount to keep it in Credit List.</small>
+            </div>
+
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600; font-size:13px;">Payment Method *</label>
+                <select name="payment_method" id="colMethod" required onchange="toggleColCheque()"
+                        style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                    <option value="Cash">💵 Cash</option>
+                    <option value="Cheque">🏦 Cheque</option>
+                    <option value="Online">🌐 Online</option>
+                    <option value="Credit">📋 Credit</option>
+                </select>
+            </div>
+
+            <div id="colChequeFields" style="display:none; padding:15px; background:#f8f9fc; border-radius:8px; margin-bottom:15px; border:1px solid #e0e4eb;">
+                <div style="margin-bottom:10px;">
+                    <label style="font-weight:600; font-size:13px;">Cheque Number *</label>
+                    <input type="text" name="cheque_no" id="colChequeNo"
+                           style="width:100%; padding:8px 10px; border:2px solid #e0e4eb; border-radius:6px; margin-top:5px;">
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="font-weight:600; font-size:13px;">Cheque Date *</label>
+                    <input type="date" name="cheque_date" id="colChequeDate"
+                           style="width:100%; padding:8px 10px; border:2px solid #e0e4eb; border-radius:6px; margin-top:5px;">
+                </div>
+                <div>
+                    <label style="font-weight:600; font-size:13px;">Bank *</label>
+                    <select name="cheque_bank" id="colChequeBank"
+                            style="width:100%; padding:8px 10px; border:2px solid #e0e4eb; border-radius:6px; margin-top:5px;">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}
+                            <option value="{{ bank.id }}">{{ bank.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button type="button" onclick="closeCollectedModal()"
+                        style="flex:1; padding:12px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                    Cancel
+                </button>
+                <button type="submit"
+                        style="flex:2; padding:12px; background:#28a745; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                    ✅ Confirm Collection
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========== NOT COLLECTED MODAL ========== -->
 <div class="modal-overlay" id="notCollectedModal">
     <div style="background:white; padding:30px; border-radius:16px; max-width:450px; width:90%;">
         <h3 style="margin-top:0;">❌ Mark as Not Collected</h3>
         <p>Invoice: <strong id="ncInvoiceNo"></strong></p>
-        <form method="POST" id="ncForm" action="/credit-collection/return/">
+        <form method="POST" action="/credit-collection/return/">
             {% csrf_token %}
             <input type="hidden" name="next" value="/today-collections/">
             <input type="hidden" name="collection_id" id="ncCollectionId">
             <input type="hidden" name="action" value="not_collected">
-            {% csrf_token %}
-            <input type="hidden" name="collection_id" id="ncCollectionId">
-            <input type="hidden" name="action" value="not_collected">
             <div style="margin-bottom:15px;">
                 <label style="font-weight:600;">Reason *</label>
-                <select name="not_collected_reason" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                <select name="not_collected_reason" required
+                        style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
                     <option value="">-- Select Reason --</option>
                     <option value="CUSTOMER_NOT_AVAILABLE">Customer Not Available</option>
                     <option value="REFUSED_TO_PAY">Refused to Pay</option>
@@ -182,38 +269,67 @@
                 </select>
             </div>
             <div style="display:flex; gap:10px;">
-                <button type="button" onclick="closeNotCollectedModal()" style="flex:1; padding:10px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Cancel</button>
-                <button type="submit" style="flex:1; padding:10px; background:#dc3545; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Confirm</button>
+                <button type="button" onclick="closeNotCollectedModal()"
+                        style="flex:1; padding:10px; background:#6c757d; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                    Cancel
+                </button>
+                <button type="submit"
+                        style="flex:1; padding:10px; background:#dc3545; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">
+                    Confirm
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function markCollected(collectionId) {
-        if (!confirm('Mark this bill as collected?')) return;
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/credit-collection/return/';
-        const csrf = '{{ csrf_token }}';
-        form.innerHTML = `
-            <input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">
-            <input type="hidden" name="next" value="/today-collections/">
-            <input type="hidden" name="collection_id" value="${collectionId}">
-            <input type="hidden" name="action" value="collected">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
-    function openNotCollectedModal(collectionId, invoiceNo) {
-        document.getElementById('ncCollectionId').value = collectionId;
-        document.getElementById('ncInvoiceNo').textContent = invoiceNo;
-        document.getElementById('notCollectedModal').classList.add('show');
-    }
+function openCollectedModal(collectionId, invoiceNo, outstanding, originalVehicleId) {
+    document.getElementById('colCollectionId').value = collectionId;
+    document.getElementById('colInvoiceNo').textContent = invoiceNo;
+    document.getElementById('colOutstanding').textContent = 'Rs ' + Number(outstanding).toFixed(2);
+    document.getElementById('colAmount').value = Number(outstanding).toFixed(2);
+    document.getElementById('colMethod').value = 'Cash';
+    document.getElementById('colChequeFields').style.display = 'none';
 
-    function closeNotCollectedModal() {
-        document.getElementById('notCollectedModal').classList.remove('show');
+    // Set default vehicle to original invoice's vehicle
+    const vSelect = document.querySelector('#colForm select[name="collected_by_vehicle"]');
+    if (vSelect && originalVehicleId) vSelect.value = originalVehicleId;
+
+    document.getElementById('collectedModal').classList.add('show');
+}
+
+function closeCollectedModal() {
+    document.getElementById('collectedModal').classList.remove('show');
+}
+
+function toggleColCheque() {
+    const method = document.getElementById('colMethod').value;
+    const cf = document.getElementById('colChequeFields');
+    if (method === 'Cheque') {
+        cf.style.display = 'block';
+        const d = document.getElementById('colChequeDate');
+        if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
+    } else {
+        cf.style.display = 'none';
     }
+}
+
+function openNotCollectedModal(collectionId, invoiceNo) {
+    document.getElementById('ncCollectionId').value = collectionId;
+    document.getElementById('ncInvoiceNo').textContent = invoiceNo;
+    document.getElementById('notCollectedModal').classList.add('show');
+}
+
+function closeNotCollectedModal() {
+    document.getElementById('notCollectedModal').classList.remove('show');
+}
+
+// Close modal when clicking outside
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('show');
+    });
+});
 </script>
 
 {% endblock %}
