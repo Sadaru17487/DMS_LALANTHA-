@@ -153,8 +153,6 @@ urlpatterns = [
 
     path('credit-collection/report/', views.credit_collection_report, name='credit_collection_report'),
 
-    path('credit-collection/retake/', views.credit_collection_retake, name='credit_collection_retake'),
-
     path('vehicle-stock/', views.vehicle_stock, name='vehicle_stock'),
 
     path('sales-print/<int:bill_id>/', views.sales_print, name='sales_print'),

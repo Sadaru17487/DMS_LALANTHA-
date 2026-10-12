@@ -531,6 +531,10 @@ def credit_collection_return(request):
                     f'✅ Part payment Rs {amount:.2f} recorded for {bill.invoice_no}. '
                     f'Remaining: Rs {outstanding:.2f} — bill stays in Credit List.'
                 )
+                
+                collection.status = 'NOT_COLLECTED'
+                collection.not_collected_reason = reason
+                collection.save()
         
         return redirect(next_url)
     
@@ -590,31 +594,6 @@ def credit_collection_report(request):
         'today': today,
     }
     return render(request, 'core/credit_collection_report.html', context)
-
-@login_required
-@permission_required('create_sales')
-def credit_collection_retake(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Invalid request method.'})
-    
-    collection_id = request.POST.get('collection_id')
-    if not collection_id:
-        return JsonResponse({'success': False, 'message': 'Collection ID is required.'})
-    
-    collection = get_object_or_404(CreditCollection, id=collection_id)
-    
-    # Only allow retake if status is NOT_COLLECTED
-    if collection.status != 'NOT_COLLECTED':
-        return JsonResponse({'success': False, 'message': 'Bill is not in NOT_COLLECTED status.'})
-    
-    from datetime import date
-    # Move back to PENDING so it can be taken again
-    collection.status = 'PENDING'
-    collection.date_taken = None          # Clear taken date
-    collection.not_collected_reason = None
-    collection.save()
-    
-    return JsonResponse({'success': True, 'message': 'Bill moved back to PENDING.'})
 
 
 @login_required
@@ -8256,7 +8235,10 @@ def return_analytics_report(request):
 
 @login_required
 def today_collections(request):
-    """Show today's collection session - bills taken and their status."""
+    """
+    Show today's collection session — ONLY bills with status=TAKEN.
+    Once actioned (COLLECTED or NOT_COLLECTED), they disappear automatically.
+    """
     import traceback
     from django.http import HttpResponse
     
@@ -8270,32 +8252,37 @@ def today_collections(request):
         except ValueError:
             filter_date = today
         
-        # Base queryset — filter by date_taken (DateField)
-        collections = CreditCollection.objects.filter(
+        # ============================================================
+        # BASE QUERY (for summary counts — includes all statuses)
+        # ============================================================
+        all_collections = CreditCollection.objects.filter(
             date_taken=filter_date
-        ).select_related('sales_bill', 'rep', 'collected_by').order_by('-created_at')
+        ).select_related('sales_bill', 'rep', 'collected_by')
         
-        # Filter by rep if provided
         if selected_rep and selected_rep.isdigit():
-            collections = collections.filter(rep_id=int(selected_rep))
+            all_collections = all_collections.filter(rep_id=int(selected_rep))
         
-        # Split by status
-        taken = collections.filter(status='TAKEN')
-        collected = collections.filter(status='COLLECTED')
-        not_collected = collections.filter(status='NOT_COLLECTED')
+        # ============================================================
+        # MAIN LIST — ONLY TAKEN (still pending collection)
+        # ============================================================
+        collections = all_collections.filter(status='TAKEN').order_by('-created_at')
         
-        # Safely total using collection_amount (never touches sales_bill)
+        # ============================================================
+        # SUMMARY COUNTS (all statuses for the day)
+        # ============================================================
+        taken_qs = all_collections.filter(status='TAKEN')
+        collected_qs = all_collections.filter(status='COLLECTED')
+        not_collected_qs = all_collections.filter(status='NOT_COLLECTED')
+        
         def safe_sum(qs):
             try:
                 return qs.aggregate(t=Sum('collection_amount'))['t'] or Decimal('0')
             except Exception:
                 return Decimal('0')
         
-        total_amount = safe_sum(collections)
-        taken_amount = safe_sum(taken)
-        collected_amount = safe_sum(collected)
-        
-        # Reps — use Employee if it exists, else fall back
+        # ============================================================
+        # REPS AND VEHICLES
+        # ============================================================
         try:
             reps = Employee.objects.filter(position='Rep', is_active=True)
         except Exception:
@@ -8309,36 +8296,37 @@ def today_collections(request):
         except Exception:
             vehicles = Vehicle.objects.all()
         
+        try:
+            banks = Bank.objects.all()
+        except Exception:
+            banks = []
+        
         context = {
-            'collections': collections,
-            'taken': taken,
-            'collected': collected,
-            'not_collected': not_collected,
-            'total_amount': total_amount,
-            'taken_amount': taken_amount,
-            'collected_amount': collected_amount,
-            'total_count': collections.count(),
-            'taken_count': taken.count(),
-            'collected_count': collected.count(),
-            'not_collected_count': not_collected.count(),
+            'collections': collections,           # ✅ ONLY TAKEN
+            'total_count': all_collections.count(),
+            'taken_count': taken_qs.count(),
+            'collected_count': collected_qs.count(),
+            'not_collected_count': not_collected_qs.count(),
+            'taken_amount': safe_sum(taken_qs),
+            'collected_amount': safe_sum(collected_qs),
+            'total_amount': safe_sum(all_collections),
             'filter_date': filter_date,
             'selected_date': selected_date,
             'selected_rep': selected_rep,
             'reps': reps,
             'vehicles': vehicles,
+            'banks': banks,
             'today': today,
-            'banks': Bank.objects.all(),
         }
         return render(request, 'core/today_collections.html', context)
     
     except Exception as e:
         error_msg = traceback.format_exc()
         return HttpResponse(
-            f"<html><body style='font-family:monospace;padding:20px;background:#fff;'>"
+            f"<html><body style='font-family:monospace;padding:20px;'>"
             f"<h1 style='color:red;'>Today Collections Error</h1>"
             f"<h2>{type(e).__name__}: {e}</h2>"
-            f"<pre style='background:#f5f5f5;padding:15px;overflow:auto;border-radius:6px;'>{error_msg}</pre>"
-            f"<p><a href='/today-collections/'>← Try again</a></p>"
+            f"<pre style='background:#f5f5f5;padding:15px;'>{error_msg}</pre>"
             f"</body></html>",
             status=500
         )
