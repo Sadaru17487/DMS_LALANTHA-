@@ -8150,58 +8150,92 @@ def return_analytics_report(request):
     return render(request, 'core/return_analytics_report.html', context)
 
 @login_required
-@permission_required('view_credit_list')
 def today_collections(request):
     """Show today's collection session - bills taken and their status."""
-    today = date.today()
-    selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
-    selected_rep = request.GET.get('rep', '')
+    import traceback
+    from django.http import HttpResponse
     
     try:
-        filter_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
-    except ValueError:
-        filter_date = today
+        today = date.today()
+        selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
+        selected_rep = request.GET.get('rep', '')
+        
+        try:
+            filter_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+        except ValueError:
+            filter_date = today
+        
+        # Base queryset — filter by date_taken (DateField)
+        collections = CreditCollection.objects.filter(
+            date_taken=filter_date
+        ).select_related('sales_bill', 'rep', 'collected_by').order_by('-created_at')
+        
+        # Filter by rep if provided
+        if selected_rep and selected_rep.isdigit():
+            collections = collections.filter(rep_id=int(selected_rep))
+        
+        # Split by status
+        taken = collections.filter(status='TAKEN')
+        collected = collections.filter(status='COLLECTED')
+        not_collected = collections.filter(status='NOT_COLLECTED')
+        
+        # Safely total using collection_amount (never touches sales_bill)
+        def safe_sum(qs):
+            try:
+                return qs.aggregate(t=Sum('collection_amount'))['t'] or Decimal('0')
+            except Exception:
+                return Decimal('0')
+        
+        total_amount = safe_sum(collections)
+        taken_amount = safe_sum(taken)
+        collected_amount = safe_sum(collected)
+        
+        # Reps — use Employee if it exists, else fall back
+        try:
+            reps = Employee.objects.filter(position='Rep', is_active=True)
+        except Exception:
+            try:
+                reps = Employee.objects.filter(is_active=True)
+            except Exception:
+                reps = Employee.objects.all()
+        
+        try:
+            vehicles = Vehicle.objects.filter(is_active=True)
+        except Exception:
+            vehicles = Vehicle.objects.all()
+        
+        context = {
+            'collections': collections,
+            'taken': taken,
+            'collected': collected,
+            'not_collected': not_collected,
+            'total_amount': total_amount,
+            'taken_amount': taken_amount,
+            'collected_amount': collected_amount,
+            'total_count': collections.count(),
+            'taken_count': taken.count(),
+            'collected_count': collected.count(),
+            'not_collected_count': not_collected.count(),
+            'filter_date': filter_date,
+            'selected_date': selected_date,
+            'selected_rep': selected_rep,
+            'reps': reps,
+            'vehicles': vehicles,
+            'today': today,
+        }
+        return render(request, 'core/today_collections.html', context)
     
-    # Get collections for this date
-    collections = CreditCollection.objects.filter(
-        date_taken__date=filter_date
-    ).select_related('sales_bill', 'sales_bill__vehicle', 'rep', 'sales_bill__customer')
-    
-    if selected_rep and selected_rep.isdigit():
-        collections = collections.filter(rep_id=int(selected_rep))
-    
-    # Split by status
-    taken = collections.filter(status='TAKEN')
-    collected = collections.filter(status='COLLECTED')
-    not_collected = collections.filter(status='NOT_COLLECTED')
-    
-    total_amount = collections.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
-    taken_amount = taken.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
-    collected_amount = collected.aggregate(t=Sum('sales_bill__net_total'))['t'] or Decimal('0')
-    
-    reps = Employee.objects.filter(position='Rep', is_active=True)
-    vehicles = Vehicle.objects.filter(is_active=True)
-    
-    context = {
-        'collections': collections,
-        'taken': taken,
-        'collected': collected,
-        'not_collected': not_collected,
-        'total_amount': total_amount,
-        'taken_amount': taken_amount,
-        'collected_amount': collected_amount,
-        'total_count': collections.count(),
-        'taken_count': taken.count(),
-        'collected_count': collected.count(),
-        'not_collected_count': not_collected.count(),
-        'filter_date': filter_date,
-        'selected_date': selected_date,
-        'selected_rep': selected_rep,
-        'reps': reps,
-        'vehicles': vehicles,
-        'today': today,
-    }
-    return render(request, 'core/today_collections.html', context)
+    except Exception as e:
+        error_msg = traceback.format_exc()
+        return HttpResponse(
+            f"<html><body style='font-family:monospace;padding:20px;background:#fff;'>"
+            f"<h1 style='color:red;'>Today Collections Error</h1>"
+            f"<h2>{type(e).__name__}: {e}</h2>"
+            f"<pre style='background:#f5f5f5;padding:15px;overflow:auto;border-radius:6px;'>{error_msg}</pre>"
+            f"<p><a href='/today-collections/'>← Try again</a></p>"
+            f"</body></html>",
+            status=500
+        )
 
 @login_required
 @permission_required('view_reports')

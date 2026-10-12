@@ -8,28 +8,15 @@
 <style>
     .collection-header {
         background: linear-gradient(135deg, #1a2634, #2c3e50);
-        color: white;
-        padding: 20px 25px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
+        color: white; padding: 20px 25px; border-radius: 12px;
+        margin-bottom: 20px; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 15px;
     }
     .collection-header h2 { margin: 0; font-size: 24px; }
-    .summary-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-    }
+    .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
     .summary-card {
-        background: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        text-align: center;
-        border-top: 4px solid #ccc;
+        background: white; padding: 15px 20px; border-radius: 12px;
+        text-align: center; border-top: 4px solid #ccc;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     .summary-card.taken { border-top-color: #007bff; }
@@ -42,14 +29,26 @@
     .summary-card.collected .value { color: #28a745; }
     .summary-card.not-collected .value { color: #dc3545; }
     .summary-card.total .value { color: #6f42c1; }
-    
-    .action-buttons-cell { display: flex; gap: 5px; }
+    .action-buttons-cell { display: flex; gap: 5px; flex-wrap: wrap; }
     .action-buttons-cell button, .action-buttons-cell a {
-        padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; color: white; text-decoration: none;
+        padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+        font-weight: 600; font-size: 12px; color: white; text-decoration: none;
+        display: inline-block;
     }
     .btn-mark-collected { background: #28a745; }
     .btn-mark-not-collected { background: #dc3545; }
     .btn-pay { background: #007bff; }
+    .btn-view { background: #6c757d; }
+    .badge-status { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 9999;
+        justify-content: center; align-items: center;
+    }
+    .modal-overlay.show { display: flex; }
+    @media (max-width: 768px) {
+        .summary-row { grid-template-columns: repeat(2, 1fr); }
+    }
 </style>
 
 <div class="collection-header">
@@ -117,10 +116,12 @@
         <tbody>
             {% for c in collections %}
             <tr>
-                <td><strong>{{ c.sales_bill.invoice_no }}</strong></td>
-                <td>{{ c.sales_bill.shop_name|default:"-" }}</td>
+                <td><strong>{{ c.sales_bill.invoice_no|default:"-" }}</strong></td>
+                <td>{{ c.sales_bill.shop_name|default:c.sales_bill.shop_code|default:"-" }}</td>
                 <td>{{ c.rep.name|default:"-" }}</td>
-                <td style="text-align:right; font-weight:600;">Rs {{ c.sales_bill.net_total|floatformat:2 }}</td>
+                <td style="text-align:right; font-weight:600;">
+                    Rs {{ c.collection_amount|floatformat:2|default:"0.00" }}
+                </td>
                 <td>
                     {% if c.status == 'TAKEN' %}
                         <span class="badge-status" style="background:#cce5ff; color:#004085;">⏳ TAKEN</span>
@@ -128,6 +129,8 @@
                         <span class="badge-status" style="background:#d4edda; color:#155724;">✅ COLLECTED</span>
                     {% elif c.status == 'NOT_COLLECTED' %}
                         <span class="badge-status" style="background:#f8d7da; color:#721c24;">❌ NOT COLLECTED</span>
+                    {% else %}
+                        <span class="badge-status" style="background:#e2e3e5; color:#383d41;">{{ c.status }}</span>
                     {% endif %}
                 </td>
                 <td>
@@ -135,9 +138,11 @@
                         {% if c.status == 'TAKEN' %}
                             <button onclick="markCollected({{ c.id }})" class="btn-mark-collected">✅ Collected</button>
                             <button onclick="openNotCollectedModal({{ c.id }}, '{{ c.sales_bill.invoice_no }}')" class="btn-mark-not-collected">❌ Not</button>
-                            <button onclick="openPayNowFromCollection({{ c.sales_bill.id }}, '{{ c.sales_bill.invoice_no }}', {{ c.sales_bill.net_total }}, {{ c.sales_bill.vehicle.id|default:'null' }})" class="btn-pay">💰 Pay</button>
                         {% endif %}
-                        <a href="/sales-detail/{{ c.sales_bill.id }}/" style="background:#6c757d; padding:5px 10px; border-radius:6px; color:white; text-decoration:none; font-size:12px;">👁️ View</a>
+                        {% if c.sales_bill.id %}
+                            <a href="/credit-list/?bill_id={{ c.sales_bill.id }}" class="btn-pay">💰 Pay</a>
+                            <a href="/sales-detail/{{ c.sales_bill.id }}/" class="btn-view">👁️ View</a>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -152,9 +157,9 @@
 </div>
 
 <!-- Not Collected Modal -->
-<div class="modal-overlay" id="notCollectedModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+<div class="modal-overlay" id="notCollectedModal">
     <div style="background:white; padding:30px; border-radius:16px; max-width:450px; width:90%;">
-        <h3>❌ Mark as Not Collected</h3>
+        <h3 style="margin-top:0;">❌ Mark as Not Collected</h3>
         <p>Invoice: <strong id="ncInvoiceNo"></strong></p>
         <form method="POST" id="ncForm" action="/credit-collection/return/">
             {% csrf_token %}
@@ -162,12 +167,13 @@
             <input type="hidden" name="action" value="not_collected">
             <div style="margin-bottom:15px;">
                 <label style="font-weight:600;">Reason *</label>
-                <select name="reason" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
+                <select name="not_collected_reason" required style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px; margin-top:5px;">
                     <option value="">-- Select Reason --</option>
                     <option value="CUSTOMER_NOT_AVAILABLE">Customer Not Available</option>
                     <option value="REFUSED_TO_PAY">Refused to Pay</option>
                     <option value="INSUFFICIENT_FUNDS">Insufficient Funds</option>
                     <option value="CUSTOMER_REQUESTED_DELAY">Customer Requested Delay</option>
+                    <option value="SHOP_CLOSED">Shop Closed</option>
                     <option value="OTHER">Other</option>
                 </select>
             </div>
@@ -185,8 +191,9 @@ function markCollected(collectionId) {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/credit-collection/return/';
+    const csrf = '{{ csrf_token }}';
     form.innerHTML = `
-        {% csrf_token %}
+        <input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">
         <input type="hidden" name="collection_id" value="${collectionId}">
         <input type="hidden" name="action" value="collected">
     `;
@@ -197,16 +204,11 @@ function markCollected(collectionId) {
 function openNotCollectedModal(collectionId, invoiceNo) {
     document.getElementById('ncCollectionId').value = collectionId;
     document.getElementById('ncInvoiceNo').textContent = invoiceNo;
-    document.getElementById('notCollectedModal').style.display = 'flex';
+    document.getElementById('notCollectedModal').classList.add('show');
 }
 
 function closeNotCollectedModal() {
-    document.getElementById('notCollectedModal').style.display = 'none';
-}
-
-function openPayNowFromCollection(billId, invoiceNo, amount, vehicleId) {
-    // Redirect to credit list with pay modal open
-    window.location.href = `/credit-list/?pay_bill=${billId}`;
+    document.getElementById('notCollectedModal').classList.remove('show');
 }
 </script>
 
