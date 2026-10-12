@@ -2625,11 +2625,13 @@ def create_sales_bill(request):
     # ===== VEHICLE & REP PERSISTENCE =====
     selected_vehicle = request.GET.get('vehicle')
     selected_rep = request.GET.get('rep')
-    
+
     if not selected_vehicle:
-        selected_vehicle = request.session.get('last_vehicle_id')
+        session_vehicle = request.session.get('last_vehicle_id')
+        selected_vehicle = str(session_vehicle) if session_vehicle else ''
     if not selected_rep:
-        selected_rep = request.session.get('last_rep_id')
+        session_rep = request.session.get('last_rep_id')
+        selected_rep = str(session_rep) if session_rep else ''
     
     if request.method == 'POST':
         form = SalesBillForm(request.POST)

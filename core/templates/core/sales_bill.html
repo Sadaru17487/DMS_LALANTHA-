@@ -666,6 +666,7 @@
         vehicleLocked = true;
         sel.classList.add('locked-field');
         btn.style.display = 'inline-block';
+        sessionStorage.setItem('vehicle_locked', 'true');
     }
 
     function unlockVehicle() {
@@ -674,6 +675,7 @@
         vehicleLocked = false;
         sel.classList.remove('locked-field');
         btn.style.display = 'none';
+        sessionStorage.setItem('vehicle_locked', 'false');
         sel.focus();
     }
 
@@ -684,6 +686,7 @@
         repLocked = true;
         sel.classList.add('locked-field');
         btn.style.display = 'inline-block';
+        sessionStorage.setItem('rep_locked', 'true');
     }
 
     function unlockRep() {
@@ -692,6 +695,7 @@
         repLocked = false;
         sel.classList.remove('locked-field');
         btn.style.display = 'none';
+        sessionStorage.setItem('rep_locked', 'false');
         sel.focus();
     }
 
@@ -1025,35 +1029,48 @@
     function updateVehicleStock() {
         const vehicleSelect = document.getElementById('vehicleSelect');
         const vehicleId = vehicleSelect ? vehicleSelect.value : '';
+        
         if (!vehicleId) {
             document.querySelectorAll('.product-card .product-stock').forEach(badge => {
                 badge.textContent = '0';
                 badge.className = 'product-stock';
             });
+            // Reset all product stock in memory
+            allProducts.forEach(p => p.stock = 0);
             return;
         }
+        
         fetch(`/api/vehicle-stock/?vehicle=${vehicleId}`)
             .then(response => response.json())
             .then(data => {
                 const stocks = data.stocks || {};
+                
+                // ✅ Update allProducts array so search results show correct stock
+                allProducts.forEach(product => {
+                    product.stock = stocks[product.id] || 0;
+                });
+                
+                // ✅ Also update visible badges (if any product cards are rendered)
                 document.querySelectorAll('.product-card').forEach(card => {
-                    const saleBtn = card.querySelector('.btn-sale');
-                    if (saleBtn) {
-                        const match = saleBtn.getAttribute('onclick').match(/\d+/);
-                        if (match) {
-                            const productId = match[0];
-                            const quantity = stocks[productId] || 0;
-                            const badge = card.querySelector('.product-stock');
-                            if (badge) {
-                                badge.textContent = quantity.toFixed(0);
-                                badge.className = 'product-stock';
-                                if (quantity <= 0) badge.classList.add('low');
-                                else if (quantity < 10) badge.classList.add('medium');
-                                else badge.classList.add('high');
-                            }
+                    const productId = card.dataset.id;
+                    if (productId) {
+                        const quantity = stocks[productId] || 0;
+                        const badge = card.querySelector('.product-stock');
+                        if (badge) {
+                            badge.textContent = quantity.toFixed(0);
+                            badge.className = 'product-stock';
+                            if (quantity <= 0) badge.classList.add('low');
+                            else if (quantity < 10) badge.classList.add('medium');
+                            else badge.classList.add('high');
                         }
                     }
                 });
+                
+                // ✅ Re-render search results with updated stock
+                const productSearch = document.getElementById('productSearch');
+                if (productSearch && productSearch.value.trim().length > 0) {
+                    filterProducts();
+                }
             })
             .catch(error => console.error('Error fetching vehicle stock:', error));
     }
@@ -1466,19 +1483,27 @@
         setupCustomerSearch();
         checkForNewCustomer();
 
-        // ===== VEHICLE: change listener + auto-lock + auto-update stock =====
+        // ===== VEHICLE =====
         const vehicleSelect = document.getElementById('vehicleSelect');
         if (vehicleSelect) {
             vehicleSelect.addEventListener('change', function() {
                 updateVehicleStock();
                 if (this.value && !vehicleLocked) lockVehicle();
             });
-            // Restore lock if value already present
-            if (vehicleSelect.value) lockVehicle();
-            setTimeout(updateVehicleStock, 500);
+            
+            // Restore lock if vehicle is pre-selected from session
+            if (vehicleSelect.value) {
+                const wasLocked = sessionStorage.getItem('vehicle_locked');
+                if (wasLocked !== 'false') {
+                    lockVehicle();
+                }
+            }
+            
+            // Fetch initial stock (with slight delay to ensure session restored)
+            setTimeout(updateVehicleStock, 300);
         }
 
-        // ===== REP: change listener + auto-lock + auto-invoice =====
+        // ===== REP =====
         const repSelect = document.getElementById('repSelect');
         if (repSelect) {
             repSelect.addEventListener('change', function() {
@@ -1486,21 +1511,30 @@
                 manualInvoice = false;
                 if (this.value && !repLocked) lockRep();
             });
-            if (repSelect.value) lockRep();
+            
+            // Restore lock if rep is pre-selected from session
+            if (repSelect.value) {
+                const wasLocked = sessionStorage.getItem('rep_locked');
+                if (wasLocked !== 'false') {
+                    lockRep();
+                }
+            }
+            
             setTimeout(updateInvoiceFromRep, 300);
         }
 
-        // ===== INVOICE: manual override flag =====
+        // ===== INVOICE =====
         const invoiceInput = document.getElementById('invoiceNoInput');
         if (invoiceInput) {
             invoiceInput.addEventListener('input', function() { manualInvoice = true; });
         }
 
-        // ===== MULTI PAY amount listeners =====
+        // ===== MULTI PAY =====
         document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
         document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
 
         renderCart();
+
 
         // ===== FORM SUBMIT =====
         document.getElementById('salesForm').addEventListener('submit', function(e) {
@@ -1509,6 +1543,8 @@
             if (!selectedPayment) { e.preventDefault(); alert('❌ Please select a payment method!'); return; }
             if (!vehicleSelect.value) { e.preventDefault(); alert('❌ Please select a delivery vehicle!'); return; }
             if (!invoiceInput.value.trim()) { e.preventDefault(); alert('❌ Please enter an invoice number!'); return; }
+            if (vehicleLocked) sessionStorage.setItem('vehicle_locked', 'true');
+            if (repLocked) sessionStorage.setItem('rep_locked', 'true');
 
             const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
             const netTotal = parseFloat(netText) || 0;

@@ -380,7 +380,7 @@
                 <div class="user-role">{{ request.user.profile.role|default:"User" }}</div>
             </div>
         </div>
-        <a href="/logout/" class="logout-link">
+        <a href="/logout/" class="logout-link" onclick="sessionStorage.clear();">
             <i class="fas fa-sign-out-alt"></i> Logout
         </a>
     </div>
@@ -413,6 +413,13 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('sidebarOverlay').classList.remove('show');
         }
+    
+   document.querySelectorAll('.logout-link').forEach(el => {
+        el.addEventListener('click', function() {
+            sessionStorage.removeItem('vehicle_locked');
+            sessionStorage.removeItem('rep_locked');
+        });
+    });    
     });
 </script>
 
