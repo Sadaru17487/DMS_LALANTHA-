@@ -13,6 +13,15 @@
     .top-row .field-group input, .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; transition: 0.2s; }
     .top-row .field-group input:focus, .top-row .field-group select:focus { border-color: #007bff; outline: none; background: white; }
 
+    /* ===== LOCK STYLES ===== */
+    .locked-field {
+        pointer-events: none !important;
+        background: #f0f4f9 !important;
+        color: #666 !important;
+        border-color: #c8d0dc !important;
+        cursor: not-allowed !important;
+    }
+
     /* ===== CUSTOMER SEARCH ===== */
     #customerSearchInput:focus { border-color: #007bff; outline: none; background: white; }
     #customerSearchResults .search-result-item {
@@ -25,8 +34,8 @@
     #customerSearchResults .search-result-item .phone { font-size: 12px; color: #666; }
     #customerSearchResults .no-results { padding: 12px 14px; color: #999; text-align: center; }
 
-    /* ===== SEARCH BAR ===== */
-    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+    /* ===== SEARCH BAR (own row) ===== */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; margin-top: 5px; }
     .search-bar input { flex: 1; padding: 12px 18px; border: 2px solid #e0e4eb; border-radius: 30px; font-size: 15px; background: #f8f9fc; transition: 0.2s; }
     .search-bar input:focus { border-color: #007bff; outline: none; background: white; }
     .search-bar .icon { font-size: 20px; color: #888; }
@@ -193,7 +202,6 @@
 
 <div class="container">
     <div class="card">
-        <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
                 <div class="msg {% if message.tags == 'error' %}error{% elif message.tags == 'info' %}info{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
@@ -219,10 +227,10 @@
             <!-- ===== TOP ROW ===== -->
             <div class="top-row">
                 <!-- Vehicle -->
-                <div class="field-group" style="flex: 1.5; position:relative;">
+                <div class="field-group" style="flex: 1.5;">
                     <label>🚛 Delivery Vehicle *</label>
                     <div style="display:flex; gap:5px; align-items:center;">
-                        <select name="vehicle" id="vehicleSelect" required>
+                        <select name="vehicle" id="vehicleSelect" required style="flex:1;">
                             <option value="">-- Select Vehicle --</option>
                             {% for vehicle in vehicles %}
                                 <option value="{{ vehicle.id }}" {% if selected_vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
@@ -231,17 +239,16 @@
                             {% endfor %}
                         </select>
                         <button type="button" id="vehicleLockBtn" onclick="unlockVehicle()" 
-                                style="display:none; padding:8px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
-                                title="Change Vehicle">🔒</button>
+                                style="display:none; padding:10px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
+                                title="Click to change vehicle">🔒</button>
                     </div>
                 </div>
 
-
                 <!-- Rep -->
-                <div class="field-group" style="flex: 1.5; position:relative;">
+                <div class="field-group" style="flex: 1.5;">
                     <label>👤 Sales Rep</label>
                     <div style="display:flex; gap:5px; align-items:center;">
-                        <select name="rep" id="repSelect">
+                        <select name="rep" id="repSelect" style="flex:1;">
                             <option value="">-- Select Rep --</option>
                             {% for rep in reps %}
                                 <option value="{{ rep.id }}" data-rep-code="{{ rep.rep_code|default:'' }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
@@ -250,19 +257,20 @@
                             {% endfor %}
                         </select>
                         <button type="button" id="repLockBtn" onclick="unlockRep()" 
-                                style="display:none; padding:8px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
-                                title="Change Rep">🔒</button>
+                                style="display:none; padding:10px 12px; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; cursor:pointer; font-size:16px;" 
+                                title="Click to change rep">🔒</button>
                     </div>
                 </div>
+
                 <!-- Customer Search -->
                 <div class="field-group" style="position:relative; flex: 2; min-width:250px;">
                     <label>Search Customer <span class="required" style="color:#dc3545;">*</span></label>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <div style="flex: 1; position: relative;">
-                            <input type="text" id="customerSearchInput" placeholder="Type to search customer..." autocomplete="off" style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px; background:#fafbfc; transition:0.2s;">
+                            <input type="text" id="customerSearchInput" placeholder="Type to search customer..." autocomplete="off" style="width:100%; padding:10px 12px; border:2px solid #e0e4eb; border-radius:8px; font-size:14px; background:#fafbfc;">
                             <div id="customerSearchResults" style="display:none; position:absolute; top:100%; left:0; right:0; background:white; border:2px solid #e0e4eb; border-radius:8px; max-height:220px; overflow-y:auto; z-index:1000; margin-top:2px; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
-                        <button type="button" class="btn-add-row" onclick="openAddCustomer()" style="padding:8px 18px; font-size:14px; background:#28a745; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap; height:45px;">+ New</button>
+                        <button type="button" onclick="openAddCustomer()" style="padding:10px 18px; font-size:14px; background:#28a745; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap; height:43px;">+ New</button>
                     </div>
                     <input type="hidden" name="customer" id="selectedCustomerId" value="">
                     <input type="hidden" name="shop_name" id="shopNameHidden">
@@ -280,7 +288,6 @@
                 <div class="field-group">
                     <label>Invoice No <span class="required" style="color:#dc3545;">*</span></label>
                     <input type="text" name="invoice_no" id="invoiceNoInput" placeholder="Auto-generated from Rep" value="{{ random_invoice }}" required>
-                    <span class="help-text" style="font-size:11px; color:#888;">Auto-fills with Rep Code; can be edited.</span>
                 </div>
 
                 <!-- Date -->
@@ -289,15 +296,18 @@
                     <input type="date" name="bill_date" value="{{ today|date:'Y-m-d' }}">
                 </div>
 
-                <div class="field-group" style="flex: 0.8; min-width: 120px;">
+                <!-- VAT Bill -->
+                <div class="field-group" style="flex: 0.8; min-width: 110px;">
                     <label>&nbsp;</label>
-                    <label style="display:flex; align-items:center; gap:6px; padding:10px; background:#f8f9fc; border-radius:8px; border:2px solid #e0e4eb; cursor:pointer;">
+                    <label style="display:flex; align-items:center; gap:6px; padding:10px; background:#f8f9fc; border-radius:8px; border:2px solid #e0e4eb; cursor:pointer; height:43px;">
                         <input type="checkbox" name="is_vat_bill" id="isVatBill" style="width:18px; height:18px; accent-color:#28a745;">
-                        <span style="font-weight:600; font-size:13px;">🧾 VAT Bill</span>
+                        <span style="font-weight:600; font-size:13px;">🧾 VAT</span>
                     </label>
                 </div>
+            </div>
+            <!-- ⬆️ TOP ROW ENDS HERE ✅ -->
 
-            <!-- ===== PRODUCT SEARCH ===== -->
+            <!-- ===== PRODUCT SEARCH (own row) ===== -->
             <div class="search-bar">
                 <span class="icon">🔍</span>
                 <input type="text" id="productSearch" placeholder="Search products by name or code..." oninput="filterProducts()">
@@ -308,10 +318,8 @@
 
             <!-- ===== CART SECTION ===== -->
             <div class="cart-section">
-                <!-- Section Title with Return Toggle -->
                 <div class="section-title">
                     <h3>🛒 Current Bill Items</h3>
-                    <!-- ===== RETURN TOGGLE WRAPPER ===== -->
                     <div class="return-toggle-wrapper">
                         <div class="return-toggle">
                             <label for="returnMode">🔄 SALES RETURN</label>
@@ -340,7 +348,7 @@
                                 </select>
                             </div>
                             <div id="badReturnWarning" class="bad-return-warning">
-                                ⚠️ <strong>Bad Return:</strong> Stock will NOT be added back to the vehicle. Product will be marked as damaged/expired.
+                                ⚠️ <strong>Bad Return:</strong> Stock will NOT be added back to the vehicle.
                             </div>
                         </div>
                     </div>
@@ -401,7 +409,6 @@
                         </div>
                     </div>
 
-                    <!-- Bill Discount -->
                     <div class="bill-discount-row">
                         <div class="discount-group">
                             <label>Bill Discount:</label>
@@ -411,7 +418,6 @@
                                 <option value="FIXED">Rs</option>
                             </select>
                             <input type="number" step="0.01" id="billDiscountValue" placeholder="0" value="0" oninput="updateBillDiscount()" style="width:80px;">
-                            <span style="font-size:12px; color:#888;">(applied after product discounts)</span>
                         </div>
                         <div class="total-item">
                             <div class="label">Discount Amount</div>
@@ -452,7 +458,7 @@
             <input type="hidden" name="return_reason" id="returnReasonVal" value="">
             <input type="hidden" name="bill_status" id="billStatus" value="COMPLETED">
 
-            <!-- ✅ MULTI PAY PERMANENT HIDDEN FIELDS -->
+            <!-- MULTI PAY PERMANENT HIDDEN FIELDS -->
             <input type="hidden" name="multi_type1" id="multi_type1_hidden" value="">
             <input type="hidden" name="multi_amount1" id="multi_amount1_hidden" value="0">
             <input type="hidden" name="multi_type2" id="multi_type2_hidden" value="">
@@ -536,7 +542,6 @@
         <h3>🔀 Multi Payment</h3>
         <p style="color:#777; margin-bottom:15px;">Select two payment methods and enter amounts.</p>
         <div class="multi-options">
-            <!-- Payment Type 1 -->
             <div class="option-group">
                 <label>Payment Type 1</label>
                 <select id="multiType1" onchange="toggleMultiChequeFields(1)" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
@@ -546,17 +551,16 @@
                     <option value="Online">Online</option>
                 </select>
                 <input type="number" step="0.01" id="multiAmount1" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
-                <!-- Cheque Details for Payment 1 -->
                 <div id="multiChequeFields1" style="display:none; margin-top:10px; padding:10px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
-                    <div class="form-group" style="margin-bottom:8px;">
+                    <div style="margin-bottom:8px;">
                         <label style="font-size:12px; font-weight:600;">Cheque Number *</label>
-                        <input type="text" id="multiChequeNo1" placeholder="Enter cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                        <input type="text" id="multiChequeNo1" placeholder="Cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                     </div>
-                    <div class="form-group" style="margin-bottom:8px;">
+                    <div style="margin-bottom:8px;">
                         <label style="font-size:12px; font-weight:600;">Cheque Date *</label>
                         <input type="date" id="multiChequeDate1" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                     </div>
-                    <div class="form-group">
+                    <div>
                         <label style="font-size:12px; font-weight:600;">Bank *</label>
                         <select id="multiChequeBank1" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                             <option value="">-- Select Bank --</option>
@@ -567,8 +571,6 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Payment Type 2 -->
             <div class="option-group">
                 <label>Payment Type 2</label>
                 <select id="multiType2" onchange="toggleMultiChequeFields(2)" style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
@@ -578,17 +580,16 @@
                     <option value="Online">Online</option>
                 </select>
                 <input type="number" step="0.01" id="multiAmount2" placeholder="Amount" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e0e4eb; border-radius:8px;">
-                <!-- Cheque Details for Payment 2 -->
                 <div id="multiChequeFields2" style="display:none; margin-top:10px; padding:10px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
-                    <div class="form-group" style="margin-bottom:8px;">
+                    <div style="margin-bottom:8px;">
                         <label style="font-size:12px; font-weight:600;">Cheque Number *</label>
-                        <input type="text" id="multiChequeNo2" placeholder="Enter cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
+                        <input type="text" id="multiChequeNo2" placeholder="Cheque number" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                     </div>
-                    <div class="form-group" style="margin-bottom:8px;">
+                    <div style="margin-bottom:8px;">
                         <label style="font-size:12px; font-weight:600;">Cheque Date *</label>
                         <input type="date" id="multiChequeDate2" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                     </div>
-                    <div class="form-group">
+                    <div>
                         <label style="font-size:12px; font-weight:600;">Bank *</label>
                         <select id="multiChequeBank2" style="width:100%; padding:6px 10px; border:2px solid #e0e4eb; border-radius:6px; font-size:13px;">
                             <option value="">-- Select Bank --</option>
@@ -623,9 +624,11 @@
     let billDiscountType = '';
     let billDiscountValue = 0;
     let allProducts = [];
+    let vehicleLocked = false;
+    let repLocked = false;
 
     // ============================================================
-    // PRODUCT DATA (from Django) – SAFE VERSION
+    // PRODUCT DATA
     // ============================================================
     allProducts = [
         {% for product in products %}
@@ -654,6 +657,45 @@
     ];
 
     // ============================================================
+    // LOCK VEHICLE & REP
+    // ============================================================
+    function lockVehicle() {
+        const sel = document.getElementById('vehicleSelect');
+        const btn = document.getElementById('vehicleLockBtn');
+        if (!sel || !sel.value) return;
+        vehicleLocked = true;
+        sel.classList.add('locked-field');
+        btn.style.display = 'inline-block';
+    }
+
+    function unlockVehicle() {
+        const sel = document.getElementById('vehicleSelect');
+        const btn = document.getElementById('vehicleLockBtn');
+        vehicleLocked = false;
+        sel.classList.remove('locked-field');
+        btn.style.display = 'none';
+        sel.focus();
+    }
+
+    function lockRep() {
+        const sel = document.getElementById('repSelect');
+        const btn = document.getElementById('repLockBtn');
+        if (!sel || !sel.value) return;
+        repLocked = true;
+        sel.classList.add('locked-field');
+        btn.style.display = 'inline-block';
+    }
+
+    function unlockRep() {
+        const sel = document.getElementById('repSelect');
+        const btn = document.getElementById('repLockBtn');
+        repLocked = false;
+        sel.classList.remove('locked-field');
+        btn.style.display = 'none';
+        sel.focus();
+    }
+
+    // ============================================================
     // PRODUCT SEARCH
     // ============================================================
     function filterProducts() {
@@ -680,8 +722,8 @@
             const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
             const hasPrices = product.prices && product.prices.length > 0;
             const priceDisplay = hasPrices ?
-                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')" style="cursor:pointer; color:#007bff; text-decoration:underline;">
-                    Rs ${product.price.toFixed(2)} <span style="font-size:10px;">▼</span>
+                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                    Rs ${product.price.toFixed(2)} ▼
                 </span>` :
                 `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
 
@@ -692,7 +734,7 @@
                     <span class="product-stock ${stockClass}">${product.stock}</span>
                     <div class="product-actions">
                         <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, false, null)">🛒 Sale</button>
-                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name}', 0, true, null)">🎁 FOC</button>
+                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', 0, true, null)">🎁 FOC</button>
                     </div>
                 </div>
             `;
@@ -705,23 +747,16 @@
     // ============================================================
     function showPriceSelector(productId, productName) {
         const product = allProducts.find(p => p.id === productId);
-        if (!product) {
-            alert('Product not found.');
-            return;
-        }
-
+        if (!product) return;
         const priceVersions = product.prices || [];
         if (priceVersions.length === 0) {
             alert('No price versions available for this product.');
             return;
         }
 
-        let modalHtml = `
-            <div style="background:white; padding:25px; border-radius:12px; max-width:450px; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-                <h3 style="margin-top:0;">Select Price for ${productName}</h3>
-                <p style="color:#888; font-size:13px;">Choose a price version to use for this sale.</p>
-                <div style="margin:15px 0; max-height:300px; overflow-y:auto;">
-        `;
+        let modalHtml = `<div style="background:white; padding:25px; border-radius:12px; max-width:450px; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0;">Select Price for ${productName}</h3>
+            <div style="margin:15px 0; max-height:300px; overflow-y:auto;">`;
 
         priceVersions.forEach(p => {
             const isActive = p.is_active;
@@ -734,28 +769,21 @@
                         ${isActive ? '<span style="font-size:12px; color:#28a745; margin-left:8px;">Active</span>' : ''}
                     </div>
                     <button type="button" onclick="selectProductPrice(${productId}, ${p.amount}, '${productName.replace(/'/g, "\\'")}', ${p.id})" 
-                            style="padding:6px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
-                        Use
-                    </button>
+                            style="padding:6px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Use</button>
                 </div>
             `;
         });
 
         modalHtml += `
-                </div>
-                <div style="padding:12px; border:1px dashed #007bff; border-radius:8px; display:flex; gap:10px; align-items:center; margin-top:10px;">
-                    <span style="font-weight:600;">✏️ Custom</span>
-                    <input type="number" id="customPriceInput" step="0.01" placeholder="Enter amount" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px;">
-                    <button type="button" onclick="selectCustomProductPrice(${productId}, '${productName.replace(/'/g, "\\'")}')" 
-                            style="padding:6px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
-                        Apply
-                    </button>
-                </div>
-                <button onclick="closePriceSelector()" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; margin-top:12px; width:100%;">
-                    Cancel
-                </button>
             </div>
-        `;
+            <div style="padding:12px; border:1px dashed #007bff; border-radius:8px; display:flex; gap:10px; align-items:center; margin-top:10px;">
+                <span style="font-weight:600;">✏️ Custom</span>
+                <input type="number" id="customPriceInput" step="0.01" placeholder="Enter amount" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                <button type="button" onclick="selectCustomProductPrice(${productId}, '${productName.replace(/'/g, "\\'")}')" 
+                        style="padding:6px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Apply</button>
+            </div>
+            <button onclick="closePriceSelector()" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; margin-top:12px; width:100%;">Cancel</button>
+        </div>`;
 
         const overlay = document.createElement('div');
         overlay.id = 'priceSelectorOverlay';
@@ -777,21 +805,18 @@
     function selectCustomProductPrice(productId, productName) {
         const input = document.getElementById('customPriceInput');
         const price = parseFloat(input.value);
-        if (!price || price <= 0) {
-            alert('Please enter a valid price.');
-            return;
-        }
+        if (!price || price <= 0) { alert('Please enter a valid price.'); return; }
         addToCart(productId, productName, price, false, null);
         closePriceSelector();
     }
+
     // ============================================================
-    // TOGGLE RETURN MODE
+    // RETURN MODE
     // ============================================================
     function toggleReturnMode() {
         returnMode = document.getElementById('returnMode').checked;
         const returnTypeSection = document.getElementById('returnTypeSection');
         const returnReason = document.getElementById('returnReason');
-
         if (returnMode) {
             returnTypeSection.style.display = 'block';
             returnReason.style.display = 'inline-block';
@@ -806,9 +831,6 @@
         renderCart();
     }
 
-    // ============================================================
-    // UPDATE RETURN WARNING (Bad Return)
-    // ============================================================
     function updateReturnWarning() {
         const badWarning = document.getElementById('badReturnWarning');
         const selectedType = document.querySelector('input[name="return_type"]:checked');
@@ -819,21 +841,12 @@
         }
     }
 
-    // Add event listener for return type change
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('input[name="return_type"]').forEach(function(radio) {
-            radio.addEventListener('change', updateReturnWarning);
-        });
-    });
-
     // ============================================================
-    // CART FUNCTIONS
+    // CART
     // ============================================================
     function addToCart(productId, productName, rate, isFoc, priceId) {
         const existingIndex = cart.findIndex(item => 
-            item.id === productId && 
-            item.price_id === priceId && 
-            item.is_foc === isFoc
+            item.id === productId && item.price_id === priceId && item.is_foc === isFoc
         );
         
         if (existingIndex !== -1) {
@@ -847,49 +860,38 @@
                 rate: isFoc ? 0 : rate,
                 total: isFoc ? 0 : rate,
                 is_foc: isFoc,
-                price_id: priceId  // ✅ Store the selected price version ID
+                price_id: priceId
             });
         }
         renderCart();
     }
 
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        renderCart();
-    }
+    function removeFromCart(index) { cart.splice(index, 1); renderCart(); }
 
     function updateCartItem(index, field, value) {
         const val = parseFloat(value) || 0;
-        if (field === 'qty') {
-            cart[index].qty = val;
-        } else if (field === 'rate') {
-            cart[index].rate = val;
-            cart[index].price_id = null;
-        }
+        if (field === 'qty') cart[index].qty = val;
+        else if (field === 'rate') { cart[index].rate = val; cart[index].price_id = null; }
         renderCart();
     }
 
     function renderCart() {
         const regularItems = cart.filter(item => !item.is_foc);
         const focItems = cart.filter(item => item.is_foc);
-
         const regularBody = document.getElementById('regularCartBody');
         const focBody = document.getElementById('focCartBody');
         const regularTotalDisplay = document.getElementById('regularTotalDisplay');
         const focTotalDisplay = document.getElementById('focTotalDisplay');
         const subtotalDisplay = document.getElementById('subtotalDisplay');
         const focValueDisplay = document.getElementById('focValueDisplay');
-        const netTotalDisplay = document.getElementById('netTotalDisplay');
-        const discountDisplay = document.getElementById('discountDisplay');
 
-        // Regular items
         if (regularItems.length === 0) {
             regularBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>`;
             regularTotalDisplay.textContent = '0.00';
         } else {
             let html = '';
             let regularTotal = 0;
-            regularItems.forEach((item, idx) => {
+            regularItems.forEach((item) => {
                 const index = cart.indexOf(item);
                 const total = item.qty * item.rate;
                 regularTotal += total;
@@ -898,8 +900,8 @@
                 html += `
                     <tr>
                         <td><strong>${item.name}</strong> ${priceLabel}</td>
-                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
-                        <td><input type="number" step="0.01" value="${item.rate}" style="width:80px;" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
+                        <td><input type="number" step="0.01" value="${item.qty}" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                        <td><input type="number" step="0.01" value="${item.rate}" onchange="updateCartItem(${index}, 'rate', this.value)"></td>
                         <td>${sign} Rs ${total.toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
                     </tr>
@@ -909,14 +911,13 @@
             regularTotalDisplay.textContent = regularTotal.toFixed(2);
         }
 
-        // FOC items
         if (focItems.length === 0) {
             focBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>`;
             focTotalDisplay.textContent = '0.00';
         } else {
             let html = '';
             let focTotal = 0;
-            focItems.forEach((item, idx) => {
+            focItems.forEach((item) => {
                 const index = cart.indexOf(item);
                 const total = item.qty * item.rate;
                 focTotal += total;
@@ -924,7 +925,7 @@
                 html += `
                     <tr>
                         <td><strong>${item.name}</strong></td>
-                        <td><input type="number" step="0.01" value="${item.qty}" style="width:70px;" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
+                        <td><input type="number" step="0.01" value="${item.qty}" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
                         <td>${item.rate.toFixed(2)}</td>
                         <td>${sign} Rs ${total.toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
@@ -943,19 +944,15 @@
         populateHiddenFields();
     }
 
-    // ===== POPULATE HIDDEN FIELDS FROM CART =====
     function populateHiddenFields() {
-        const maxItems = 20;
-        for (let i = 1; i <= maxItems; i++) {
+        for (let i = 1; i <= 20; i++) {
             const item = cart[i - 1];
             const productField = document.getElementById(`hidden_product_${i}`);
             const qtyField = document.getElementById(`hidden_qty_${i}`);
             const rateField = document.getElementById(`hidden_rate_${i}`);
             const focField = document.getElementById(`hidden_is_foc_${i}`);
             const priceIdField = document.getElementById(`hidden_price_id_${i}`);
-
             if (!productField) continue;
-
             if (item) {
                 const qty = returnMode ? -Math.abs(item.qty) : Math.abs(item.qty);
                 productField.value = item.id;
@@ -979,28 +976,22 @@
     function updateBillDiscount() {
         const discountType = document.getElementById('billDiscountType').value;
         const discountValue = parseFloat(document.getElementById('billDiscountValue').value) || 0;
-
         const regularItems = cart.filter(item => !item.is_foc);
         const subtotal = regularItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
 
         let discountAmount = 0;
-        if (discountType === 'PERCENTAGE' && discountValue > 0) {
-            discountAmount = (subtotal * discountValue) / 100;
-        } else if (discountType === 'FIXED' && discountValue > 0) {
-            discountAmount = Math.min(discountValue, subtotal);
-        }
+        if (discountType === 'PERCENTAGE' && discountValue > 0) discountAmount = (subtotal * discountValue) / 100;
+        else if (discountType === 'FIXED' && discountValue > 0) discountAmount = Math.min(discountValue, subtotal);
 
         const netTotal = subtotal - discountAmount;
         document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
         document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
 
-        // ✅ ALWAYS update the hidden inputs
         billDiscountType = discountType;
         billDiscountValue = discountValue;
         document.getElementById('hidden_bill_discount_type').value = discountType || '';
         document.getElementById('hidden_bill_discount_value').value = discountValue.toFixed(2);
 
-        // ✅ SYNC PAYMENT AMOUNT to new net total
         if (selectedPayment === 'cash') {
             const el = document.getElementById('cashAmount');
             if (el) { el.value = netTotal.toFixed(2); updateCashTotal(); }
@@ -1010,21 +1001,6 @@
         } else if (selectedPayment === 'online') {
             const el = document.getElementById('onlineAmount');
             if (el) { el.value = netTotal.toFixed(2); updateOnlineTotal(); }
-        } else if (selectedPayment === 'cheque' && chequeData) {
-            // Reset cheque when discount changes
-            chequeData.amount = netTotal;
-            const el = document.getElementById('chequeAmount');
-            if (el) el.value = netTotal.toFixed(2);
-        } else if (selectedPayment === 'multi' && multiPayData) {
-            // Reset multi pay - user must re-enter
-            multiPayData = null;
-            document.getElementById('paymentDetails').innerHTML = `
-                <div style="background:#fff3cd; padding:15px; border-radius:8px; color:#856404;">
-                    ⚠️ Bill total changed. Please re-open Multi Pay and enter new amounts.
-                </div>
-            `;
-            document.getElementById('multi_amount1_hidden').value = '0';
-            document.getElementById('multi_amount2_hidden').value = '0';
         }
     }
 
@@ -1044,10 +1020,8 @@
     }
 
     // ============================================================
-    // VEHICLE STOCK UPDATE
+    // VEHICLE STOCK
     // ============================================================
-
-
     function updateVehicleStock() {
         const vehicleSelect = document.getElementById('vehicleSelect');
         const vehicleId = vehicleSelect ? vehicleSelect.value : '';
@@ -1084,13 +1058,9 @@
             .catch(error => console.error('Error fetching vehicle stock:', error));
     }
 
-
-
-
     // ============================================================
-    // REP CODE INVOICE GENERATION
+    // REP CODE → INVOICE
     // ============================================================
-
     function updateInvoiceFromRep() {
         const repSelect = document.getElementById('repSelect');
         const invoiceInput = document.getElementById('invoiceNoInput');
@@ -1098,15 +1068,9 @@
         if (manualInvoice) return;
         const selectedOption = repSelect.options[repSelect.selectedIndex];
         const repCode = selectedOption ? selectedOption.getAttribute('data-rep-code') : '';
-
-            console.log('Selected rep code:', repCode);  // Debug
-    
-            if (repCode && repCode !== 'None') {
-                invoiceInput.value = repCode;
-            } else {
-                invoiceInput.value = '';
-            }
-        }
+        if (repCode && repCode !== 'None') invoiceInput.value = repCode;
+        else invoiceInput.value = '';
+    }
 
     // ============================================================
     // PAYMENT METHODS
@@ -1129,8 +1093,7 @@
                         <input type="number" step="0.01" id="cashAmount" name="cash_amount" placeholder="Enter amount" oninput="updateCashTotal()">
                     </div>
                     <div style="padding:5px 0; font-weight:600; color:#28a745;">Total: <span id="cashTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
+                </div>`;
             updatePaymentInputs();
         } else if (method === 'credit') {
             details.innerHTML = `
@@ -1140,8 +1103,7 @@
                         <input type="number" step="0.01" id="creditAmount" name="credit_amount" placeholder="Enter amount" oninput="updateCreditTotal()">
                     </div>
                     <div style="padding:5px 0; font-weight:600; color:#fd7e14;">Total: <span id="creditTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
+                </div>`;
             updatePaymentInputs();
         } else if (method === 'online') {
             details.innerHTML = `
@@ -1164,8 +1126,7 @@
                         <input type="number" step="0.01" id="onlineAmount" name="online_amount" placeholder="Enter amount" oninput="updateOnlineTotal()">
                     </div>
                     <div style="padding:5px 0; font-weight:600; color:#17a2b8;">Total: <span id="onlineTotalDisplay">Rs 0.00</span></div>
-                </div>
-            `;
+                </div>`;
         }
     }
 
@@ -1195,16 +1156,16 @@
         const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
         const netTotal = parseFloat(netText) || 0;
         if (selectedPayment === 'cash') {
-            const cashInput = document.getElementById('cashAmount');
-            if (cashInput) { cashInput.value = netTotal.toFixed(2); updateCashTotal(); }
+            const el = document.getElementById('cashAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateCashTotal(); }
         }
         if (selectedPayment === 'credit') {
-            const creditInput = document.getElementById('creditAmount');
-            if (creditInput) { creditInput.value = netTotal.toFixed(2); updateCreditTotal(); }
+            const el = document.getElementById('creditAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateCreditTotal(); }
         }
         if (selectedPayment === 'online') {
-            const onlineInput = document.getElementById('onlineAmount');
-            if (onlineInput) { onlineInput.value = netTotal.toFixed(2); updateOnlineTotal(); }
+            const el = document.getElementById('onlineAmount');
+            if (el) { el.value = netTotal.toFixed(2); updateOnlineTotal(); }
         }
     }
 
@@ -1215,13 +1176,9 @@
         document.getElementById('chequeModal').classList.add('show');
         document.getElementById('chequeDate').value = new Date().toISOString().split('T')[0];
         const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
-        const netTotal = parseFloat(netText) || 0;
-        document.getElementById('chequeAmount').value = netTotal.toFixed(2);
+        document.getElementById('chequeAmount').value = (parseFloat(netText) || 0).toFixed(2);
     }
-
-    function closeChequeModal() {
-        document.getElementById('chequeModal').classList.remove('show');
-    }
+    function closeChequeModal() { document.getElementById('chequeModal').classList.remove('show'); }
 
     function confirmCheque() {
         const chequeNo = document.getElementById('chequeNo').value;
@@ -1238,18 +1195,14 @@
         selectedPayment = 'cheque';
         document.getElementById('paymentMethod').value = 'cheque';
 
-        // Remove existing cheque hidden fields
         document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
-
-        // Add new hidden fields
         const form = document.getElementById('salesForm');
-        const fields = [
+        [
             { name: 'cheque_amount', value: amount.toFixed(2) },
             { name: 'cheque_no', value: chequeNo },
             { name: 'cheque_date', value: chequeDate },
             { name: 'cheque_bank', value: bank }
-        ];
-        fields.forEach(f => {
+        ].forEach(f => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = f.name;
@@ -1258,11 +1211,6 @@
             form.appendChild(input);
         });
 
-        // 🔍 Log to verify
-        console.log('Cheque hidden fields added:', fields);
-        console.log('Payment method set to:', document.getElementById('paymentMethod').value);
-
-        // Update UI
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pay-btn').forEach(b => {
             if (b.textContent.trim().toLowerCase().includes('cheque')) b.classList.add('active');
@@ -1281,7 +1229,6 @@
         `;
         closeChequeModal();
     }
-
     function resetCheque() {
         document.querySelectorAll('.cheque-hidden').forEach(el => el.remove());
         chequeData = null;
@@ -1289,26 +1236,16 @@
     }
 
     // ============================================================
-    // ADD BANK MODAL
+    // ADD BANK
     // ============================================================
-    function openAddBankModal() {
-        document.getElementById('addBankModal').classList.add('show');
-    }
-
-    function closeAddBankModal() {
-        document.getElementById('addBankModal').classList.remove('show');
-        document.getElementById('newBankName').value = '';
-    }
-
+    function openAddBankModal() { document.getElementById('addBankModal').classList.add('show'); }
+    function closeAddBankModal() { document.getElementById('addBankModal').classList.remove('show'); document.getElementById('newBankName').value = ''; }
     function confirmAddBank() {
         const name = document.getElementById('newBankName').value.trim();
         if (!name) { alert('Please enter a bank name.'); return; }
         fetch('/api/add-bank/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
             body: JSON.stringify({ name: name })
         })
         .then(response => response.json())
@@ -1330,16 +1267,13 @@
     }
 
     // ============================================================
-    // MULTI PAY MODAL
+    // MULTI PAY
     // ============================================================
     function openMultiPayModal() {
         document.getElementById('multiPayModal').classList.add('show');
         updateMultiTotal();
     }
-
-    function closeMultiPayModal() {
-        document.getElementById('multiPayModal').classList.remove('show');
-    }
+    function closeMultiPayModal() { document.getElementById('multiPayModal').classList.remove('show'); }
 
     function updateMultiTotal() {
         const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
@@ -1347,82 +1281,62 @@
         document.getElementById('multiTotalDisplay').textContent = `Rs ${(amt1 + amt2).toFixed(2)}`;
     }
 
-   function confirmMultiPay() {
+    function toggleMultiChequeFields(paymentNumber) {
+        const typeSelect = document.getElementById(`multiType${paymentNumber}`);
+        const chequeFields = document.getElementById(`multiChequeFields${paymentNumber}`);
+        if (typeSelect.value === 'Cheque') {
+            chequeFields.style.display = 'block';
+            const dateInput = document.getElementById(`multiChequeDate${paymentNumber}`);
+            if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().split('T')[0];
+        } else {
+            chequeFields.style.display = 'none';
+        }
+    }
+
+    function confirmMultiPay() {
         const type1 = document.getElementById('multiType1').value;
         const amt1 = parseFloat(document.getElementById('multiAmount1').value) || 0;
         const type2 = document.getElementById('multiType2').value;
         const amt2 = parseFloat(document.getElementById('multiAmount2').value) || 0;
         const total = amt1 + amt2;
 
-        if (type1 === type2) {
-            alert('Please select two different payment types.');
-            return;
-        }
-        if (amt1 <= 0 || amt2 <= 0 || total <= 0) {
-            alert('Please enter valid amounts.');
-            return;
-        }
+        if (type1 === type2) { alert('Please select two different payment types.'); return; }
+        if (amt1 <= 0 || amt2 <= 0 || total <= 0) { alert('Please enter valid amounts.'); return; }
 
         let chequeData1 = null;
         let chequeData2 = null;
 
         if (type1 === 'Cheque') {
-            const chequeNo1 = document.getElementById('multiChequeNo1').value.trim();
-            const chequeDate1 = document.getElementById('multiChequeDate1').value;
+            const no1 = document.getElementById('multiChequeNo1').value.trim();
+            const date1 = document.getElementById('multiChequeDate1').value;
             const bank1 = document.getElementById('multiChequeBank1').value;
-            if (!chequeNo1 || !chequeDate1 || !bank1) {
-                alert('Please fill in all cheque details for Payment 1.');
-                return;
-            }
-            chequeData1 = { cheque_no: chequeNo1, cheque_date: chequeDate1, bank: bank1 };
+            if (!no1 || !date1 || !bank1) { alert('Please fill cheque details for Payment 1.'); return; }
+            chequeData1 = { cheque_no: no1, cheque_date: date1, bank: bank1 };
         }
-
         if (type2 === 'Cheque') {
-            const chequeNo2 = document.getElementById('multiChequeNo2').value.trim();
-            const chequeDate2 = document.getElementById('multiChequeDate2').value;
+            const no2 = document.getElementById('multiChequeNo2').value.trim();
+            const date2 = document.getElementById('multiChequeDate2').value;
             const bank2 = document.getElementById('multiChequeBank2').value;
-            if (!chequeNo2 || !chequeDate2 || !bank2) {
-                alert('Please fill in all cheque details for Payment 2.');
-                return;
-            }
-            chequeData2 = { cheque_no: chequeNo2, cheque_date: chequeDate2, bank: bank2 };
+            if (!no2 || !date2 || !bank2) { alert('Please fill cheque details for Payment 2.'); return; }
+            chequeData2 = { cheque_no: no2, cheque_date: date2, bank: bank2 };
         }
 
         multiPayData = { type1, amt1, type2, amt2, total, chequeData1, chequeData2 };
         selectedPayment = 'multi';
         document.getElementById('paymentMethod').value = 'multi';
 
-        // ===== SAVE VALUES TO HIDDEN INPUTS DIRECTLY =====
         document.getElementById('multi_type1_hidden').value = type1;
         document.getElementById('multi_amount1_hidden').value = amt1.toFixed(2);
         document.getElementById('multi_type2_hidden').value = type2;
         document.getElementById('multi_amount2_hidden').value = amt2.toFixed(2);
 
-        if (chequeData1) {
-            document.getElementById('multi_cheque_no_1_hidden').value = chequeData1.cheque_no;
-            document.getElementById('multi_cheque_date_1_hidden').value = chequeData1.cheque_date;
-            document.getElementById('multi_cheque_bank_1_hidden').value = chequeData1.bank;
-        } else {
-            document.getElementById('multi_cheque_no_1_hidden').value = '';
-            document.getElementById('multi_cheque_date_1_hidden').value = '';
-            document.getElementById('multi_cheque_bank_1_hidden').value = '';
-        }
+        document.getElementById('multi_cheque_no_1_hidden').value = chequeData1 ? chequeData1.cheque_no : '';
+        document.getElementById('multi_cheque_date_1_hidden').value = chequeData1 ? chequeData1.cheque_date : '';
+        document.getElementById('multi_cheque_bank_1_hidden').value = chequeData1 ? chequeData1.bank : '';
+        document.getElementById('multi_cheque_no_2_hidden').value = chequeData2 ? chequeData2.cheque_no : '';
+        document.getElementById('multi_cheque_date_2_hidden').value = chequeData2 ? chequeData2.cheque_date : '';
+        document.getElementById('multi_cheque_bank_2_hidden').value = chequeData2 ? chequeData2.bank : '';
 
-        if (chequeData2) {
-            document.getElementById('multi_cheque_no_2_hidden').value = chequeData2.cheque_no;
-            document.getElementById('multi_cheque_date_2_hidden').value = chequeData2.cheque_date;
-            document.getElementById('multi_cheque_bank_2_hidden').value = chequeData2.bank;
-        } else {
-            document.getElementById('multi_cheque_no_2_hidden').value = '';
-            document.getElementById('multi_cheque_date_2_hidden').value = '';
-            document.getElementById('multi_cheque_bank_2_hidden').value = '';
-        }
-
-        console.log('MultiPay saved to hidden inputs:', {
-            type1, amt1, type2, amt2, chequeData1, chequeData2
-        });
-
-        // Update UI
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.pay-btn').forEach(b => {
             if (b.textContent.trim().toLowerCase().includes('multi')) b.classList.add('active');
@@ -1432,46 +1346,21 @@
         details.classList.add('show');
         let html = `<div style="background:#f8f0ff; padding:15px; border-radius:8px;">`;
         html += `<p><strong>Payment 1:</strong> ${type1} - Rs ${amt1.toFixed(2)}`;
-        if (type1 === 'Cheque' && chequeData1) {
-            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no} (${chequeData1.cheque_date})</span>`;
-        }
+        if (chequeData1) html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData1.cheque_no}</span>`;
         html += `</p>`;
         html += `<p><strong>Payment 2:</strong> ${type2} - Rs ${amt2.toFixed(2)}`;
-        if (type2 === 'Cheque' && chequeData2) {
-            html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no} (${chequeData2.cheque_date})</span>`;
-        }
+        if (chequeData2) html += `<br><span style="font-size:12px; color:#6f42c1;">Cheque: ${chequeData2.cheque_no}</span>`;
         html += `</p>`;
-        html += `<p><strong>Total:</strong> Rs ${total.toFixed(2)}</p>`;
-        html += `</div>`;
+        html += `<p><strong>Total:</strong> Rs ${total.toFixed(2)}</p></div>`;
         html += `<button type="button" class="btn" style="margin-top:10px; background:#dc3545; color:white; padding:8px 16px; border:none; border-radius:6px; cursor:pointer;" onclick="resetMulti()">✕ Remove Multi Pay</button>`;
         details.innerHTML = html;
 
         closeMultiPayModal();
     }
 
-
     function resetMulti() {
         multiPayData = null;
         if (selectedPayment === 'multi') resetPayment();
-    }
-
-    // ============================================================
-// MULTI PAY - TOGGLE CHEQUE FIELDS
-// ============================================================
-    function toggleMultiChequeFields(paymentNumber) {
-        const typeSelect = document.getElementById(`multiType${paymentNumber}`);
-        const chequeFields = document.getElementById(`multiChequeFields${paymentNumber}`);
-        
-        if (typeSelect.value === 'Cheque') {
-            chequeFields.style.display = 'block';
-            // Auto-fill cheque date with today
-            const dateInput = document.getElementById(`multiChequeDate${paymentNumber}`);
-            if (dateInput && !dateInput.value) {
-                dateInput.value = new Date().toISOString().split('T')[0];
-            }
-        } else {
-            chequeFields.style.display = 'none';
-        }
     }
 
     // ============================================================
@@ -1480,15 +1369,12 @@
     function setupCustomerSearch() {
         const searchInput = document.getElementById('customerSearchInput');
         if (!searchInput) return;
-
         let timeoutId = null;
-
         searchInput.addEventListener('input', function() {
             clearTimeout(timeoutId);
             const query = this.value.trim();
             timeoutId = setTimeout(() => searchCustomers(query), 300);
         });
-
         document.addEventListener('click', function(e) {
             const results = document.getElementById('customerSearchResults');
             const searchBox = document.getElementById('customerSearchInput');
@@ -1496,67 +1382,41 @@
                 results.style.display = 'none';
             }
         });
-
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 const firstResult = document.querySelector('#customerSearchResults .search-result-item');
-                if (firstResult) {
-                    firstResult.click();
-                    e.preventDefault();
-                }
+                if (firstResult) { firstResult.click(); e.preventDefault(); }
             }
         });
     }
 
     function searchCustomers(query) {
         const resultsContainer = document.getElementById('customerSearchResults');
-
-        if (!query || query.length < 2) {
-            resultsContainer.style.display = 'none';
-            return;
-        }
-
+        if (!query || query.length < 2) { resultsContainer.style.display = 'none'; return; }
         resultsContainer.innerHTML = '<div class="no-results">Searching...</div>';
         resultsContainer.style.display = 'block';
-
         fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
                 resultsContainer.innerHTML = '';
-
                 if (data.customers.length === 0) {
-                    resultsContainer.innerHTML = `
-                        <div class="no-results">
-                            No customers found.<br>
-                            <span style="font-size:12px;">Try a different search or click "+ New Customer"</span>
-                        </div>
-                    `;
+                    resultsContainer.innerHTML = `<div class="no-results">No customers found.</div>`;
                     resultsContainer.style.display = 'block';
                     return;
                 }
-
                 data.customers.forEach(customer => {
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
                     div.innerHTML = `
-                        <div>
-                            <div class="name">${customer.name}</div>
-                            <div class="code">${customer.code} ${customer.city ? '• ' + customer.city : ''}</div>
-                        </div>
-                        <div class="info">
-                            <div class="phone">${customer.phone || ''}</div>
-                        </div>
-                    `;
-                    div.addEventListener('click', function() {
-                        selectCustomer(customer);
-                    });
+                        <div><div class="name">${customer.name}</div><div class="code">${customer.code}</div></div>
+                        <div class="info"><div class="phone">${customer.phone || ''}</div></div>`;
+                    div.addEventListener('click', function() { selectCustomer(customer); });
                     resultsContainer.appendChild(div);
                 });
-
                 resultsContainer.style.display = 'block';
             })
             .catch(() => {
-                resultsContainer.innerHTML = '<div class="no-results">Error searching. Please try again.</div>';
+                resultsContainer.innerHTML = '<div class="no-results">Error searching.</div>';
                 resultsContainer.style.display = 'block';
             });
     }
@@ -1576,10 +1436,9 @@
     function openAddCustomer() {
         const currentSearch = document.getElementById('customerSearchInput').value || '';
         const url = `/customer/add/?return_to=1&q=${encodeURIComponent(currentSearch)}`;
-        const features = 'width=600,height=800,scrollbars=yes,resizable=yes';
-        const newWindow = window.open(url, '_blank', features);
+        const newWindow = window.open(url, '_blank', 'width=600,height=800,scrollbars=yes,resizable=yes');
         if (newWindow) newWindow.focus();
-        else if (confirm('Pop-up blocked. Do you want to open in a new tab?')) window.open(url, '_blank');
+        else if (confirm('Pop-up blocked. Open in new tab?')) window.open(url, '_blank');
     }
 
     function checkForNewCustomer() {
@@ -1600,148 +1459,56 @@
         }
     }
 
-    function lockVehicle() {
-        const sel = document.getElementById('vehicleSelect');
-        const btn = document.getElementById('vehicleLockBtn');
-        if (sel.value) {
-            sel.style.background = '#f0f4f9';
-            sel.style.color = '#666';
-            sel.dataset.locked = 'true';
-            btn.style.display = 'inline-block';
-            // Prevent changes via keydown
-            sel.addEventListener('mousedown', preventChange);
-            sel.addEventListener('keydown', preventChange);
-            sel.addEventListener('focus', function() { this.blur(); });
-        }
-    }
-
-    function preventChange(e) {
-        if (this.dataset.locked === 'true') {
-            e.preventDefault();
-        }
-    }
-
-    function unlockVehicle() {
-        const sel = document.getElementById('vehicleSelect');
-        const btn = document.getElementById('vehicleLockBtn');
-        sel.disabled = false;
-        sel.style.background = '#fafbfc';
-        sel.style.cursor = 'pointer';
-        btn.style.display = 'none';
-        localStorage.removeItem('locked_vehicle_id');
-    }
-
-    function lockRep() {
-        const sel = document.getElementById('repSelect');
-        const btn = document.getElementById('repLockBtn');
-        if (sel.value) {
-            sel.disabled = true;
-            sel.style.background = '#f0f4f9';
-            sel.style.cursor = 'not-allowed';
-            btn.style.display = 'inline-block';
-            localStorage.setItem('locked_rep_id', sel.value);
-        }
-    }
-
-    function unlockRep() {
-        const sel = document.getElementById('repSelect');
-        const btn = document.getElementById('repLockBtn');
-        sel.disabled = false;
-        sel.style.background = '#fafbfc';
-        sel.style.cursor = 'pointer';
-        btn.style.display = 'none';
-        localStorage.removeItem('locked_rep_id');
-    }
-
-    // Auto-lock when user selects
-    document.getElementById('vehicleSelect').addEventListener('change', function() {
-        if (this.value) lockVehicle();
-    });
-
-    document.getElementById('repSelect').addEventListener('change', function() {
-        if (this.value) lockRep();
-    });
-
-    // Restore locks on page load
-    window.addEventListener('DOMContentLoaded', function() {
-        // Vehicle
-        if (document.getElementById('vehicleSelect').value) {
-            lockVehicle();
-        }
-        // Rep
-        if (document.getElementById('repSelect').value) {
-            lockRep();
-        }
-    });
-
     // ============================================================
-    // FORM SUBMIT HANDLER
+    // EVENT LISTENERS
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         setupCustomerSearch();
         checkForNewCustomer();
 
+        // ===== VEHICLE: change listener + auto-lock + auto-update stock =====
+        const vehicleSelect = document.getElementById('vehicleSelect');
+        if (vehicleSelect) {
+            vehicleSelect.addEventListener('change', function() {
+                updateVehicleStock();
+                if (this.value && !vehicleLocked) lockVehicle();
+            });
+            // Restore lock if value already present
+            if (vehicleSelect.value) lockVehicle();
+            setTimeout(updateVehicleStock, 500);
+        }
+
+        // ===== REP: change listener + auto-lock + auto-invoice =====
         const repSelect = document.getElementById('repSelect');
         if (repSelect) {
             repSelect.addEventListener('change', function() {
                 updateInvoiceFromRep();
                 manualInvoice = false;
+                if (this.value && !repLocked) lockRep();
             });
+            if (repSelect.value) lockRep();
             setTimeout(updateInvoiceFromRep, 300);
         }
 
+        // ===== INVOICE: manual override flag =====
         const invoiceInput = document.getElementById('invoiceNoInput');
         if (invoiceInput) {
-            invoiceInput.addEventListener('input', function() {
-                manualInvoice = true;
-            });
+            invoiceInput.addEventListener('input', function() { manualInvoice = true; });
         }
 
-        const vehicleSelect = document.getElementById('vehicleSelect');
-        if (vehicleSelect) {
-            vehicleSelect.addEventListener('change', function() {
-                updateVehicleStock();
-            });
-            setTimeout(updateVehicleStock, 500);
-        }
-
+        // ===== MULTI PAY amount listeners =====
         document.getElementById('multiAmount1')?.addEventListener('input', updateMultiTotal);
         document.getElementById('multiAmount2')?.addEventListener('input', updateMultiTotal);
 
         renderCart();
 
+        // ===== FORM SUBMIT =====
         document.getElementById('salesForm').addEventListener('submit', function(e) {
-            if (cart.length === 0) {
-                e.preventDefault();
-                alert('❌ Please add at least one item to the bill!');
-                return;
-            }
-
-            if (!document.getElementById('selectedCustomerId').value) {
-                e.preventDefault();
-                alert('❌ Please select a customer!');
-                return;
-            }
-
-            if (!selectedPayment) {
-                e.preventDefault();
-                alert('❌ Please select a payment method!');
-                return;
-            }
-
-            const vehicleSelect = document.getElementById('vehicleSelect');
-            if (!vehicleSelect.value) {
-                e.preventDefault();
-                alert('❌ Please select a delivery vehicle!');
-                return;
-            }
-
-            const invoiceInput = document.getElementById('invoiceNoInput');
-            if (!invoiceInput.value.trim()) {
-                e.preventDefault();
-                alert('❌ Please enter an invoice number!');
-                return;
-            }
+            if (cart.length === 0) { e.preventDefault(); alert('❌ Please add at least one item!'); return; }
+            if (!document.getElementById('selectedCustomerId').value) { e.preventDefault(); alert('❌ Please select a customer!'); return; }
+            if (!selectedPayment) { e.preventDefault(); alert('❌ Please select a payment method!'); return; }
+            if (!vehicleSelect.value) { e.preventDefault(); alert('❌ Please select a delivery vehicle!'); return; }
+            if (!invoiceInput.value.trim()) { e.preventDefault(); alert('❌ Please enter an invoice number!'); return; }
 
             const netText = document.getElementById('netTotalDisplay').textContent.replace('Rs ', '');
             const netTotal = parseFloat(netText) || 0;
@@ -1754,69 +1521,23 @@
 
             if (Math.abs(paidAmount - netTotal) > 0.01) {
                 e.preventDefault();
-                alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})! Please adjust.`);
+                alert(`❌ Payment amount (${paidAmount.toFixed(2)}) does not match Net Total (${netTotal.toFixed(2)})!`);
                 return;
             }
-                
-            // In the form submit handler, after checking for multiPayData
-            // ===== MULTI PAY HIDDEN FIELDS =====
-            
-            console.log('Selected Payment:', selectedPayment);
-            console.log('MultiPay Data:', multiPayData);
-            console.log('MultiPay hidden fields appended:', fields);
-
-            // ===== MULTI PAY HIDDEN FIELDS =====
-            if (selectedPayment === 'multi' && multiPayData) {
-                const form = document.getElementById('salesForm');
-                document.querySelectorAll('.multi-hidden').forEach(el => el.remove());
-
-                const fields = [
-                    { name: 'multi_type1', value: multiPayData.type1 },
-                    { name: 'multi_amount1', value: multiPayData.amt1.toFixed(2) },
-                    { name: 'multi_type2', value: multiPayData.type2 },
-                    { name: 'multi_amount2', value: multiPayData.amt2.toFixed(2) }
-                ];
-
-                if (multiPayData.chequeData1) {
-                    fields.push({ name: 'multi_cheque_no_1', value: multiPayData.chequeData1.cheque_no });
-                    fields.push({ name: 'multi_cheque_date_1', value: multiPayData.chequeData1.cheque_date });
-                    fields.push({ name: 'multi_cheque_bank_1', value: multiPayData.chequeData1.bank });
-                }
-                if (multiPayData.chequeData2) {
-                    fields.push({ name: 'multi_cheque_no_2', value: multiPayData.chequeData2.cheque_no });
-                    fields.push({ name: 'multi_cheque_date_2', value: multiPayData.chequeData2.cheque_date });
-                    fields.push({ name: 'multi_cheque_bank_2', value: multiPayData.chequeData2.bank });
-                }
-
-                fields.forEach(f => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = f.name;
-                    input.value = f.value;
-                    input.className = 'multi-hidden';
-                    form.appendChild(input);
-                });
-                console.log('MultiPay hidden fields appended:', fields);
-            }
-
 
             // ===== RETURN TYPE =====
-            const returnMode = document.getElementById('returnMode').checked;
             document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
             if (returnMode) {
                 const selectedType = document.querySelector('input[name="return_type"]:checked');
-                if (selectedType) {
-                    document.getElementById('returnTypeVal').value = selectedType.value;
-                }
+                if (selectedType) document.getElementById('returnTypeVal').value = selectedType.value;
                 document.getElementById('returnReasonVal').value = document.getElementById('returnReason').value;
             }
 
             document.getElementById('paymentMethod').value = selectedPayment;
             document.getElementById('hidden_bill_discount_type').value = billDiscountType;
             document.getElementById('hidden_bill_discount_value').value = billDiscountValue;
-            document.getElementById('isReturn').value = returnMode ? 'true' : 'false';
         });
     });
 </script>
-{% endblock %}
 
+{% endblock %}
