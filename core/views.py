@@ -397,42 +397,70 @@ def credit_collection_take(request):
 
 
 @login_required
-@permission_required('create_sales')
 def credit_collection_return(request):
+    """
+    Handles marking a collected bill as COLLECTED or NOT_COLLECTED,
+    or returning bills back to credit list.
+    Redirects back to where the user came from (Today's Collections OR Credit List).
+    """
     if request.method != 'POST':
-        messages.error(request, 'Invalid request method.')
-        return redirect('core:credit_list')
+        return redirect('/credit-list/')
     
-    collection_id = request.POST.get('collection_id')
-    action = request.POST.get('action')
-    notes = request.POST.get('notes', '')
+    # ===== Determine where to redirect back to =====
+    next_url = request.POST.get('next', '') or request.META.get('HTTP_REFERER', '')
+    if not next_url or 'today-collections' not in next_url and 'credit-list' not in next_url:
+        next_url = '/credit-list/'
     
-    if not collection_id or not action:
-        messages.error(request, 'Missing required fields.')
-        return redirect('core:credit_list')
+    collection_id = request.POST.get('collection_id', '').strip()
+    action = request.POST.get('action', '').strip()
     
-    collection = get_object_or_404(CreditCollection, id=collection_id)
+    if not collection_id or not collection_id.isdigit():
+        messages.error(request, '❌ Invalid collection ID.')
+        return redirect(next_url)
     
+    try:
+        collection = CreditCollection.objects.get(id=int(collection_id))
+    except CreditCollection.DoesNotExist:
+        messages.error(request, '❌ Collection record not found.')
+        return redirect(next_url)
+    
+    # ===== HANDLE COLLECTED =====
     if action == 'collected':
         collection.status = 'COLLECTED'
         collection.date_collected = date.today()
-        collection.notes = notes
-        # No payment processing here – payment is handled separately via Pay Now
+        collection.collected_by = request.user
+        collection.save()
+        messages.success(request, f'✅ Bill {collection.sales_bill.invoice_no} marked as COLLECTED.')
+        return redirect(next_url)
+    
+    # ===== HANDLE NOT COLLECTED =====
     elif action == 'not_collected':
-        reason = request.POST.get('reason')
+        # ✅ Accept BOTH field names (frontend may send either)
+        reason = (
+            request.POST.get('not_collected_reason', '').strip()
+            or request.POST.get('reason', '').strip()
+        )
+        
         if not reason:
-            messages.error(request, 'Please select a reason for not collected.')
-            return redirect('core:credit_list')
+            messages.error(request, '❌ Please select a reason for not collected.')
+            return redirect(next_url)
+        
         collection.status = 'NOT_COLLECTED'
         collection.not_collected_reason = reason
-        collection.notes = notes
-    else:
-        messages.error(request, 'Invalid action.')
-        return redirect('core:credit_list')
+        collection.save()
+        messages.warning(request, f'⚠️ Bill {collection.sales_bill.invoice_no} marked as NOT COLLECTED. Reason: {reason}')
+        return redirect(next_url)
     
-    collection.save()
-    messages.success(request, f'Bill {collection.sales_bill.invoice_no} marked as {collection.get_status_display()}.')
-    return redirect('core:credit_list')
+    # ===== HANDLE RETURN (return bill back to credit list) =====
+    elif action == 'return':
+        collection.status = 'RETURNED'
+        collection.save()
+        messages.info(request, f'↩️ Bill {collection.sales_bill.invoice_no} returned.')
+        return redirect(next_url)
+    
+    else:
+        messages.error(request, f'❌ Unknown action: {action}')
+        return redirect(next_url)
 
 
 @login_required

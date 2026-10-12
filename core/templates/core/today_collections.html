@@ -163,6 +163,10 @@
         <p>Invoice: <strong id="ncInvoiceNo"></strong></p>
         <form method="POST" id="ncForm" action="/credit-collection/return/">
             {% csrf_token %}
+            <input type="hidden" name="next" value="/today-collections/">
+            <input type="hidden" name="collection_id" id="ncCollectionId">
+            <input type="hidden" name="action" value="not_collected">
+            {% csrf_token %}
             <input type="hidden" name="collection_id" id="ncCollectionId">
             <input type="hidden" name="action" value="not_collected">
             <div style="margin-bottom:15px;">
@@ -186,30 +190,30 @@
 </div>
 
 <script>
-function markCollected(collectionId) {
-    if (!confirm('Mark this bill as collected?')) return;
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/credit-collection/return/';
-    const csrf = '{{ csrf_token }}';
-    form.innerHTML = `
-        <input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">
-        <input type="hidden" name="collection_id" value="${collectionId}">
-        <input type="hidden" name="action" value="collected">
-    `;
-    document.body.appendChild(form);
-    form.submit();
-}
+    function markCollected(collectionId) {
+        if (!confirm('Mark this bill as collected?')) return;
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/credit-collection/return/';
+        const csrf = '{{ csrf_token }}';
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrf}">
+            <input type="hidden" name="next" value="/today-collections/">
+            <input type="hidden" name="collection_id" value="${collectionId}">
+            <input type="hidden" name="action" value="collected">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+    function openNotCollectedModal(collectionId, invoiceNo) {
+        document.getElementById('ncCollectionId').value = collectionId;
+        document.getElementById('ncInvoiceNo').textContent = invoiceNo;
+        document.getElementById('notCollectedModal').classList.add('show');
+    }
 
-function openNotCollectedModal(collectionId, invoiceNo) {
-    document.getElementById('ncCollectionId').value = collectionId;
-    document.getElementById('ncInvoiceNo').textContent = invoiceNo;
-    document.getElementById('notCollectedModal').classList.add('show');
-}
-
-function closeNotCollectedModal() {
-    document.getElementById('notCollectedModal').classList.remove('show');
-}
+    function closeNotCollectedModal() {
+        document.getElementById('notCollectedModal').classList.remove('show');
+    }
 </script>
 
 {% endblock %}

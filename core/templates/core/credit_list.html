@@ -294,7 +294,10 @@
                             <a href="/sales-detail/{{ item.bill.id }}/" class="view" title="View">👁️</a>
                             
                             <!-- Pay Now -->
-                           <button type="button" class="pay" onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }}, {{ item.bill.vehicle.id|default:'null' }})">💰</button>
+                            <button type="button" class="pay" data-bill-id="{{ item.bill.id }}"
+                                    onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }}, {{ item.bill.vehicle.id|default:'null' }})">
+                                💰
+                            </button>
                             
                             <!-- Return (only for TAKEN) -->
                             {% if item.collection.status == 'TAKEN' %}
@@ -610,6 +613,17 @@
     function closePayNowModal() {
         document.getElementById('payNowModal').classList.remove('show');
     }
+
+    // Auto-open Pay Now modal if bill_id is in URL
+    window.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const billId = urlParams.get('bill_id');
+        if (billId) {
+            // Find the Pay Now button for this bill and click it
+            const payBtn = document.querySelector(`button.pay[data-bill-id="${billId}"]`);
+            if (payBtn) payBtn.click();
+        }
+    });
 
     // Close modal when clicking outside
     document.addEventListener('click', function(e) {
