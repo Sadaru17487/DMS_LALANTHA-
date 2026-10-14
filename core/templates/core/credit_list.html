@@ -148,6 +148,24 @@
     @media (max-width: 768px) {
         .summary-grid { grid-template-columns: repeat(2, 1fr); }
     }
+    #creditSearchResults .result-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: 0.15s;
+    }
+    #creditSearchResults .result-item:hover { background: #e3f0ff; }
+    #creditSearchResults .result-item:last-child { border-bottom: none; }
+    #creditSearchResults .result-item .left { flex: 1; }
+    #creditSearchResults .result-item .name { font-weight: 600; color: #1a2634; font-size: 14px; }
+    #creditSearchResults .result-item .meta { font-size: 12px; color: #888; margin-top: 2px; }
+    #creditSearchResults .result-item .amount { font-weight: 700; color: #dc3545; font-size: 14px; }
+    #creditSearchResults .no-results { padding: 14px; color: #999; text-align: center; font-size: 13px; }
+    #creditSearchResults .searching { padding: 14px; color: #007bff; text-align: center; font-size: 13px; }
+
 </style>
 
 <div class="container">
@@ -202,9 +220,18 @@
 
     <!-- Filters -->
     <form method="GET" class="filter-bar" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Search</label>
-            <input type="text" name="search" placeholder="Invoice, Customer..." value="{{ search }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
+        
+        <div style="position: relative; flex: 1; min-width: 250px;">
+            <input type="text" 
+                id="creditSearchInput"
+                placeholder="🔍 Search by shop name, code, or invoice no..." 
+                autocomplete="off"
+                value="{{ request.GET.q|default:'' }}"
+                style="width: 100%; padding: 10px 14px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc;">
+            <div id="creditSearchResults"
+                style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #e0e4eb; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            <input type="hidden" name="q" id="creditSearchHidden" value="{{ request.GET.q|default:'' }}">
+            <input type="hidden" name="bill_id" id="creditBillIdFilter" value="">
         </div>
         <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">From</label>
@@ -632,5 +659,99 @@
             closePayNowModal();
         }
     });
+
+    (function() {
+        const input = document.getElementById('creditSearchInput');
+        const resultsBox = document.getElementById('creditSearchResults');
+        const hidden = document.getElementById('creditSearchHidden');
+        const billIdFilter = document.getElementById('creditBillIdFilter');
+        if (!input || !resultsBox) return;
+        
+        let debounceTimer = null;
+        
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const q = this.value.trim();
+            hidden.value = q;
+            billIdFilter.value = '';
+            
+            if (q.length < 2) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+            
+            resultsBox.innerHTML = '<div class="searching">Searching...</div>';
+            resultsBox.style.display = 'block';
+            
+            debounceTimer = setTimeout(() => {
+                fetch(`/api/credit-bills/search/?q=${encodeURIComponent(q)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const results = data.results || [];
+                        if (results.length === 0) {
+                            resultsBox.innerHTML = '<div class="no-results">No matching bills found.</div>';
+                            return;
+                        }
+                        let html = '';
+                        results.forEach(r => {
+                            html += `
+                                <div class="result-item" 
+                                    data-bill-id="${r.bill_id}"
+                                    data-invoice="${r.invoice_no}"
+                                    data-shop="${r.shop_name}">
+                                    <div class="left">
+                                        <div class="name">${r.shop_name || r.shop_code || 'Unknown'}</div>
+                                        <div class="meta">
+                                            ${r.invoice_no} 
+                                            ${r.shop_code ? '• ' + r.shop_code : ''} 
+                                            ${r.date ? '• ' + r.date : ''}
+                                        </div>
+                                    </div>
+                                    <div class="amount">Rs ${r.outstanding.toFixed(2)}</div>
+                                </div>
+                            `;
+                        });
+                        resultsBox.innerHTML = html;
+                        
+                        // Bind click handlers
+                        resultsBox.querySelectorAll('.result-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const billId = this.dataset.billId;
+                                const invoice = this.dataset.invoice;
+                                const shop = this.dataset.shop;
+                                
+                                input.value = `${shop} — ${invoice}`;
+                                hidden.value = invoice;   // or shop, whichever your view filters on
+                                billIdFilter.value = billId;
+                                resultsBox.style.display = 'none';
+                                
+                                // Auto-submit the form
+                                const form = input.closest('form');
+                                if (form) form.submit();
+                            });
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Search error:', err);
+                        resultsBox.innerHTML = '<div class="no-results">Search error. Try again.</div>';
+                    });
+            }, 250);
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!resultsBox.contains(e.target) && e.target !== input) {
+                resultsBox.style.display = 'none';
+            }
+        });
+        
+        // Enter key → submit form directly
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                resultsBox.style.display = 'none';
+            }
+        });
+    })();
+    
 </script>
 {% endblock %}

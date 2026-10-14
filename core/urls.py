@@ -255,5 +255,7 @@ urlpatterns = [
 
     path('reports/vat-bills/', views.vat_bills_report, name='vat_bills_report'),
 
+    path('api/credit-bills/search/', views.api_credit_bills_search, name='api_credit_bills_search'),
+
     
 ]
