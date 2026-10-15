@@ -231,8 +231,6 @@
             <div id="creditSearchResults"
                 style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #e0e4eb; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
         </div>
-        <input type="hidden" name="shop_filter" id="shopFilterInput" value="{{ request.GET.shop|default:'' }}">
-        <input type="hidden" name="shop_code_filter" id="shopCodeFilterInput" value="{{ request.GET.shop_code|default:'' }}">
 
         <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">From</label>
@@ -718,101 +716,6 @@
     (function() {
         const input = document.getElementById('creditSearchInput');
         const resultsBox = document.getElementById('creditSearchResults');
-        const hidden = document.getElementById('creditSearchHidden');
-        const billIdFilter = document.getElementById('creditBillIdFilter');
-        if (!input || !resultsBox) return;
-        
-        let debounceTimer = null;
-        
-        input.addEventListener('input', function() {
-            clearTimeout(debounceTimer);
-            const q = this.value.trim();
-            hidden.value = q;
-            billIdFilter.value = '';
-            
-            if (q.length < 2) {
-                resultsBox.style.display = 'none';
-                return;
-            }
-            
-            resultsBox.innerHTML = '<div class="searching">Searching...</div>';
-            resultsBox.style.display = 'block';
-            
-            debounceTimer = setTimeout(() => {
-                fetch(`/api/credit-bills/search/?q=${encodeURIComponent(q)}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        const results = data.results || [];
-                        if (results.length === 0) {
-                            resultsBox.innerHTML = '<div class="no-results">No matching bills found.</div>';
-                            return;
-                        }
-                        let html = '';
-                        results.forEach(r => {
-                            html += `
-                                <div class="result-item" 
-                                    data-bill-id="${r.bill_id}"
-                                    data-invoice="${r.invoice_no}"
-                                    data-shop="${r.shop_name}">
-                                    <div class="left">
-                                        <div class="name">${r.shop_name || r.shop_code || 'Unknown'}</div>
-                                        <div class="meta">
-                                            ${r.invoice_no} 
-                                            ${r.shop_code ? '• ' + r.shop_code : ''} 
-                                            ${r.date ? '• ' + r.date : ''}
-                                        </div>
-                                    </div>
-                                    <div class="amount">Rs ${r.outstanding.toFixed(2)}</div>
-                                </div>
-                            `;
-                        });
-                        resultsBox.innerHTML = html;
-                        
-                        // Bind click handlers
-                        resultsBox.querySelectorAll('.result-item').forEach(item => {
-                            item.addEventListener('click', function() {
-                                const billId = this.dataset.billId;
-                                const invoice = this.dataset.invoice;
-                                const shop = this.dataset.shop;
-                                
-                                input.value = `${shop} — ${invoice}`;
-                                hidden.value = invoice;   // or shop, whichever your view filters on
-                                billIdFilter.value = billId;
-                                resultsBox.style.display = 'none';
-                                
-                                // Auto-submit the form
-                                const form = input.closest('form');
-                                if (form) form.submit();
-                            });
-                        });
-                    })
-                    .catch(err => {
-                        console.error('Search error:', err);
-                        resultsBox.innerHTML = '<div class="no-results">Search error. Try again.</div>';
-                    });
-            }, 250);
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!resultsBox.contains(e.target) && e.target !== input) {
-                resultsBox.style.display = 'none';
-            }
-        });
-        
-        // Enter key → submit form directly
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                resultsBox.style.display = 'none';
-            }
-        });
-    })();
-
-    (function() {
-        const input = document.getElementById('creditSearchInput');
-        const resultsBox = document.getElementById('creditSearchResults');
-        const shopFilter = document.getElementById('shopFilterInput');
-        const shopCodeFilter = document.getElementById('shopCodeFilterInput');
         if (!input || !resultsBox) return;
         
         let timer = null;
@@ -840,14 +743,17 @@
                         }
                         let html = '';
                         results.forEach(r => {
+                            // Escape quotes safely
+                            const safeShop = (r.shop_name || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            const safeCode = (r.shop_code || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                             html += `
                                 <div class="result-item"
-                                    data-shop="${(r.shop_name || '').replace(/"/g, '&quot;')}"
-                                    data-shop-code="${(r.shop_code || '').replace(/"/g, '&quot;')}"
-                                    data-invoice="${r.invoice_no}">
+                                    data-shop="${safeShop}"
+                                    data-shop-code="${safeCode}"
+                                    data-invoice="${r.invoice_no || ''}">
                                     <div>
                                         <div class="name">${r.shop_name || r.shop_code || 'Unknown'}</div>
-                                        <div class="meta">${r.invoice_no}${r.shop_code ? ' • ' + r.shop_code : ''}${r.date ? ' • ' + r.date : ''}</div>
+                                        <div class="meta">${r.invoice_no || ''}${r.shop_code ? ' • ' + r.shop_code : ''}${r.date ? ' • ' + r.date : ''}</div>
                                     </div>
                                     <div class="amount">Rs ${r.outstanding.toFixed(2)}</div>
                                 </div>
@@ -857,16 +763,13 @@
                         
                         resultsBox.querySelectorAll('.result-item').forEach(item => {
                             item.addEventListener('click', function() {
-                                shopFilter.value = this.dataset.shop;
-                                shopCodeFilter.value = this.dataset.shopCode;
-                                input.value = this.dataset.shop || this.dataset.invoice;
-                                resultsBox.style.display = 'none';
+                                const shop = this.dataset.shop || '';
+                                const code = this.dataset.shopCode || '';
                                 
-                                // Reload with shop filter
+                                // ✅ Redirect with query params — no hidden inputs needed
                                 const url = new URL(window.location.href);
-                                url.searchParams.set('shop', this.dataset.shop);
-                                url.searchParams.set('shop_code', this.dataset.shopCode);
-                                url.searchParams.delete('q');
+                                if (shop) url.searchParams.set('shop', shop);
+                                if (code) url.searchParams.set('shop_code', code);
                                 window.location.href = url.toString();
                             });
                         });
@@ -877,12 +780,19 @@
             }, 250);
         });
         
+        // Close dropdown on outside click
         document.addEventListener('click', function(e) {
             if (!resultsBox.contains(e.target) && e.target !== input) {
                 resultsBox.style.display = 'none';
             }
         });
+        
+        // Esc to close
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') resultsBox.style.display = 'none';
+        });
     })();
+
 
     // ============================================================
     // MULTI-SELECT BILLS
