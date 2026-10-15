@@ -204,7 +204,15 @@ def credit_list(request):
     bill_id = request.GET.get('bill_id', '').strip()
     if bill_id and bill_id.isdigit():
         queryset = queryset.filter(sales_bill_id=int(bill_id))
-        # or filter(id=int(bill_id)) depending on your model structure
+        
+    shop_filter = request.GET.get('shop', '').strip()
+    shop_code_filter = request.GET.get('shop_code', '').strip()
+
+    if shop_code_filter:
+        queryset = queryset.filter(shop_code=shop_code_filter)
+    elif shop_filter:
+        from django.db.models import Q
+        queryset = queryset.filter(Q(shop_name=shop_filter) | Q(shop_code=shop_filter))
         
     # Include both bills with non-reversed Credit payments AND pending bills
     credit_bill_ids = Payment.objects.filter(
@@ -8464,90 +8472,6 @@ def vat_bills_report(request):
 
 
 @login_required
-def retake_for_collection(request):
-    import traceback
-    from django.http import HttpResponse
-    
-    if request.method != 'POST':
-        return redirect('/today-collections/')
-    
-    try:
-        next_url = request.POST.get('next', '') or '/today-collections/'
-        if 'today-collections' not in next_url and 'credit-list' not in next_url:
-            next_url = '/today-collections/'
-        
-        bill_id = (request.POST.get('bill_id') or '').strip()
-        rep_id = (request.POST.get('rep') or '').strip()
-        take_date_s = (request.POST.get('date') or '').strip()
-        
-        # ---- Validate ----
-        if not bill_id or not bill_id.isdigit():
-            messages.error(request, f'❌ Invalid bill ID: "{bill_id}"')
-            return redirect(next_url)
-        
-        try:
-            bill = SalesBill.objects.get(id=int(bill_id))
-        except SalesBill.DoesNotExist:
-            messages.error(request, '❌ Bill not found.')
-            return redirect(next_url)
-        
-        target_date = date.today()
-        if take_date_s:
-            try:
-                target_date = datetime.strptime(take_date_s, '%Y-%m-%d').date()
-            except ValueError:
-                pass
-        
-        rep = None
-        if rep_id and rep_id.isdigit():
-            try:
-                rep = Employee.objects.get(id=int(rep_id))
-            except Employee.DoesNotExist:
-                pass
-        
-        # ---- Check for existing record on this date ----
-        existing = CreditCollection.objects.filter(
-            sales_bill=bill,
-            date_taken=target_date
-        ).first()
-        
-        # ---- Compute outstanding ----
-        paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
-        outstanding = (bill.net_total or Decimal('0')) - paid
-        
-        if existing:
-            existing.status = 'TAKEN'
-            existing.rep = rep
-            existing.date_collected = None
-            existing.not_collected_reason = ''
-            existing.collection_amount = outstanding
-            existing.save()
-        else:
-            CreditCollection.objects.create(
-                sales_bill=bill,
-                rep=rep,
-                date_taken=target_date,
-                status='TAKEN',
-                collection_amount=outstanding,
-            )
-        
-        messages.success(request, f'🔁 Bill {bill.invoice_no} taken for collection on {target_date}.')
-        return redirect(next_url)
-    
-    except Exception as e:
-        error_msg = traceback.format_exc()
-        return HttpResponse(
-            f"<html><body style='font-family:monospace;padding:20px;'>"
-            f"<h1 style='color:red;'>Retake Error</h1>"
-            f"<h2>{type(e).__name__}: {e}</h2>"
-            f"<pre style='background:#f5f5f5;padding:15px;overflow:auto;'>{error_msg}</pre>"
-            f"<p><a href='/today-collections/'>← Back</a></p>"
-            f"</body></html>",
-            status=500
-        )
-
-
-@login_required
 def api_credit_bills_search(request):
     """Search credit bills by shop name, code, or invoice number."""
     from django.db.models import Q
@@ -8557,22 +8481,18 @@ def api_credit_bills_search(request):
     if len(q) < 2:
         return JsonResponse({'results': []})
     
-    # Match bills not fully paid
-    matching = SalesBill.objects.exclude(
-        status='COMPLETED'
-    ).filter(
+    matching = SalesBill.objects.exclude(status='COMPLETED').filter(
         Q(invoice_no__icontains=q) |
         Q(shop_name__icontains=q) |
         Q(shop_code__icontains=q)
-    ).order_by('-date')[:15]
+    ).order_by('-date')[:20]
     
     results = []
     for bill in matching:
         paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
         outstanding = (bill.net_total or Decimal('0')) - paid
         if outstanding <= Decimal('0.01'):
-            continue  # skip fully paid
-        
+            continue
         results.append({
             'bill_id': bill.id,
             'invoice_no': bill.invoice_no or '',
@@ -8583,3 +8503,253 @@ def api_credit_bills_search(request):
         })
     
     return JsonResponse({'results': results})
+
+
+@login_required
+def api_bills_by_shop(request):
+    """Return all outstanding bills for a given shop name/code."""
+    from django.http import JsonResponse
+    
+    shop = (request.GET.get('shop') or '').strip()
+    shop_code = (request.GET.get('shop_code') or '').strip()
+    
+    if not shop and not shop_code:
+        return JsonResponse({'bills': [], 'totals': {}})
+    
+    from django.db.models import Q
+    qs = SalesBill.objects.exclude(status='COMPLETED')
+    if shop_code:
+        qs = qs.filter(shop_code=shop_code)
+    elif shop:
+        qs = qs.filter(Q(shop_name=shop) | Q(shop_code=shop))
+    
+    qs = qs.order_by('date')
+    
+    bills = []
+    total_outstanding = Decimal('0')
+    for bill in qs:
+        paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        outstanding = (bill.net_total or Decimal('0')) - paid
+        if outstanding <= Decimal('0.01'):
+            continue
+        total_outstanding += outstanding
+        bills.append({
+            'id': bill.id,
+            'invoice_no': bill.invoice_no,
+            'date': bill.date.strftime('%Y-%m-%d') if bill.date else '',
+            'net_total': float(bill.net_total or 0),
+            'paid': float(paid),
+            'outstanding': float(outstanding),
+        })
+    
+    return JsonResponse({
+        'bills': bills,
+        'totals': {
+            'count': len(bills),
+            'outstanding': float(total_outstanding),
+        }
+    })
+
+
+@login_required
+def pay_multiple_bills(request):
+    """
+    Pay multiple bills in one transaction.
+    - Full amount only (auto-filled, but editable).
+    - Each bill gets its own Payment record.
+    """
+    if request.method != 'POST':
+        return redirect('/credit-list/')
+    
+    bill_ids = request.POST.getlist('bill_ids')
+    amount_str = (request.POST.get('amount', '0') or '0').strip() or '0'
+    payment_method = (request.POST.get('payment_method') or 'Cash').strip()
+    vehicle_id = (request.POST.get('collected_by_vehicle') or '').strip()
+    
+    if not bill_ids:
+        messages.error(request, '❌ No bills selected.')
+        return redirect('/credit-list/')
+    
+    try:
+        total_amount = Decimal(amount_str)
+    except Exception:
+        messages.error(request, '❌ Invalid amount.')
+        return redirect('/credit-list/')
+    
+    if total_amount <= 0:
+        messages.error(request, '❌ Amount must be greater than zero.')
+        return redirect('/credit-list/')
+    
+    # Vehicle
+    vehicle = None
+    if vehicle_id.isdigit():
+        try:
+            vehicle = Vehicle.objects.get(id=int(vehicle_id))
+        except Vehicle.DoesNotExist:
+            pass
+    
+    # Cheque details
+    cheque_no = (request.POST.get('cheque_no') or '').strip()
+    cheque_date_s = (request.POST.get('cheque_date') or '').strip()
+    cheque_bank_id = (request.POST.get('cheque_bank') or '').strip()
+    
+    processed = 0
+    total_paid = Decimal('0')
+    new_completed = 0
+    
+    with transaction.atomic():
+        for bid in bill_ids:
+            if not bid.isdigit():
+                continue
+            try:
+                bill = SalesBill.objects.get(id=int(bid))
+            except SalesBill.DoesNotExist:
+                continue
+            
+            paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+            outstanding = (bill.net_total or Decimal('0')) - paid
+            if outstanding <= Decimal('0.01'):
+                continue
+            
+            Payment.objects.create(
+                bill=bill,
+                type=payment_method,
+                amount=outstanding,
+                collected_by_vehicle=vehicle,
+            )
+            total_paid += outstanding
+            processed += 1
+            
+            # Update bill status
+            new_paid = paid + outstanding
+            if (bill.net_total or Decimal('0')) - new_paid <= Decimal('0.01'):
+                bill.status = 'COMPLETED'
+                bill.save()
+                new_completed += 1
+            
+            # If Cheque, create Cheque record per bill
+            if payment_method == 'Cheque' and cheque_no and cheque_date_s and cheque_bank_id.isdigit():
+                try:
+                    cd = datetime.strptime(cheque_date_s, '%Y-%m-%d').date()
+                    bank = Bank.objects.get(id=int(cheque_bank_id))
+                    Cheque.objects.create(
+                        cheque_no=cheque_no,
+                        bank=bank,
+                        cheque_date=cd,
+                        amount=outstanding,
+                        sales_bill=bill,
+                        customer_name=(bill.shop_name or bill.shop_code or 'N/A')[:200],
+                        status='PENDING',
+                    )
+                except Exception as e:
+                    logger.warning(f"Multi-pay cheque create failed for {bill.invoice_no}: {e}")
+    
+    if processed:
+        messages.success(
+            request,
+            f'✅ {processed} bill(s) paid — total Rs {total_paid:.2f}. '
+            f'{new_completed} fully cleared.'
+        )
+    else:
+        messages.warning(request, '⚠️ No bills were processed.')
+    
+    return redirect('/credit-list/')
+
+
+@login_required
+def take_for_collection(request):
+    """
+    Take selected bills for collection today.
+    - Warns if a bill is already TAKEN from a previous day.
+    - Creates a NEW CreditCollection record for today.
+    """
+    if request.method != 'POST':
+        return redirect('/credit-list/')
+    
+    bill_ids = request.POST.getlist('bill_ids')
+    rep_id = request.POST.get('rep', '').strip()
+    take_date_s = request.POST.get('date', '').strip()
+    
+    if not bill_ids:
+        messages.error(request, '❌ Please select at least one bill.')
+        return redirect('/credit-list/')
+    
+    # Resolve date
+    target_date = date.today()
+    if take_date_s:
+        try:
+            target_date = datetime.strptime(take_date_s, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # Resolve rep
+    rep = None
+    if rep_id and rep_id.isdigit():
+        try:
+            rep = Employee.objects.get(id=int(rep_id))
+        except Employee.DoesNotExist:
+            pass
+    
+    taken_count = 0
+    already_taken = []
+    
+    for bid in bill_ids:
+        if not bid.isdigit():
+            continue
+        try:
+            bill = SalesBill.objects.get(id=int(bid))
+        except SalesBill.DoesNotExist:
+            continue
+        
+        # ⚠️ Check if there's an OPEN TAKEN record from a previous day
+        open_taken = CreditCollection.objects.filter(
+            sales_bill=bill,
+            status='TAKEN'
+        ).exclude(date_taken=target_date).first()
+        
+        if open_taken:
+            already_taken.append(
+                f"{bill.invoice_no} (taken on {open_taken.date_taken})"
+            )
+            continue
+        
+        # Check if a record already exists for TODAY
+        existing_today = CreditCollection.objects.filter(
+            sales_bill=bill,
+            date_taken=target_date
+        ).first()
+        
+        # Compute outstanding
+        paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        outstanding = (bill.net_total or Decimal('0')) - paid
+        
+        if existing_today:
+            existing_today.status = 'TAKEN'
+            existing_today.rep = rep
+            existing_today.collection_amount = outstanding
+            existing_today.date_collected = None
+            existing_today.not_collected_reason = ''
+            existing_today.save()
+        else:
+            CreditCollection.objects.create(
+                sales_bill=bill,
+                rep=rep,
+                date_taken=target_date,
+                status='TAKEN',
+                collection_amount=outstanding,
+            )
+        taken_count += 1
+    
+    if taken_count:
+        messages.success(request, f'✅ {taken_count} bill(s) taken for collection on {target_date}.')
+    
+    if already_taken:
+        for info in already_taken:
+            messages.warning(
+                request,
+                f'⚠️ {info} — bill is already taken and NOT returned. '
+                f'Please complete it (mark collected or not-collected) before taking again.'
+            )
+    
+    return redirect('/credit-list/')
+

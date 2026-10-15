@@ -149,10 +149,10 @@
         .summary-grid { grid-template-columns: repeat(2, 1fr); }
     }
     #creditSearchResults .result-item {
-        padding: 10px 14px;
+        padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
         cursor: pointer;
         border-bottom: 1px solid #f0f0f0;
-        display: flex;
+        display: flex; justify-content: space-between; align-items: center;
         justify-content: space-between;
         align-items: center;
         transition: 0.15s;
@@ -222,17 +222,18 @@
     <form method="GET" class="filter-bar" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         
         <div style="position: relative; flex: 1; min-width: 250px;">
-            <input type="text" 
+            <input type="text"
                 id="creditSearchInput"
-                placeholder="🔍 Search by shop name, code, or invoice no..." 
+                placeholder="🔍 Search by name, invoice No"
                 autocomplete="off"
                 value="{{ request.GET.q|default:'' }}"
                 style="width: 100%; padding: 10px 14px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc;">
             <div id="creditSearchResults"
                 style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #e0e4eb; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
-            <input type="hidden" name="q" id="creditSearchHidden" value="{{ request.GET.q|default:'' }}">
-            <input type="hidden" name="bill_id" id="creditBillIdFilter" value="">
         </div>
+        <input type="hidden" name="shop_filter" id="shopFilterInput" value="{{ request.GET.shop|default:'' }}">
+        <input type="hidden" name="shop_code_filter" id="shopCodeFilterInput" value="{{ request.GET.shop_code|default:'' }}">
+
         <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">From</label>
             <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
@@ -276,7 +277,9 @@
         <table style="width:100%; border-collapse:collapse; font-size:14px;">
             <thead>
                 <tr>
-                    <th style="width:30px;"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAllBills" onclick="toggleAllBills(this)">
+                    </th>
                     <th>Invoice</th>
                     <th>Customer</th>
                     <th style="text-align:right;">Amount</th>
@@ -292,9 +295,10 @@
                 {% for item in bills %}
                 <tr>
                     <td>
-                        {% if item.collection.status == 'PENDING' %}
-                            <input type="checkbox" name="bill_ids" value="{{ item.bill.id }}" form="takeForm" class="bill-checkbox">
-                        {% endif %}
+                        <input type="checkbox" class="bill-checkbox"
+                            value="{{ item.bill.id }}"
+                            data-outstanding="{{ item.outstanding|floatformat:2 }}"
+                            onchange="updateMultiTotals()">
                     </td>
                     <td><strong>{{ item.bill.invoice_no }}</strong></td>
                     <td>{{ item.customer }}</td>
@@ -359,6 +363,7 @@
             </tbody>
         </table>
     </div>
+        
     
     <div class="footer">
         &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
@@ -515,6 +520,56 @@
             <div class="btn-group">
                 <button type="button" class="btn-modal cancel" onclick="closePayNowModal()">Cancel</button>
                 <button type="submit" class="btn-modal confirm">✅ Confirm Payment</button>
+            </div>
+
+            <div id="multiBillBar" style="display: none; margin-top: 15px; padding: 15px 20px; background: linear-gradient(135deg, #1a2634, #2c3e50); color: white; border-radius: 12px; display: none; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+                <div>
+                    <div style="font-size: 12px; opacity: 0.7;">SELECTED BILLS</div>
+                    <div style="font-size: 20px; font-weight: 700;">
+                        <span id="selectedBillCount">0</span> Bills
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.7;">TOTAL OUTSTANDING</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #ffcc00;">
+                        Rs <span id="selectedTotalOutstanding">0.00</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="openMultiPayModal()"
+                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px;">
+                        💰 Pay
+                    </button>
+                    <button type="button" onclick="clearBillSelection()"
+                            style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        ✕ Clear
+                    </button>
+                </div>
+            </div>
+
+            <div id="multiBillBar" style="display: none; margin-top: 15px; padding: 15px 20px; background: linear-gradient(135deg, #1a2634, #2c3e50); color: white; border-radius: 12px; display: none; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
+                <div>
+                    <div style="font-size: 12px; opacity: 0.7;">SELECTED BILLS</div>
+                    <div style="font-size: 20px; font-weight: 700;">
+                        <span id="selectedBillCount">0</span> Bills
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size: 12px; opacity: 0.7;">TOTAL OUTSTANDING</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #ffcc00;">
+                        Rs <span id="selectedTotalOutstanding">0.00</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="openMultiPayModal()"
+                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px;">
+                        💰 Pay
+                    </button>
+                    <button type="button" onclick="clearBillSelection()"
+                            style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        ✕ Clear
+                    </button>
+                </div>
             </div>
         </form>
     </div>
@@ -752,6 +807,156 @@
             }
         });
     })();
+
+    (function() {
+        const input = document.getElementById('creditSearchInput');
+        const resultsBox = document.getElementById('creditSearchResults');
+        const shopFilter = document.getElementById('shopFilterInput');
+        const shopCodeFilter = document.getElementById('shopCodeFilterInput');
+        if (!input || !resultsBox) return;
+        
+        let timer = null;
+        
+        input.addEventListener('input', function() {
+            clearTimeout(timer);
+            const q = this.value.trim();
+            
+            if (q.length < 2) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+            
+            resultsBox.innerHTML = '<div class="searching">Searching...</div>';
+            resultsBox.style.display = 'block';
+            
+            timer = setTimeout(() => {
+                fetch(`/api/credit-bills/search/?q=${encodeURIComponent(q)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const results = data.results || [];
+                        if (results.length === 0) {
+                            resultsBox.innerHTML = '<div class="no-results">No matching bills.</div>';
+                            return;
+                        }
+                        let html = '';
+                        results.forEach(r => {
+                            html += `
+                                <div class="result-item"
+                                    data-shop="${(r.shop_name || '').replace(/"/g, '&quot;')}"
+                                    data-shop-code="${(r.shop_code || '').replace(/"/g, '&quot;')}"
+                                    data-invoice="${r.invoice_no}">
+                                    <div>
+                                        <div class="name">${r.shop_name || r.shop_code || 'Unknown'}</div>
+                                        <div class="meta">${r.invoice_no}${r.shop_code ? ' • ' + r.shop_code : ''}${r.date ? ' • ' + r.date : ''}</div>
+                                    </div>
+                                    <div class="amount">Rs ${r.outstanding.toFixed(2)}</div>
+                                </div>
+                            `;
+                        });
+                        resultsBox.innerHTML = html;
+                        
+                        resultsBox.querySelectorAll('.result-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                shopFilter.value = this.dataset.shop;
+                                shopCodeFilter.value = this.dataset.shopCode;
+                                input.value = this.dataset.shop || this.dataset.invoice;
+                                resultsBox.style.display = 'none';
+                                
+                                // Reload with shop filter
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('shop', this.dataset.shop);
+                                url.searchParams.set('shop_code', this.dataset.shopCode);
+                                url.searchParams.delete('q');
+                                window.location.href = url.toString();
+                            });
+                        });
+                    })
+                    .catch(() => {
+                        resultsBox.innerHTML = '<div class="no-results">Search error.</div>';
+                    });
+            }, 250);
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!resultsBox.contains(e.target) && e.target !== input) {
+                resultsBox.style.display = 'none';
+            }
+        });
+    })();
+
+    // ============================================================
+    // MULTI-SELECT BILLS
+    // ============================================================
+    function toggleAllBills(source) {
+        document.querySelectorAll('.bill-checkbox').forEach(cb => {
+            cb.checked = source.checked;
+        });
+        updateMultiTotals();
+    }
+
+    function updateMultiTotals() {
+        const boxes = document.querySelectorAll('.bill-checkbox:checked');
+        const bar = document.getElementById('multiBillBar');
+        const countEl = document.getElementById('selectedBillCount');
+        const totalEl = document.getElementById('selectedTotalOutstanding');
+        
+        let total = 0;
+        boxes.forEach(cb => {
+            total += parseFloat(cb.dataset.outstanding || 0);
+        });
+        
+        countEl.textContent = boxes.length;
+        totalEl.textContent = total.toFixed(2);
+        bar.style.display = boxes.length > 0 ? 'flex' : 'none';
+    }
+
+    function clearBillSelection() {
+        document.querySelectorAll('.bill-checkbox').forEach(cb => cb.checked = false);
+        const sel = document.getElementById('selectAllBills');
+        if (sel) sel.checked = false;
+        updateMultiTotals();
+    }
+
+    function openMultiPayModal() {
+        const boxes = document.querySelectorAll('.bill-checkbox:checked');
+        if (boxes.length === 0) {
+            alert('Please select at least one bill.');
+            return;
+        }
+        
+        let total = 0;
+        const container = document.getElementById('mpBillIdsContainer');
+        container.innerHTML = '';
+        
+        boxes.forEach(cb => {
+            total += parseFloat(cb.dataset.outstanding || 0);
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'bill_ids';
+            input.value = cb.value;
+            container.appendChild(input);
+        });
+        
+        document.getElementById('mpBillCount').textContent = boxes.length;
+        document.getElementById('mpTotalOutstanding').textContent = total.toFixed(2);
+        document.getElementById('mpAmount').value = total.toFixed(2);
+        document.getElementById('mpMethod').value = 'Cash';
+        document.getElementById('mpChequeFields').style.display = 'none';
+        
+        document.getElementById('multiPayBillModal').style.display = 'flex';
+    }
+
+    function closeMultiPayModal() {
+        document.getElementById('multiPayBillModal').style.display = 'none';
+    }
+
+    function toggleMultiPayCheque() {
+        const m = document.getElementById('mpMethod').value;
+        document.getElementById('mpChequeFields').style.display = m === 'Cheque' ? 'block' : 'none';
+        if (m === 'Cheque' && !document.getElementById('mpChequeDate').value) {
+            document.getElementById('mpChequeDate').value = new Date().toISOString().split('T')[0];
+        }
+    }
     
 </script>
 {% endblock %}
