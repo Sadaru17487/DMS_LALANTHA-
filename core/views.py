@@ -200,6 +200,7 @@ def sales_list(request):
 @login_required
 @permission_required('view_sales')
 def credit_list(request):
+    
 
     bill_id = request.GET.get('bill_id', '').strip()
     if bill_id and bill_id.isdigit():
@@ -360,6 +361,8 @@ def credit_list(request):
         'collected_count': collected_count,
         'not_collected_count': not_collected_count,
         'status_choices': status_choices,
+        'banks': Bank.objects.all(),
+        'vehicles': Vehicle.objects.filter(is_active=True),
     }
     
     return render(request, 'core/credit_list.html', context)
