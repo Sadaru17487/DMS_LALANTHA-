@@ -7,8 +7,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-secret-key-here')
 
 # DEBUG – must be False in production
-DEBUG = True
-ALLOWED_HOSTS = ['*']
+DEBUG = False
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'lalantha-dms-v88ez.ondigitalocean.app',
+]
 
 # Application definition
 INSTALLED_APPS = [

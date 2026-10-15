@@ -48,6 +48,7 @@ from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
 from .models import Product, ProductPrice
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+import traceback
 import logging
 logger = logging.getLogger(__name__)
 
@@ -212,7 +213,6 @@ def credit_list(request):
     if shop_code_filter:
         queryset = queryset.filter(shop_code=shop_code_filter)
     elif shop_filter:
-        from django.db.models import Q
         queryset = queryset.filter(Q(shop_name=shop_filter) | Q(shop_code=shop_filter))
         
     # Include both bills with non-reversed Credit payments AND pending bills
@@ -8255,8 +8255,8 @@ def today_collections(request):
     Show today's collection session — ONLY bills with status=TAKEN.
     Once actioned (COLLECTED or NOT_COLLECTED), they disappear automatically.
     """
-    import traceback
-    from django.http import HttpResponse
+    
+
     
     try:
         today = date.today()
@@ -8477,8 +8477,6 @@ def vat_bills_report(request):
 @login_required
 def api_credit_bills_search(request):
     """Search credit bills by shop name, code, or invoice number."""
-    from django.db.models import Q
-    from django.http import JsonResponse
     
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
@@ -8511,7 +8509,6 @@ def api_credit_bills_search(request):
 @login_required
 def api_bills_by_shop(request):
     """Return all outstanding bills for a given shop name/code."""
-    from django.http import JsonResponse
     
     shop = (request.GET.get('shop') or '').strip()
     shop_code = (request.GET.get('shop_code') or '').strip()
@@ -8519,7 +8516,7 @@ def api_bills_by_shop(request):
     if not shop and not shop_code:
         return JsonResponse({'bills': [], 'totals': {}})
     
-    from django.db.models import Q
+    
     qs = SalesBill.objects.exclude(status='COMPLETED')
     if shop_code:
         qs = qs.filter(shop_code=shop_code)
