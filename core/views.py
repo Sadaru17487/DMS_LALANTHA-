@@ -8476,34 +8476,61 @@ def vat_bills_report(request):
 
 @login_required
 def api_credit_bills_search(request):
-    """
-    Search credit billers by shop name, shop code, or invoice number.
-    Returns ONE result per shop with TOTAL outstanding across all their bills.
-    Only shops with at least one outstanding credit bill are returned.
-    """
-    from django.http import JsonResponse
+    
     
     q = (request.GET.get('q') or '').strip()
-    if len(q) < 2:
-        return JsonResponse({'results': []})
     
-    # Match bills that are NOT completed (still credit)
-    bills = SalesBill.objects.exclude(status='COMPLETED').filter(
+    debug_info = {
+        'received_q': q,
+        'q_length': len(q),
+    }
+    
+    if len(q) < 2:
+        return JsonResponse({'results': [], 'debug': debug_info})
+    
+    all_credit = SalesBill.objects.exclude(status='COMPLETED')
+    debug_info['total_all_bills'] = SalesBill.objects.count()
+    debug_info['total_credit_bills'] = all_credit.count()
+    debug_info['invoice_match'] = all_credit.filter(invoice_no__icontains=q).count()
+    debug_info['shop_name_match'] = all_credit.filter(shop_name__icontains=q).count()
+    debug_info['shop_code_match'] = all_credit.filter(shop_code__icontains=q).count()
+    
+    bills = all_credit.filter(
         Q(invoice_no__icontains=q) |
         Q(shop_name__icontains=q) |
         Q(shop_code__icontains=q)
     ).order_by('-date')
     
-    # Aggregate by shop (use shop_code if available, else shop_name)
+    debug_info['combined_match'] = bills.count()
+    
+    # Show first 3 credit bills no matter what (for reference)
+    debug_info['sample_credit_bills'] = list(
+        all_credit.values('invoice_no', 'shop_name', 'shop_code', 'status')[:3]
+    )
+    
     shops = {}
     for bill in bills:
-        paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        try:
+            paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        except Exception as e:
+            debug_info.setdefault('payment_errors', []).append(str(e))
+            paid = Decimal('0')
+        
         outstanding = (bill.net_total or Decimal('0')) - paid
+        
+        debug_info.setdefault('matched_bills', []).append({
+            'invoice': bill.invoice_no,
+            'shop_name': bill.shop_name,
+            'net_total': float(bill.net_total or 0),
+            'paid': float(paid),
+            'outstanding': float(outstanding),
+            'skipped': outstanding <= Decimal('0.01'),
+        })
+        
         if outstanding <= Decimal('0.01'):
             continue
         
         key = (bill.shop_code or '').strip() or (bill.shop_name or '').strip() or f"bill_{bill.id}"
-        
         if key not in shops:
             shops[key] = {
                 'shop_name': bill.shop_name or '',
@@ -8511,17 +8538,12 @@ def api_credit_bills_search(request):
                 'outstanding': Decimal('0'),
                 'bill_count': 0,
                 'last_date': None,
-                'invoices': [],
             }
-        
         shops[key]['outstanding'] += outstanding
         shops[key]['bill_count'] += 1
-        shops[key]['invoices'].append(bill.invoice_no or '')
-        
         if bill.date and (shops[key]['last_date'] is None or bill.date > shops[key]['last_date']):
             shops[key]['last_date'] = bill.date
     
-    # Build result list
     results = []
     for key, s in shops.items():
         results.append({
@@ -8530,13 +8552,14 @@ def api_credit_bills_search(request):
             'outstanding': float(s['outstanding']),
             'bill_count': s['bill_count'],
             'last_date': s['last_date'].strftime('%Y-%m-%d') if s['last_date'] else '',
-            'invoices': s['invoices'][:3],  # preview only
         })
     
-    # Sort by largest outstanding first
     results.sort(key=lambda x: x['outstanding'], reverse=True)
     
-    return JsonResponse({'results': results[:20]})
+    return JsonResponse({
+        'results': results[:20],
+        'debug': debug_info,
+    })
 
 @login_required
 def api_bills_by_shop(request):
