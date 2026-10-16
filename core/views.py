@@ -199,187 +199,185 @@ def sales_list(request):
     return render(request, 'core/sales_list.html', context)
 
 @login_required
+@permission_required('view_sales')
 def credit_list(request):
-    import traceback
-    from django.http import HttpResponse
-    try:
     
-
-        bill_id = request.GET.get('bill_id', '').strip()
-        if bill_id and bill_id.isdigit():
-            queryset = queryset.filter(sales_bill_id=int(bill_id))
-            
-        # ===== SHOP FILTER =====
-        shop_filter = request.GET.get('shop', '').strip()
-        shop_code_filter = request.GET.get('shop_code', '').strip()
-
-        if shop_code_filter:
-            # Prioritize shop_code — more reliable, unique
-            queryset = queryset.filter(shop_code=shop_code_filter)
-        elif shop_filter:
-            # Fall back to shop name — exact match
-            queryset = queryset.filter(shop_name=shop_filter)
-            
-        # Include both bills with non-reversed Credit payments AND pending bills
-        credit_bill_ids = Payment.objects.filter(
+    # ============================================================
+    # BUILD THE BASE QUERYSET
+    # ============================================================
+    credit_bill_ids = Payment.objects.filter(
+        type='Credit',
+        is_reversed=False
+    ).values_list('bill_id', flat=True).distinct()
+    
+    pending_bill_ids = SalesBill.objects.filter(
+        status='PENDING'
+    ).values_list('id', flat=True)
+    
+    bills = SalesBill.objects.filter(
+        Q(id__in=credit_bill_ids) | Q(id__in=pending_bill_ids)
+    ).select_related('vehicle', 'rep').order_by('-date', '-created_at')
+    
+    # ============================================================
+    # FILTERS (applied AFTER the base queryset is built)
+    # ============================================================
+    
+    # ---------- Bill ID (single bill lookup) ----------
+    bill_id = request.GET.get('bill_id', '').strip()
+    if bill_id and bill_id.isdigit():
+        bills = bills.filter(id=int(bill_id))
+    
+    # ---------- Shop code / name (from search suggestion click) ----------
+    shop_filter = request.GET.get('shop', '').strip()
+    shop_code_filter = request.GET.get('shop_code', '').strip()
+    
+    if shop_code_filter:
+        bills = bills.filter(shop_code=shop_code_filter)
+    elif shop_filter:
+        bills = bills.filter(shop_name=shop_filter)
+    
+    # ---------- Search (text input) ----------
+    search = request.GET.get('search', '')
+    if search:
+        bills = bills.filter(
+            Q(invoice_no__icontains=search) |
+            Q(shop_name__icontains=search) |
+            Q(shop_code__icontains=search)
+        )
+    
+    # ---------- Date range ----------
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    if start_date:
+        bills = bills.filter(date__gte=start_date)
+    if end_date:
+        bills = bills.filter(date__lte=end_date)
+    
+    # ---------- Vehicle ----------
+    vehicle_id = request.GET.get('vehicle', '')
+    if vehicle_id and vehicle_id.isdigit():
+        bills = bills.filter(vehicle_id=int(vehicle_id))
+    
+    # ---------- Collection status + rep ----------
+    collection_status = request.GET.get('collection_status', '')
+    rep_id = request.GET.get('rep', '')
+    
+    # ============================================================
+    # CONTEXT OBJECTS
+    # ============================================================
+    vehicles = Vehicle.objects.filter(is_active=True)
+    reps = Employee.objects.filter(position='Rep', is_active=True)
+    banks = Bank.objects.filter(is_active=True)
+    
+    # ============================================================
+    # PROCESS EACH BILL
+    # ============================================================
+    bill_list = []
+    total_credit_outstanding = Decimal('0')
+    pending_count = 0
+    taken_count = 0
+    collected_count = 0
+    not_collected_count = 0
+    
+    for bill in bills:
+        credit_amount = bill.payments.filter(
             type='Credit',
             is_reversed=False
-        ).values_list('bill_id', flat=True).distinct()
-
-        pending_bill_ids = SalesBill.objects.filter(
-            status='PENDING'
-        ).values_list('id', flat=True)
-
-        bills = SalesBill.objects.filter(
-            Q(id__in=credit_bill_ids) | Q(id__in=pending_bill_ids)
-        ).select_related('vehicle', 'rep').order_by('-date', '-created_at')
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         
-        # ===== GET BILLS WITH CREDIT PAYMENTS OR PENDING STATUS =====
-        pending_bill_ids = SalesBill.objects.filter(status='PENDING').values_list('id', flat=True)
+        paid_amount = bill.payments.filter(
+            is_reversed=False
+        ).exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
         
+        if paid_amount >= bill.net_total:
+            credit_status = 'PAID'
+        elif paid_amount > 0:
+            credit_status = 'PARTIAL'
+        else:
+            credit_status = 'OUTSTANDING'
         
-        # ---------- FILTERS ----------
-        search = request.GET.get('search', '')
-        if search:
-            bills = bills.filter(
-                Q(invoice_no__icontains=search) | 
-                Q(shop_name__icontains=search) |
-                Q(shop_code__icontains=search)
+        outstanding = bill.net_total - paid_amount
+        
+        # Skip fully paid bills
+        if outstanding <= 0:
+            continue
+        
+        total_credit_outstanding += outstanding
+        
+        # Get or create collection record
+        try:
+            collection, created = CreditCollection.objects.get_or_create(
+                sales_bill=bill,
+                defaults={'status': 'PENDING'}
             )
+        except Exception:
+            collection = None
         
-        start_date = request.GET.get('start_date', '')
-        end_date = request.GET.get('end_date', '')
-        if start_date:
-            bills = bills.filter(date__gte=start_date)
-        if end_date:
-            bills = bills.filter(date__lte=end_date)
+        # Apply collection status filter
+        if collection_status and collection and collection_status != collection.status:
+            continue
         
-        vehicle_id = request.GET.get('vehicle', '')
-        if vehicle_id and vehicle_id.isdigit():
-            bills = bills.filter(vehicle_id=int(vehicle_id))
+        # Apply rep filter
+        if rep_id and rep_id.isdigit() and collection and collection.rep_id != int(rep_id):
+            continue
         
-        collection_status = request.GET.get('collection_status', '')
-        rep_id = request.GET.get('rep', '')
+        if collection:
+            if collection.status == 'PENDING':
+                pending_count += 1
+            elif collection.status == 'TAKEN':
+                taken_count += 1
+            elif collection.status == 'COLLECTED':
+                collected_count += 1
+            elif collection.status == 'NOT_COLLECTED':
+                not_collected_count += 1
         
-        vehicles = Vehicle.objects.filter(is_active=True)
-        reps = Employee.objects.filter(position='Rep', is_active=True)
-        banks = Bank.objects.filter(is_active=True)
+        display_customer = bill.shop_name or bill.shop_code or 'N/A'
         
-        # Process each bill to compute outstanding and collection info
-        bill_list = []
-        total_credit_outstanding = Decimal('0')
-        pending_count = 0
-        taken_count = 0
-        collected_count = 0
-        not_collected_count = 0
-        
-        for bill in bills:
-            # Calculate total credit amount for this bill
-            credit_amount = bill.payments.filter(
-                type='Credit',
-                is_reversed=False
-            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            # Total paid (Cash + Cheque + Online) for this bill
-            paid_amount = bill.payments.filter(
-                is_reversed=False
-            ).exclude(type='Credit').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            
-            # Determine credit status
-            if paid_amount >= bill.net_total:
-                credit_status = 'PAID'
-            elif paid_amount > 0:
-                credit_status = 'PARTIAL'
-            else:
-                credit_status = 'OUTSTANDING'
-            
-            outstanding = bill.net_total - paid_amount
-            
-            # If outstanding <= 0, skip this bill (fully paid, no credit)
-            if outstanding <= 0:
-                continue
-            
-            total_credit_outstanding += outstanding
-            
-            # Get or create collection record
-            try:
-                collection, created = CreditCollection.objects.get_or_create(
-                    sales_bill=bill,
-                    defaults={'status': 'PENDING'}
-                )
-            except Exception:
-                collection = None
-            
-            # Apply collection status filter
-            if collection_status and collection and collection_status != collection.status:
-                continue
-            
-            # Apply rep filter
-            if rep_id and rep_id.isdigit() and collection and collection.rep_id != int(rep_id):
-                continue
-            
-            # Update counts
-            if collection:
-                if collection.status == 'PENDING':
-                    pending_count += 1
-                elif collection.status == 'TAKEN':
-                    taken_count += 1
-                elif collection.status == 'COLLECTED':
-                    collected_count += 1
-                elif collection.status == 'NOT_COLLECTED':
-                    not_collected_count += 1
-            
-            display_customer = bill.shop_name or bill.shop_code or 'N/A'
-            
-            bill_list.append({
-                'bill': bill,
-                'credit_amount': credit_amount,
-                'paid_amount': paid_amount,
-                'outstanding': outstanding,
-                'credit_status': credit_status,
-                'customer': display_customer,
-                'total_items': bill.items.count(),
-                'collection': collection,
-            })
-        
-        status_choices = CreditCollection.STATUS_CHOICES if hasattr(CreditCollection, 'STATUS_CHOICES') else [
-            ('PENDING', 'Pending'),
-            ('TAKEN', 'Taken'),
-            ('COLLECTED', 'Collected'),
-            ('NOT_COLLECTED', 'Not Collected'),
-        ]
-        
-        context = {
-            'bills': bill_list,
-            'vehicles': vehicles,
-            'reps': reps,
-            'banks': banks,
-            'search': search,
-            'start_date': start_date,
-            'end_date': end_date,
-            'selected_vehicle': vehicle_id,
-            'selected_collection_status': collection_status,
-            'selected_rep': rep_id,
-            'total_credit_outstanding': total_credit_outstanding,
-            'total_count': len(bill_list),
-            'pending_count': pending_count,
-            'taken_count': taken_count,
-            'collected_count': collected_count,
-            'not_collected_count': not_collected_count,
-            'status_choices': status_choices,
-            'banks': Bank.objects.all(),
-            'vehicles': Vehicle.objects.filter(is_active=True),
-        }
-        
-        return render(request, 'core/credit_list.html', context)
-    except Exception as e:
-        return HttpResponse(
-            f"<html><body style='font-family:monospace;padding:20px;'>"
-            f"<h1 style='color:red;'>Credit List Error</h1>"
-            f"<h2>{type(e).__name__}: {e}</h2>"
-            f"<pre style='background:#f5f5f5;padding:15px;overflow:auto;'>{traceback.format_exc()}</pre>"
-            f"</body></html>",
-            status=500
-        )
+        bill_list.append({
+            'bill': bill,
+            'credit_amount': credit_amount,
+            'paid_amount': paid_amount,
+            'outstanding': outstanding,
+            'credit_status': credit_status,
+            'customer': display_customer,
+            'total_items': bill.items.count(),
+            'collection': collection,
+        })
+    
+    status_choices = CreditCollection.STATUS_CHOICES if hasattr(CreditCollection, 'STATUS_CHOICES') else [
+        ('PENDING', 'Pending'),
+        ('TAKEN', 'Taken'),
+        ('COLLECTED', 'Collected'),
+        ('NOT_COLLECTED', 'Not Collected'),
+    ]
+    
+    # Preserve shop filter in context so checkboxes show conditionally
+    active_shop_filter = bool(shop_filter or shop_code_filter)
+    
+    context = {
+        'bills': bill_list,
+        'vehicles': vehicles,
+        'reps': reps,
+        'banks': banks,
+        'search': search,
+        'start_date': start_date,
+        'end_date': end_date,
+        'selected_vehicle': vehicle_id,
+        'selected_collection_status': collection_status,
+        'selected_rep': rep_id,
+        'total_credit_outstanding': total_credit_outstanding,
+        'total_count': len(bill_list),
+        'pending_count': pending_count,
+        'taken_count': taken_count,
+        'collected_count': collected_count,
+        'not_collected_count': not_collected_count,
+        'status_choices': status_choices,
+        'shop_filter': shop_filter,
+        'shop_code_filter': shop_code_filter,
+        'active_shop_filter': active_shop_filter,
+    }
+    
+    return render(request, 'core/credit_list.html', context)
 
 
 @login_required
