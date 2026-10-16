@@ -207,13 +207,16 @@ def credit_list(request):
     if bill_id and bill_id.isdigit():
         queryset = queryset.filter(sales_bill_id=int(bill_id))
         
+    # ===== SHOP FILTER =====
     shop_filter = request.GET.get('shop', '').strip()
     shop_code_filter = request.GET.get('shop_code', '').strip()
 
     if shop_code_filter:
+        # Prioritize shop_code — more reliable, unique
         queryset = queryset.filter(shop_code=shop_code_filter)
     elif shop_filter:
-        queryset = queryset.filter(Q(shop_name=shop_filter) | Q(shop_code=shop_filter))
+        # Fall back to shop name — exact match
+        queryset = queryset.filter(shop_name=shop_filter)
         
     # Include both bills with non-reversed Credit payments AND pending bills
     credit_bill_ids = Payment.objects.filter(

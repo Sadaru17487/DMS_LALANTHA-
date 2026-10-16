@@ -798,8 +798,11 @@
                             const shop = this.dataset.shop || '';
                             const code = this.dataset.shopCode || '';
                             const url = new URL(window.location.href);
-                            if (shop) url.searchParams.set('shop', shop);
-                            if (code) url.searchParams.set('shop_code', code);
+                            if (code) {
+                                url.searchParams.set('shop_code', code);
+                            } else if (shop) {
+                                url.searchParams.set('shop', shop);
+                            }
                             window.location.href = url.toString();
                         });
                     });
