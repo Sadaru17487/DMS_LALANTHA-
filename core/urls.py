@@ -257,8 +257,6 @@ urlpatterns = [
 
     path('api/credit-bills/search/', views.api_credit_bills_search, name='api_credit_bills_search'),
 
-    path('api/credit-bills/search/', views.api_credit_bills_search, name='api_credit_bills_search'),
-
     path('api/bills-by-shop/', views.api_bills_by_shop, name='api_bills_by_shop'),
     
     path('pay-multiple-bills/', views.pay_multiple_bills, name='pay_multiple_bills'),
