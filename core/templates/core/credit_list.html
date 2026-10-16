@@ -6,43 +6,17 @@
 {% block content %}
 
 <style>
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-    .summary-grid .card {
-        background: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        text-align: center;
-    }
-    .summary-grid .card .label {
-        font-size: 12px;
-        color: #888;
-        text-transform: uppercase;
-        font-weight: 600;
-    }
-    .summary-grid .card .value {
-        font-size: 22px;
-        font-weight: 700;
-        margin-top: 5px;
-    }
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px; }
+    .summary-grid .card { background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+    .summary-grid .card .label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: 600; }
+    .summary-grid .card .value { font-size: 22px; font-weight: 700; margin-top: 5px; }
     .summary-grid .card .value.total { color: #1a2634; }
     .summary-grid .card .value.pending { color: #fd7e14; }
     .summary-grid .card .value.taken { color: #007bff; }
     .summary-grid .card .value.collected { color: #28a745; }
     .summary-grid .card .value.not-collected { color: #dc3545; }
 
-    .badge-status {
-        padding: 3px 14px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        display: inline-block;
-    }
+    .badge-status { padding: 3px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
     .badge-status.pending { background: #fff3cd; color: #856404; }
     .badge-status.taken { background: #cce5ff; color: #004085; }
     .badge-status.collected { background: #d4edda; color: #155724; }
@@ -51,75 +25,25 @@
     .badge-status.paid { background: #d4edda; color: #155724; }
     .badge-status.partial { background: #cce5ff; color: #004085; }
 
-    .action-icons {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-    .action-icons a, .action-icons button {
-        color: #555;
-        text-decoration: none;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 16px;
-        transition: 0.2s;
-        border: none;
-        background: none;
-        cursor: pointer;
-    }
+    .action-icons { display: flex; gap: 8px; align-items: center; }
+    .action-icons a, .action-icons button { color: #555; text-decoration: none; padding: 4px 8px; border-radius: 6px; font-size: 16px; transition: 0.2s; border: none; background: none; cursor: pointer; }
     .action-icons a:hover, .action-icons button:hover { background: #e8ecf2; }
     .action-icons a.view { color: #007bff; }
-    .action-icons a.pay { color: #28a745; }
+    .action-icons button.pay { color: #28a745; }
     .action-icons button.return { color: #fd7e14; }
-    .action-icons button.retake { color: #6f42c1; }
     .action-icons a.print { color: #17a2b8; }
-    .action-icons a.delete { color: #dc3545; }
 
-    .modal-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 9999;
-        justify-content: center;
-        align-items: center;
-    }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; }
     .modal-overlay.show { display: flex; }
-    .modal-content {
-        background: white;
-        padding: 30px;
-        border-radius: 16px;
-        max-width: 500px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-    }
-    .modal-content h3 { margin-bottom: 20px; color: #1a2634; }
+    .modal-content { background: white; padding: 30px; border-radius: 16px; max-width: 520px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+    .modal-content h3 { margin-top: 0; margin-bottom: 20px; color: #1a2634; }
     .modal-content .form-group { margin-bottom: 15px; }
-    .modal-content .form-group label { font-weight: 600; color: #555; font-size: 14px; }
+    .modal-content .form-group label { display: block; font-weight: 600; color: #555; font-size: 13px; margin-bottom: 5px; }
     .modal-content .form-group input,
     .modal-content .form-group select,
-    .modal-content .form-group textarea {
-        width: 100%;
-        padding: 10px 12px;
-        border: 2px solid #e0e4eb;
-        border-radius: 8px;
-        font-size: 14px;
-        background: #fafbfc;
-    }
+    .modal-content .form-group textarea { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; }
     .modal-content .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-    .modal-content .btn-group .btn-modal {
-        padding: 10px 25px;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        flex: 1;
-    }
+    .modal-content .btn-group .btn-modal { padding: 10px 25px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; flex: 1; }
     .modal-content .btn-group .btn-modal.confirm { background: #28a745; color: white; }
     .modal-content .btn-group .btn-modal.confirm:hover { background: #218838; }
     .modal-content .btn-group .btn-modal.cancel { background: #6c757d; color: white; }
@@ -127,45 +51,20 @@
 
     .empty-state { text-align: center; padding: 40px; color: #999; }
     .empty-state .icon { font-size: 48px; display: block; margin-bottom: 10px; }
-    .result-count { color: #777; font-size: 14px; margin-top: 10px; }
-
-    .info-box {
-        background: #f8f9fc;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-    .info-box .row {
-        display: flex;
-        justify-content: space-between;
-        padding: 5px 0;
-        border-bottom: 1px solid #e8ecf2;
-    }
+    .result-count { color: #777; font-size: 14px; margin: 10px 0; }
+    .info-box { background: #f8f9fc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .info-box .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e8ecf2; }
     .info-box .row:last-child { border-bottom: none; }
     .info-box .label { color: #666; }
     .info-box .value { font-weight: 600; color: #1a2634; }
 
-    @media (max-width: 768px) {
-        .summary-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    #creditSearchResults .result-item {
-        padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        display: flex; justify-content: space-between; align-items: center;
-        justify-content: space-between;
-        align-items: center;
-        transition: 0.15s;
-    }
-    #creditSearchResults .result-item:hover { background: #e3f0ff; }
-    #creditSearchResults .result-item:last-child { border-bottom: none; }
-    #creditSearchResults .result-item .left { flex: 1; }
-    #creditSearchResults .result-item .name { font-weight: 600; color: #1a2634; font-size: 14px; }
-    #creditSearchResults .result-item .meta { font-size: 12px; color: #888; margin-top: 2px; }
-    #creditSearchResults .result-item .amount { font-weight: 700; color: #dc3545; font-size: 14px; }
-    #creditSearchResults .no-results { padding: 14px; color: #999; text-align: center; font-size: 13px; }
-    #creditSearchResults .searching { padding: 14px; color: #007bff; text-align: center; font-size: 13px; }
+    #creditSearchResults .credit-search-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; }
+    #creditSearchResults .credit-search-item:hover { background: #e3f0ff; }
+    #creditSearchResults .credit-search-item:last-child { border-bottom: none; }
 
+    #multiBillBar { display: none; margin: 15px 0; padding: 15px 20px; background: linear-gradient(135deg, #1a2634, #2c3e50); color: white; border-radius: 12px; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; }
+
+    @media (max-width: 768px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>
 
 <div class="container">
@@ -179,105 +78,73 @@
 
     <!-- Summary Cards -->
     <div class="summary-grid">
-        <div class="card">
-            <div class="label">Total Outstanding</div>
-            <div class="value total">Rs {{ total_credit_outstanding|floatformat:2 }}</div>
-        </div>
-        <div class="card">
-            <div class="label">Pending</div>
-            <div class="value pending">{{ pending_count }}</div>
-        </div>
-        <div class="card">
-            <div class="label">Taken</div>
-            <div class="value taken">{{ taken_count }}</div>
-        </div>
-        <div class="card">
-            <div class="label">Collected</div>
-            <div class="value collected">{{ collected_count }}</div>
-        </div>
-        <div class="card">
-            <div class="label">Not Collected</div>
-            <div class="value not-collected">{{ not_collected_count }}</div>
-        </div>
+        <div class="card"><div class="label">Total Outstanding</div><div class="value total">Rs {{ total_credit_outstanding|floatformat:2 }}</div></div>
+        <div class="card"><div class="label">Pending</div><div class="value pending">{{ pending_count }}</div></div>
+        <div class="card"><div class="label">Taken</div><div class="value taken">{{ taken_count }}</div></div>
+        <div class="card"><div class="label">Collected</div><div class="value collected">{{ collected_count }}</div></div>
+        <div class="card"><div class="label">Not Collected</div><div class="value not-collected">{{ not_collected_count }}</div></div>
     </div>
 
-    <!-- Morning Action: Take Bills -->
-    <form method="POST" action="/credit-collection/take/" class="action-section" id="takeForm" style="background:#f8f9fc; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
+    <!-- Morning Action -->
+    <form method="POST" action="/credit-collection/take/" id="takeForm" style="background:#f8f9fc; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
         {% csrf_token %}
         <span style="font-weight:600; color:#1a2634;">⏰ Morning Action:</span>
         <label>Select Rep:</label>
         <select name="rep" required style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
             <option value="">-- Select --</option>
-            {% for rep in reps %}
-                <option value="{{ rep.id }}">{{ rep.name }}</option>
-            {% endfor %}
+            {% for rep in reps %}<option value="{{ rep.id }}">{{ rep.name }}</option>{% endfor %}
         </select>
         <label>Collection Date:</label>
         <input type="date" name="collection_date" value="{{ today|date:'Y-m-d' }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
-        <button type="submit" class="btn-action primary" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;" onclick="return confirm('Take selected bills for collection?')">📤 Take Selected</button>
+        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;" onclick="return confirm('Take selected bills for collection?')">📤 Take Selected</button>
         <span style="color:#999; font-size:13px;">(Select bills below and choose rep)</span>
     </form>
 
     <!-- Filters -->
-    <form method="GET" class="filter-bar" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        
+    <form method="GET" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <div style="position: relative; flex: 1; min-width: 250px;">
-            <input type="text"
-                id="creditSearchInput"
-                placeholder="🔍 Search by name, invoice No"
-                autocomplete="off"
-                value="{{ request.GET.q|default:'' }}"
-                style="width: 100%; padding: 10px 14px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc;">
-            <div id="creditSearchResults"
-                style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #e0e4eb; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            <input type="text" id="creditSearchInput" placeholder="🔍 Search by name, invoice No" autocomplete="off" value="{{ request.GET.q|default:'' }}" style="width: 100%; padding: 10px 14px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc;">
+            <div id="creditSearchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #e0e4eb; border-radius: 8px; max-height: 320px; overflow-y: auto; z-index: 1000; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
         </div>
 
-        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">From</label>
             <input type="date" name="start_date" value="{{ start_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
         </div>
-        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">To</label>
             <input type="date" name="end_date" value="{{ end_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
         </div>
-        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Collection Status</label>
             <select name="collection_status" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
                 <option value="">All Status</option>
                 {% for key, value in status_choices %}
-                    <option value="{{ key }}" {% if selected_collection_status == key %}selected{% endif %}>
-                        {{ value }}
-                    </option>
+                    <option value="{{ key }}" {% if selected_collection_status == key %}selected{% endif %}>{{ value }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="filter-group" style="display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
             <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Rep</label>
             <select name="rep" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width:150px;">
                 <option value="">All Reps</option>
                 {% for rep in reps %}
-                    <option value="{{ rep.id }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>
-                        {{ rep.name }}
-                    </option>
+                    <option value="{{ rep.id }}" {% if selected_rep == rep.id|stringformat:"s" %}selected{% endif %}>{{ rep.name }}</option>
                 {% endfor %}
             </select>
         </div>
-        <button type="submit" class="btn-filter" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Filter</button>
-        <a href="/credit-list/" class="btn-clear" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
+        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Filter</button>
+        <a href="/credit-list/" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:8px; text-decoration:none;">Clear</a>
     </form>
 
-    <div class="result-count">
-        Found <strong>{{ total_count }}</strong> credit sale{{ total_count|pluralize }}
-    </div>
+    <div class="result-count">Found <strong>{{ total_count }}</strong> credit sale{{ total_count|pluralize }}</div>
 
     <!-- Table -->
-    <div class="table-container" style="background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow-x:auto;">
+    <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; font-size:14px;">
             <thead>
                 <tr>
-                    <th style="width: 40px;">
-                        <input type="checkbox" id="selectAllBills" onclick="toggleAllBills(this)">
-                    </th>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllBills" onclick="toggleAllBills(this)"></th>
                     <th>Invoice</th>
                     <th>Customer</th>
                     <th style="text-align:right;">Amount</th>
@@ -292,471 +159,384 @@
             <tbody>
                 {% for item in bills %}
                 <tr>
-                    <td>
-                        <input type="checkbox" class="bill-checkbox"
-                            value="{{ item.bill.id }}"
-                            data-outstanding="{{ item.outstanding|floatformat:2 }}"
-                            onchange="updateMultiTotals()">
-                    </td>
+                    <td><input type="checkbox" class="bill-checkbox" value="{{ item.bill.id }}" data-outstanding="{{ item.outstanding|floatformat:2 }}" onchange="updateMultiTotals()"></td>
                     <td><strong>{{ item.bill.invoice_no }}</strong></td>
                     <td>{{ item.customer }}</td>
                     <td style="text-align:right; font-weight:600;">Rs {{ item.bill.net_total|floatformat:2 }}</td>
                     <td style="text-align:right; color:#28a745;">Rs {{ item.paid_amount|floatformat:2 }}</td>
                     <td style="text-align:right; color:#dc3545;">Rs {{ item.outstanding|floatformat:2 }}</td>
                     <td>{{ item.bill.date|date:"Y-m-d" }}</td>
+                    <td><span class="badge-status {{ item.credit_status|lower }}">{{ item.credit_status }}</span></td>
                     <td>
-                        <span class="badge-status {{ item.credit_status|lower }}">
-                            {{ item.credit_status }}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge-status {{ item.collection.status|lower }}">
-                            {{ item.collection.get_status_display }}
-                        </span>
-                        {% if item.collection.status == 'NOT_COLLECTED' %}
-                            <br><span style="font-size:10px; color:#dc3545;">{{ item.collection.get_not_collected_reason_display|default:"" }}</span>
+                        <span class="badge-status {{ item.collection.status|lower }}">{{ item.collection.get_status_display }}</span>
+                        {% if item.collection.status == 'NOT_COLLECTED' and item.collection.not_collected_reason %}
+                            <br><span style="font-size:10px; color:#dc3545;">{{ item.collection.get_not_collected_reason_display }}</span>
                         {% endif %}
                     </td>
                     <td>
                         <div class="action-icons">
-                            <!-- View -->
                             <a href="/sales-detail/{{ item.bill.id }}/" class="view" title="View">👁️</a>
-                            
-                            <!-- Pay Now -->
                             <button type="button" class="pay" data-bill-id="{{ item.bill.id }}"
                                     onclick="openPayNowModal({{ item.bill.id }}, '{{ item.bill.invoice_no }}', {{ item.outstanding|floatformat:2 }}, {{ item.bill.vehicle.id|default:'null' }})">
                                 💰
                             </button>
-                            
-                            <!-- Return (only for TAKEN) -->
                             {% if item.collection.status == 'TAKEN' %}
-                                <button type="button" class="return" title="Return Collection" 
+                                <button type="button" class="return" title="Return Collection"
                                         onclick="openReturnModal({{ item.collection.id }}, '{{ item.bill.invoice_no }}', '{{ item.customer }}', {{ item.bill.net_total|floatformat:2 }})">
                                     📤
                                 </button>
                             {% endif %}
-                            
-                            <!-- Retake (only for NOT_COLLECTED) -->
-                            {% if item.collection.status == 'NOT_COLLECTED' %}
-                                <button type="button" class="retake" title="Retake for Collection" 
-                                        onclick="retakeBill({{ item.collection.id }})">
-                                    🔄
-                                </button>
-                            {% endif %}
-                            
-                            <!-- Print -->
                             <a href="#" class="print" title="Print" onclick="window.print(); return false;">🖨️</a>
                         </div>
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="10" class="empty-state">
-                        <span class="icon">✅</span>
-                        No credit sales found.<br>
-                        <span style="font-size:12px;color:#bbb;">All credit sales are fully paid or no credits exist.</span>
-                    </td>
-                </tr>
+                <tr><td colspan="10" class="empty-state"><span class="icon">✅</span>No credit sales found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-        
-    
-    <div class="footer">
-        &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
+
+    <!-- ✅ MULTI-BILL ACTION BAR (moved OUT of any form) -->
+    <div id="multiBillBar">
+        <div>
+            <div style="font-size: 12px; opacity: 0.7;">SELECTED BILLS</div>
+            <div style="font-size: 20px; font-weight: 700;"><span id="selectedBillCount">0</span> Bills</div>
+        </div>
+        <div>
+            <div style="font-size: 12px; opacity: 0.7;">TOTAL OUTSTANDING</div>
+            <div style="font-size: 20px; font-weight: 700; color: #ffcc00;">Rs <span id="selectedTotalOutstanding">0.00</span></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" onclick="openMultiPayModal()" style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px;">💰 Pay</button>
+            <button type="button" onclick="clearBillSelection()" style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">✕ Clear</button>
+        </div>
     </div>
+
+    <div class="footer">&copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System</div>
 </div>
 
-<!-- ===== RETURN MODAL ===== -->
+<!-- ========== RETURN MODAL ========== -->
 <div class="modal-overlay" id="returnModal">
     <div class="modal-content">
         <h3>📤 Return Collection</h3>
-        <div id="returnModalInfo" class="info-box">
-            <div class="row">
-                <span class="label">Invoice</span>
-                <span class="value" id="modalInvoice">-</span>
-            </div>
-            <div class="row">
-                <span class="label">Customer</span>
-                <span class="value" id="modalCustomer">-</span>
-            </div>
-            <div class="row">
-                <span class="label">Amount</span>
-                <span class="value" id="modalAmount" style="color:#28a745;">-</span>
-            </div>
+        <div class="info-box">
+            <div class="row"><span class="label">Invoice</span><span class="value" id="modalInvoice">-</span></div>
+            <div class="row"><span class="label">Customer</span><span class="value" id="modalCustomer">-</span></div>
+            <div class="row"><span class="label">Amount</span><span class="value" id="modalAmount" style="color:#28a745;">-</span></div>
         </div>
-
         <form method="POST" action="/credit-collection/return/">
             {% csrf_token %}
             <input type="hidden" name="collection_id" id="modalCollectionId">
-            
-            <!-- Radio buttons -->
             <div class="form-group">
-                <label style="font-weight:600;">Status:</label>
+                <label>Status:</label>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #28a745; border-radius:8px;" onclick="selectCollectionAction('collected')">
-                        <input type="radio" name="action" value="collected" checked> ✅ Collected
+                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #28a745; border-radius:8px;">
+                        <input type="radio" name="action" value="collected" checked onchange="selectCollectionAction('collected')"> ✅ Collected
                     </label>
-                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #dc3545; border-radius:8px;" onclick="selectCollectionAction('not_collected')">
-                        <input type="radio" name="action" value="not_collected"> ❌ Not Collected
+                    <label style="cursor:pointer; padding:10px 20px; border:2px solid #dc3545; border-radius:8px;">
+                        <input type="radio" name="action" value="not_collected" onchange="selectCollectionAction('not_collected')"> ❌ Not Collected
                     </label>
                 </div>
             </div>
-
-            <!-- Collected Fields -->
-            <div id="collectedFields" style="display:block;">
-                <div class="form-group">
-                    <label>Notes (Optional)</label>
-                    <textarea name="notes" rows="2" placeholder="Additional notes..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;"></textarea>
-                </div>
+            <div id="collectedFields">
+                <div class="form-group"><label>Notes (Optional)</label><textarea name="notes" rows="2" placeholder="Additional notes..."></textarea></div>
             </div>
-
-            <!-- Not Collected Fields -->
             <div id="notCollectedFields" style="display:none;">
                 <div class="form-group">
-                    <label>Reason <span class="required">*</span></label>
-                    <select name="reason" style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
+                    <label>Reason <span style="color:#dc3545;">*</span></label>
+                    <select name="not_collected_reason">
                         <option value="">-- Select Reason --</option>
                         <option value="CUSTOMER_NOT_AVAILABLE">Customer Not Available</option>
                         <option value="REFUSED_TO_PAY">Customer Refused to Pay</option>
                         <option value="INSUFFICIENT_FUNDS">Insufficient Funds</option>
                         <option value="CUSTOMER_REQUESTED_DELAY">Customer Requested Delay</option>
+                        <option value="SHOP_CLOSED">Shop Closed</option>
                         <option value="OTHER">Other</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Notes</label>
-                    <textarea name="notes" rows="2" placeholder="Additional notes..." style="width:100%; padding:10px; border:2px solid #e0e4eb; border-radius:8px;"></textarea>
-                </div>
             </div>
-
-            <!-- ✅ IMPORTANT: Confirm button MUST be type="submit" -->
             <div class="btn-group">
                 <button type="button" class="btn-modal cancel" onclick="closeReturnModal()">Cancel</button>
-                <button type="submit" class="btn-modal confirm" id="modalConfirmBtn">✅ Confirm</button>
+                <button type="submit" class="btn-modal confirm" id="modalConfirmBtn">✅ Confirm Collected</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ===== PAY NOW MODAL ===== -->
+<!-- ========== PAY NOW MODAL (single bill) ========== -->
 <div class="modal-overlay" id="payNowModal">
     <div class="modal-content">
         <h3>💰 Pay Now</h3>
-        <p style="color:#777; margin-bottom:15px;">
-            Make a payment for bill: <strong id="payBillInvoice">-</strong>
-        </p>
+        <p style="color:#777; margin-bottom:15px;">Bill: <strong id="payBillInvoice">-</strong></p>
         <form id="payNowForm" method="POST" action="{% url 'core:pay_credit_bill' %}">
             {% csrf_token %}
             <input type="hidden" name="bill_id" id="payBillId">
-            
+            <div class="form-group"><label>Payment Date</label><input type="date" name="payment_date" value="{{ today|date:'Y-m-d' }}"></div>
             <div class="form-group">
-                <label>Payment Date</label>
-                <input type="date" name="payment_date" value="{{ today|date:'Y-m-d' }}">
-            </div>
-            
-            <div class="form-group">
-                <label>Amount (Rs) <span class="required">*</span></label>
-                <input type="number" step="0.01" name="amount" id="payAmount" placeholder="0.00" required>
+                <label>Amount (Rs) <span style="color:#dc3545;">*</span></label>
+                <input type="number" step="0.01" name="amount" id="payAmount" required>
                 <span style="font-size:12px; color:#888;">Outstanding: Rs <span id="payOutstanding">0.00</span></span>
             </div>
-            
             <div class="form-group">
-                <label>Payment Method <span class="required">*</span></label>
+                <label>Payment Method *</label>
                 <select name="payment_method" id="payPaymentMethod" onchange="togglePayChequeFields()" required>
                     <option value="Cash">Cash</option>
                     <option value="Cheque">Cheque</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Online">Online Payment</option>
+                    <option value="Online">Online</option>
                 </select>
             </div>
-
             <div class="form-group">
-                <label>Collecting Vehicle <span class="required">*</span></label>
+                <label>Collecting Vehicle *</label>
                 <select name="collected_by_vehicle" id="payVehicle" required>
                     <option value="">-- Select Vehicle --</option>
-                    {% for v in vehicles %}
-                        <option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>
-                    {% endfor %}
+                    {% for v in vehicles %}<option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>{% endfor %}
                 </select>
             </div>
-            
-            <!-- ===== CHEQUE DETAILS SECTION ===== -->
-            <div id="payChequeFields" style="display:none; margin-top:15px; padding:15px; background:#f8f9fc; border-radius:8px; border:1px solid #e0e4eb;">
+            <div id="payChequeFields" style="display:none; padding:15px; background:#f8f9fc; border-radius:8px; margin-bottom:15px; border:1px solid #e0e4eb;">
                 <h4 style="margin-top:0; font-size:14px; color:#6f42c1;">🏦 Cheque Details</h4>
-                <div class="form-group" style="margin-bottom:10px;">
-                    <label>Cheque Number <span class="required">*</span></label>
-                    <input type="text" name="cheque_no" id="payChequeNo" placeholder="Enter cheque number">
-                </div>
-                <div class="form-group" style="margin-bottom:10px;">
-                    <label>Cheque Date <span class="required">*</span></label>
-                    <input type="date" name="cheque_date" id="payChequeDate">
-                </div>
+                <div class="form-group"><label>Cheque Number *</label><input type="text" name="cheque_no" id="payChequeNo"></div>
+                <div class="form-group"><label>Cheque Date *</label><input type="date" name="cheque_date" id="payChequeDate"></div>
                 <div class="form-group">
-                    <label>Bank <span class="required">*</span></label>
+                    <label>Bank *</label>
                     <select name="cheque_bank" id="payChequeBank">
                         <option value="">-- Select Bank --</option>
-                        {% for bank in banks %}
-                            <option value="{{ bank.id }}">{{ bank.name }}</option>
-                        {% endfor %}
+                        {% for bank in banks %}<option value="{{ bank.id }}">{{ bank.name }}</option>{% endfor %}
                     </select>
-                    <button type="button" class="btn-add-small" onclick="openAddBankModal()" style="margin-top:5px; padding:4px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px;">+ Add Bank</button>
                 </div>
             </div>
-            
-            <div class="form-group">
-                <label>Reference No</label>
-                <input type="text" name="reference_no" placeholder="Transaction/Reference #">
-            </div>
-            
-            <div class="form-group">
-                <label>Notes</label>
-                <textarea name="notes" rows="2" placeholder="Payment notes..."></textarea>
-            </div>
-            
+            <div class="form-group"><label>Reference No</label><input type="text" name="reference_no"></div>
+            <div class="form-group"><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
             <div class="btn-group">
                 <button type="button" class="btn-modal cancel" onclick="closePayNowModal()">Cancel</button>
                 <button type="submit" class="btn-modal confirm">✅ Confirm Payment</button>
             </div>
+        </form>
+    </div>
+</div>
 
-            <div id="multiBillBar" style="display: none; margin-top: 15px; padding: 15px 20px; background: linear-gradient(135deg, #1a2634, #2c3e50); color: white; border-radius: 12px; display: none; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
-                <div>
-                    <div style="font-size: 12px; opacity: 0.7;">SELECTED BILLS</div>
-                    <div style="font-size: 20px; font-weight: 700;">
-                        <span id="selectedBillCount">0</span> Bills
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size: 12px; opacity: 0.7;">TOTAL OUTSTANDING</div>
-                    <div style="font-size: 20px; font-weight: 700; color: #ffcc00;">
-                        Rs <span id="selectedTotalOutstanding">0.00</span>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" onclick="openMultiPayModal()"
-                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px;">
-                        💰 Pay
-                    </button>
-                    <button type="button" onclick="clearBillSelection()"
-                            style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                        ✕ Clear
-                    </button>
+<!-- ========== MULTI-BILL PAY MODAL (new) ========== -->
+<div class="modal-overlay" id="multiPayBillModal">
+    <div class="modal-content">
+        <h3>💰 Pay Multiple Bills</h3>
+        <p style="color:#666; font-size:13px; margin-top:5px;">
+            Paying <strong id="mpBillCount">0</strong> bill(s). Total outstanding:
+            <strong style="color:#dc3545;">Rs <span id="mpTotalOutstanding">0.00</span></strong>
+        </p>
+
+        <form method="POST" action="/pay-multiple-bills/" id="multiPayForm">
+            {% csrf_token %}
+            <div id="mpBillIdsContainer"></div>
+
+            <div class="form-group">
+                <label>Collecting Vehicle *</label>
+                <select name="collected_by_vehicle" required>
+                    <option value="">-- Select Vehicle --</option>
+                    {% for v in vehicles %}<option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>{% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Payment Date *</label>
+                <input type="date" name="payment_date" id="mpDate" required>
+            </div>
+
+            <div class="form-group">
+                <label>Total Amount (Rs) *</label>
+                <input type="number" step="0.01" name="amount" id="mpAmount" required style="background:#f5f5f5; font-weight:700; font-size:16px;">
+                <span style="font-size:12px; color:#888;">Auto-filled from selected bills. You can edit if needed.</span>
+            </div>
+
+            <div class="form-group">
+                <label>Payment Method *</label>
+                <select name="payment_method" id="mpMethod" required onchange="toggleMultiPayCheque()">
+                    <option value="Cash">💵 Cash</option>
+                    <option value="Cheque">🏦 Cheque</option>
+                    <option value="Online">🌐 Online</option>
+                </select>
+            </div>
+
+            <div id="mpChequeFields" style="display:none; padding:15px; background:#f8f9fc; border-radius:8px; margin-bottom:15px; border:1px solid #e0e4eb;">
+                <div class="form-group"><label>Cheque Number *</label><input type="text" name="cheque_no" id="mpChequeNo"></div>
+                <div class="form-group"><label>Cheque Date *</label><input type="date" name="cheque_date" id="mpChequeDate"></div>
+                <div class="form-group">
+                    <label>Bank *</label>
+                    <select name="cheque_bank" id="mpChequeBank">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}<option value="{{ bank.id }}">{{ bank.name }}</option>{% endfor %}
+                    </select>
                 </div>
             </div>
 
-            <div id="multiBillBar" style="display: none; margin-top: 15px; padding: 15px 20px; background: linear-gradient(135deg, #1a2634, #2c3e50); color: white; border-radius: 12px; display: none; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap;">
-                <div>
-                    <div style="font-size: 12px; opacity: 0.7;">SELECTED BILLS</div>
-                    <div style="font-size: 20px; font-weight: 700;">
-                        <span id="selectedBillCount">0</span> Bills
-                    </div>
-                </div>
-                <div>
-                    <div style="font-size: 12px; opacity: 0.7;">TOTAL OUTSTANDING</div>
-                    <div style="font-size: 20px; font-weight: 700; color: #ffcc00;">
-                        Rs <span id="selectedTotalOutstanding">0.00</span>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" onclick="openMultiPayModal()"
-                            style="padding: 12px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 15px;">
-                        💰 Pay
-                    </button>
-                    <button type="button" onclick="clearBillSelection()"
-                            style="padding: 12px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                        ✕ Clear
-                    </button>
-                </div>
+            <div class="btn-group">
+                <button type="button" class="btn-modal cancel" onclick="closeMultiPayModal()">Cancel</button>
+                <button type="submit" class="btn-modal confirm">✅ Confirm Payment</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-    function toggleAll(source) {
-        const checkboxes = document.querySelectorAll('.bill-checkbox');
-        checkboxes.forEach(cb => cb.checked = source.checked);
-    }
+// ============================================================
+// CHECKBOX / MULTI-SELECT
+// ============================================================
+function toggleAllBills(source) {
+    document.querySelectorAll('.bill-checkbox').forEach(cb => { cb.checked = source.checked; });
+    updateMultiTotals();
+}
 
-    // ===== RETURN MODAL FUNCTIONS =====
-    function openReturnModal(collectionId, invoice, customer, amount) {
-        console.log('Opening return modal for collection ID:', collectionId);
-        document.getElementById('modalCollectionId').value = collectionId;
-        document.getElementById('modalCollectionId').value = collectionId;
-        document.getElementById('modalInvoice').textContent = invoice;
-        document.getElementById('modalCustomer').textContent = customer;
-        document.getElementById('modalAmount').textContent = `Rs ${amount.toFixed(2)}`;
-        document.getElementById('returnModal').style.display = 'flex';
-        selectCollectionAction('collected');
-        console.log('Return modal opened for collection ID:', collectionId);
-    }
-
-    function closeReturnModal() {
-        document.getElementById('returnModal').style.display = 'none';
-    }
-
-   function selectCollectionAction(action) {
-    const reasonSelect = document.querySelector('select[name="reason"]');
-    const confirmBtn = document.getElementById('modalConfirmBtn');
+function updateMultiTotals() {
+    const boxes = document.querySelectorAll('.bill-checkbox:checked');
+    const bar = document.getElementById('multiBillBar');
+    if (!bar) return;
     
+    let total = 0;
+    boxes.forEach(cb => { total += parseFloat(cb.dataset.outstanding || 0); });
+    
+    document.getElementById('selectedBillCount').textContent = boxes.length;
+    document.getElementById('selectedTotalOutstanding').textContent = total.toFixed(2);
+    bar.style.display = boxes.length > 0 ? 'flex' : 'none';
+}
+
+function clearBillSelection() {
+    document.querySelectorAll('.bill-checkbox').forEach(cb => cb.checked = false);
+    const sel = document.getElementById('selectAllBills');
+    if (sel) sel.checked = false;
+    updateMultiTotals();
+}
+
+// ============================================================
+// RETURN MODAL
+// ============================================================
+function openReturnModal(collectionId, invoice, customer, amount) {
+    document.getElementById('modalCollectionId').value = collectionId;
+    document.getElementById('modalInvoice').textContent = invoice;
+    document.getElementById('modalCustomer').textContent = customer;
+    document.getElementById('modalAmount').textContent = `Rs ${amount.toFixed(2)}`;
+    document.getElementById('returnModal').classList.add('show');
+    selectCollectionAction('collected');
+}
+
+function closeReturnModal() {
+    document.getElementById('returnModal').classList.remove('show');
+}
+
+function selectCollectionAction(action) {
+    const reasonSelect = document.querySelector('select[name="not_collected_reason"]');
+    const confirmBtn = document.getElementById('modalConfirmBtn');
     if (action === 'collected') {
         document.getElementById('collectedFields').style.display = 'block';
         document.getElementById('notCollectedFields').style.display = 'none';
         confirmBtn.textContent = '✅ Confirm Collected';
         confirmBtn.style.background = '#28a745';
-        document.querySelector('input[name="action"][value="collected"]').checked = true;
-        // Remove required attribute
-        reasonSelect.removeAttribute('required');
+        if (reasonSelect) reasonSelect.removeAttribute('required');
     } else {
         document.getElementById('collectedFields').style.display = 'none';
         document.getElementById('notCollectedFields').style.display = 'block';
         confirmBtn.textContent = '❌ Confirm Not Collected';
         confirmBtn.style.background = '#dc3545';
-        document.querySelector('input[name="action"][value="not_collected"]').checked = true;
-        // Add required attribute
-        reasonSelect.setAttribute('required', 'required');
+        if (reasonSelect) reasonSelect.setAttribute('required', 'required');
     }
 }
-    document.querySelector('#returnModal form').addEventListener('submit', function(e) {
-        console.log('Form submitted');
-    });
-    // Close modal on outside click
-    document.getElementById('returnModal').addEventListener('click', function(e) {
-        if (e.target === this) closeReturnModal();
-    });
 
-    // ===== RETAKE BILL (AJAX) =====
-    function retakeBill(collectionId) {
-        if (!confirm('Move this bill back to PENDING status? It will be available for collection again.')) return;
-        
-        fetch('/credit-collection/retake/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: `collection_id=${collectionId}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Bill moved back to PENDING.');
-                location.reload();
-            } else {
-                alert('❌ ' + (data.message || 'Error retaking bill.'));
-            }
-        })
-        .catch(error => {
-            alert('❌ Error retaking bill. Please try again.');
-            console.error('Retake error:', error);
-        });
-    }
-
-    // ============================================================
-// PAY NOW MODAL - CHEQUE FIELDS
 // ============================================================
-    function togglePayChequeFields() {
-        const method = document.getElementById('payPaymentMethod').value;
-        const chequeFields = document.getElementById('payChequeFields');
-        if (method === 'Cheque') {
-            chequeFields.style.display = 'block';
-            const dateInput = document.getElementById('payChequeDate');
-            if (dateInput && !dateInput.value) {
-                dateInput.value = new Date().toISOString().split('T')[0];
-            }
-        } else {
-            chequeFields.style.display = 'none';
-        }
+// PAY NOW MODAL (single bill)
+// ============================================================
+function togglePayChequeFields() {
+    const method = document.getElementById('payPaymentMethod').value;
+    const cf = document.getElementById('payChequeFields');
+    cf.style.display = method === 'Cheque' ? 'block' : 'none';
+    if (method === 'Cheque' && !document.getElementById('payChequeDate').value) {
+        document.getElementById('payChequeDate').value = new Date().toISOString().split('T')[0];
     }
+}
 
-    function openPayNowModal(billId, invoiceNo, outstanding) {
-        document.getElementById('payBillId').value = billId;
-        document.getElementById('payBillInvoice').textContent = invoiceNo;
-        document.getElementById('payOutstanding').textContent = outstanding.toFixed(2);
-        document.getElementById('payAmount').value = outstanding.toFixed(2);
-        document.getElementById('payPaymentMethod').value = 'Cash';
-        document.getElementById('payChequeFields').style.display = 'none';
-        document.getElementById('payChequeNo').value = '';
-        document.getElementById('payChequeDate').value = '';
-        document.getElementById('payChequeBank').value = '';
-        document.getElementById('payNowModal').classList.add('show');
+function openPayNowModal(billId, invoiceNo, outstanding, originalVehicleId) {
+    document.getElementById('payBillId').value = billId;
+    document.getElementById('payBillInvoice').textContent = invoiceNo;
+    document.getElementById('payOutstanding').textContent = outstanding.toFixed(2);
+    document.getElementById('payAmount').value = outstanding.toFixed(2);
+    document.getElementById('payPaymentMethod').value = 'Cash';
+    document.getElementById('payChequeFields').style.display = 'none';
+    document.getElementById('payChequeNo').value = '';
+    document.getElementById('payChequeDate').value = '';
+    document.getElementById('payChequeBank').value = '';
+    
+    // Set default vehicle
+    const vSelect = document.getElementById('payVehicle');
+    if (vSelect && originalVehicleId) vSelect.value = originalVehicleId;
+    
+    document.getElementById('payNowModal').classList.add('show');
+}
 
-        if (originalVehicleId) {
-            document.getElementById('payVehicle').value = originalVehicleId;
-        }
-        
-        document.getElementById('payNowModal').classList.add('show');
+function closePayNowModal() {
+    document.getElementById('payNowModal').classList.remove('show');
+}
 
-    }
-
-    function closePayNowModal() {
-        document.getElementById('payNowModal').classList.remove('show');
-    }
-
-    // Auto-open Pay Now modal if bill_id is in URL
-    window.addEventListener('DOMContentLoaded', function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const billId = urlParams.get('bill_id');
-        if (billId) {
-            // Find the Pay Now button for this bill and click it
-            const payBtn = document.querySelector(`button.pay[data-bill-id="${billId}"]`);
-            if (payBtn) payBtn.click();
-        }
+// ============================================================
+// MULTI-PAY MODAL
+// ============================================================
+function openMultiPayModal() {
+    const boxes = document.querySelectorAll('.bill-checkbox:checked');
+    if (boxes.length === 0) { alert('Please select at least one bill.'); return; }
+    
+    let total = 0;
+    const container = document.getElementById('mpBillIdsContainer');
+    container.innerHTML = '';
+    boxes.forEach(cb => {
+        total += parseFloat(cb.dataset.outstanding || 0);
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'bill_ids';
+        input.value = cb.value;
+        container.appendChild(input);
     });
+    
+    document.getElementById('mpBillCount').textContent = boxes.length;
+    document.getElementById('mpTotalOutstanding').textContent = total.toFixed(2);
+    document.getElementById('mpAmount').value = total.toFixed(2);
+    document.getElementById('mpMethod').value = 'Cash';
+    document.getElementById('mpChequeFields').style.display = 'none';
+    
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('mpDate').value = today;
+    document.getElementById('mpChequeDate').value = today;
+    
+    document.getElementById('multiPayBillModal').classList.add('show');
+}
 
-    // Close modal when clicking outside
-    document.addEventListener('click', function(e) {
-        const modal = document.getElementById('payNowModal');
-        if (e.target === modal) {
-            closePayNowModal();
-        }
+function closeMultiPayModal() {
+    document.getElementById('multiPayBillModal').classList.remove('show');
+}
+
+function toggleMultiPayCheque() {
+    const m = document.getElementById('mpMethod').value;
+    document.getElementById('mpChequeFields').style.display = m === 'Cheque' ? 'block' : 'none';
+}
+
+// ============================================================
+// CLOSE MODALS ON OUTSIDE CLICK
+// ============================================================
+document.addEventListener('click', function(e) {
+    ['returnModal', 'payNowModal', 'multiPayBillModal'].forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal && e.target === modal) modal.classList.remove('show');
     });
+});
 
-   (function() {
-    // Try multiple ways to find the search input
-    let input = document.getElementById('creditSearchInput');
-    
-    if (!input) {
-        // Fallback: find by placeholder
-        const candidates = document.querySelectorAll('input[type="text"]');
-        for (const c of candidates) {
-            const ph = (c.placeholder || '').toLowerCase();
-            if (ph.includes('search') && (ph.includes('name') || ph.includes('invoice') || ph.includes('shop'))) {
-                input = c;
-                break;
-            }
-        }
-    }
-    
-    if (!input) {
-        console.warn('[Credit Search] Could not find search input.');
-        return;
-    }
-    
-    console.log('[Credit Search] Attached to input:', input.placeholder);
-    
-    // Create or find the dropdown container
-    let resultsBox = document.getElementById('creditSearchResults');
-    if (!resultsBox) {
-        resultsBox = document.createElement('div');
-        resultsBox.id = 'creditSearchResults';
-        resultsBox.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:white;border:2px solid #e0e4eb;border-radius:8px;max-height:320px;overflow-y:auto;z-index:9999;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:none;';
-        // Make sure parent is positioned
-        input.parentElement.style.position = 'relative';
-        input.parentElement.appendChild(resultsBox);
-    }
+// ============================================================
+// SEARCH WITH SUGGESTIONS
+// ============================================================
+(function() {
+    const input = document.getElementById('creditSearchInput');
+    const resultsBox = document.getElementById('creditSearchResults');
+    if (!input || !resultsBox) return;
     
     let timer = null;
-    
     input.addEventListener('input', function() {
         clearTimeout(timer);
         const q = this.value.trim();
-        
-        if (q.length < 2) {
-            resultsBox.style.display = 'none';
-            return;
-        }
+        if (q.length < 2) { resultsBox.style.display = 'none'; return; }
         
         resultsBox.innerHTML = '<div style="padding:14px;text-align:center;color:#007bff;font-size:13px;">Searching credit billers...</div>';
         resultsBox.style.display = 'block';
@@ -775,10 +555,7 @@
                         const safeShop = (r.shop_name || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                         const safeCode = (r.shop_code || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                         html += `
-                            <div class="credit-search-item"
-                                 data-shop="${safeShop}"
-                                 data-shop-code="${safeCode}"
-                                 style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
+                            <div class="credit-search-item" data-shop="${safeShop}" data-shop-code="${safeCode}">
                                 <div style="flex:1;">
                                     <div style="font-weight:600;color:#1a2634;font-size:14px;">${r.shop_name || r.shop_code || 'Unknown'}</div>
                                     <div style="font-size:12px;color:#888;margin-top:2px;">
@@ -792,113 +569,43 @@
                     resultsBox.innerHTML = html;
                     
                     resultsBox.querySelectorAll('.credit-search-item').forEach(item => {
-                        item.addEventListener('mouseenter', function() { this.style.background = '#e3f0ff'; });
-                        item.addEventListener('mouseleave', function() { this.style.background = ''; });
                         item.addEventListener('click', function() {
                             const shop = this.dataset.shop || '';
                             const code = this.dataset.shopCode || '';
                             const url = new URL(window.location.href);
-                            if (code) {
-                                url.searchParams.set('shop_code', code);
-                            } else if (shop) {
-                                url.searchParams.set('shop', shop);
-                            }
+                            url.searchParams.delete('shop');
+                            url.searchParams.delete('shop_code');
+                            if (code) url.searchParams.set('shop_code', code);
+                            else if (shop) url.searchParams.set('shop', shop);
                             window.location.href = url.toString();
                         });
                     });
                 })
-                .catch(err => {
-                    console.error('Search error:', err);
+                .catch(() => {
                     resultsBox.innerHTML = '<div style="padding:14px;text-align:center;color:#dc3545;font-size:13px;">Search error.</div>';
                 });
         }, 250);
     });
     
     document.addEventListener('click', function(e) {
-        if (!resultsBox.contains(e.target) && e.target !== input) {
-            resultsBox.style.display = 'none';
-        }
+        if (!resultsBox.contains(e.target) && e.target !== input) resultsBox.style.display = 'none';
     });
-    
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') resultsBox.style.display = 'none';
     });
 })();
 
-
-    // ============================================================
-    // MULTI-SELECT BILLS
-    // ============================================================
-    function toggleAllBills(source) {
-        document.querySelectorAll('.bill-checkbox').forEach(cb => {
-            cb.checked = source.checked;
-        });
-        updateMultiTotals();
+// ============================================================
+// AUTO-OPEN PAY NOW IF bill_id IN URL
+// ============================================================
+window.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const billId = urlParams.get('bill_id');
+    if (billId) {
+        const payBtn = document.querySelector(`button.pay[data-bill-id="${billId}"]`);
+        if (payBtn) payBtn.click();
     }
-
-    function updateMultiTotals() {
-        const boxes = document.querySelectorAll('.bill-checkbox:checked');
-        const bar = document.getElementById('multiBillBar');
-        const countEl = document.getElementById('selectedBillCount');
-        const totalEl = document.getElementById('selectedTotalOutstanding');
-        
-        let total = 0;
-        boxes.forEach(cb => {
-            total += parseFloat(cb.dataset.outstanding || 0);
-        });
-        
-        countEl.textContent = boxes.length;
-        totalEl.textContent = total.toFixed(2);
-        bar.style.display = boxes.length > 0 ? 'flex' : 'none';
-    }
-
-    function clearBillSelection() {
-        document.querySelectorAll('.bill-checkbox').forEach(cb => cb.checked = false);
-        const sel = document.getElementById('selectAllBills');
-        if (sel) sel.checked = false;
-        updateMultiTotals();
-    }
-
-    function openMultiPayModal() {
-        const boxes = document.querySelectorAll('.bill-checkbox:checked');
-        if (boxes.length === 0) {
-            alert('Please select at least one bill.');
-            return;
-        }
-        
-        let total = 0;
-        const container = document.getElementById('mpBillIdsContainer');
-        container.innerHTML = '';
-        
-        boxes.forEach(cb => {
-            total += parseFloat(cb.dataset.outstanding || 0);
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'bill_ids';
-            input.value = cb.value;
-            container.appendChild(input);
-        });
-        
-        document.getElementById('mpBillCount').textContent = boxes.length;
-        document.getElementById('mpTotalOutstanding').textContent = total.toFixed(2);
-        document.getElementById('mpAmount').value = total.toFixed(2);
-        document.getElementById('mpMethod').value = 'Cash';
-        document.getElementById('mpChequeFields').style.display = 'none';
-        
-        document.getElementById('multiPayBillModal').style.display = 'flex';
-    }
-
-    function closeMultiPayModal() {
-        document.getElementById('multiPayBillModal').style.display = 'none';
-    }
-
-    function toggleMultiPayCheque() {
-        const m = document.getElementById('mpMethod').value;
-        document.getElementById('mpChequeFields').style.display = m === 'Cheque' ? 'block' : 'none';
-        if (m === 'Cheque' && !document.getElementById('mpChequeDate').value) {
-            document.getElementById('mpChequeDate').value = new Date().toISOString().split('T')[0];
-        }
-    }
-    
+});
 </script>
+
 {% endblock %}

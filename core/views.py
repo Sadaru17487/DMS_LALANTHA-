@@ -8591,11 +8591,6 @@ def api_bills_by_shop(request):
 
 @login_required
 def pay_multiple_bills(request):
-    """
-    Pay multiple bills in one transaction.
-    - Full amount only (auto-filled, but editable).
-    - Each bill gets its own Payment record.
-    """
     if request.method != 'POST':
         return redirect('/credit-list/')
     
@@ -8603,6 +8598,7 @@ def pay_multiple_bills(request):
     amount_str = (request.POST.get('amount', '0') or '0').strip() or '0'
     payment_method = (request.POST.get('payment_method') or 'Cash').strip()
     vehicle_id = (request.POST.get('collected_by_vehicle') or '').strip()
+    payment_date_s = (request.POST.get('payment_date') or '').strip()
     
     if not bill_ids:
         messages.error(request, '❌ No bills selected.')
@@ -8618,6 +8614,14 @@ def pay_multiple_bills(request):
         messages.error(request, '❌ Amount must be greater than zero.')
         return redirect('/credit-list/')
     
+    # Payment date (for reference in notes / future fields)
+    pay_date = date.today()
+    if payment_date_s:
+        try:
+            pay_date = datetime.strptime(payment_date_s, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
     # Vehicle
     vehicle = None
     if vehicle_id.isdigit():
@@ -8626,7 +8630,7 @@ def pay_multiple_bills(request):
         except Vehicle.DoesNotExist:
             pass
     
-    # Cheque details
+    # Cheque
     cheque_no = (request.POST.get('cheque_no') or '').strip()
     cheque_date_s = (request.POST.get('cheque_date') or '').strip()
     cheque_bank_id = (request.POST.get('cheque_bank') or '').strip()
@@ -8658,14 +8662,12 @@ def pay_multiple_bills(request):
             total_paid += outstanding
             processed += 1
             
-            # Update bill status
             new_paid = paid + outstanding
             if (bill.net_total or Decimal('0')) - new_paid <= Decimal('0.01'):
                 bill.status = 'COMPLETED'
                 bill.save()
                 new_completed += 1
             
-            # If Cheque, create Cheque record per bill
             if payment_method == 'Cheque' and cheque_no and cheque_date_s and cheque_bank_id.isdigit():
                 try:
                     cd = datetime.strptime(cheque_date_s, '%Y-%m-%d').date()
@@ -8680,13 +8682,12 @@ def pay_multiple_bills(request):
                         status='PENDING',
                     )
                 except Exception as e:
-                    logger.warning(f"Multi-pay cheque create failed for {bill.invoice_no}: {e}")
+                    logger.warning(f"Multi-pay cheque failed for {bill.invoice_no}: {e}")
     
     if processed:
         messages.success(
             request,
-            f'✅ {processed} bill(s) paid — total Rs {total_paid:.2f}. '
-            f'{new_completed} fully cleared.'
+            f'✅ {processed} bill(s) paid — Rs {total_paid:.2f}. {new_completed} fully cleared.'
         )
     else:
         messages.warning(request, '⚠️ No bills were processed.')
