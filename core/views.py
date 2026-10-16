@@ -8476,35 +8476,67 @@ def vat_bills_report(request):
 
 @login_required
 def api_credit_bills_search(request):
-    """Search credit bills by shop name, code, or invoice number."""
+    """
+    Search credit billers by shop name, shop code, or invoice number.
+    Returns ONE result per shop with TOTAL outstanding across all their bills.
+    Only shops with at least one outstanding credit bill are returned.
+    """
+    from django.http import JsonResponse
     
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
         return JsonResponse({'results': []})
     
-    matching = SalesBill.objects.exclude(status='COMPLETED').filter(
+    # Match bills that are NOT completed (still credit)
+    bills = SalesBill.objects.exclude(status='COMPLETED').filter(
         Q(invoice_no__icontains=q) |
         Q(shop_name__icontains=q) |
         Q(shop_code__icontains=q)
-    ).order_by('-date')[:20]
+    ).order_by('-date')
     
-    results = []
-    for bill in matching:
+    # Aggregate by shop (use shop_code if available, else shop_name)
+    shops = {}
+    for bill in bills:
         paid = bill.payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
         outstanding = (bill.net_total or Decimal('0')) - paid
         if outstanding <= Decimal('0.01'):
             continue
+        
+        key = (bill.shop_code or '').strip() or (bill.shop_name or '').strip() or f"bill_{bill.id}"
+        
+        if key not in shops:
+            shops[key] = {
+                'shop_name': bill.shop_name or '',
+                'shop_code': bill.shop_code or '',
+                'outstanding': Decimal('0'),
+                'bill_count': 0,
+                'last_date': None,
+                'invoices': [],
+            }
+        
+        shops[key]['outstanding'] += outstanding
+        shops[key]['bill_count'] += 1
+        shops[key]['invoices'].append(bill.invoice_no or '')
+        
+        if bill.date and (shops[key]['last_date'] is None or bill.date > shops[key]['last_date']):
+            shops[key]['last_date'] = bill.date
+    
+    # Build result list
+    results = []
+    for key, s in shops.items():
         results.append({
-            'bill_id': bill.id,
-            'invoice_no': bill.invoice_no or '',
-            'shop_name': bill.shop_name or '',
-            'shop_code': bill.shop_code or '',
-            'outstanding': float(outstanding),
-            'date': bill.date.strftime('%Y-%m-%d') if bill.date else '',
+            'shop_name': s['shop_name'],
+            'shop_code': s['shop_code'],
+            'outstanding': float(s['outstanding']),
+            'bill_count': s['bill_count'],
+            'last_date': s['last_date'].strftime('%Y-%m-%d') if s['last_date'] else '',
+            'invoices': s['invoices'][:3],  # preview only
         })
     
-    return JsonResponse({'results': results})
-
+    # Sort by largest outstanding first
+    results.sort(key=lambda x: x['outstanding'], reverse=True)
+    
+    return JsonResponse({'results': results[:20]})
 
 @login_required
 def api_bills_by_shop(request):
