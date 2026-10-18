@@ -4662,6 +4662,7 @@ def pay_credit_bill(request):
                 bill=bill,
                 type=payment_method,
                 amount=amount,
+                collected_by_vehicle=collected_vehicle,
             )
             logger.info(f"Payment created: {payment_method} Rs {amount} for {bill.invoice_no}")
 
@@ -4673,13 +4674,6 @@ def pay_credit_bill(request):
                     collected_vehicle = Vehicle.objects.get(id=int(vehicle_id))
                 except Vehicle.DoesNotExist:
                     pass
-
-            Payment.objects.create(
-                bill=bill,
-                type=payment_method,
-                amount=amount,
-                collected_by_vehicle=collected_vehicle,  # ✅ Add this
-            )
             
             # ===== IF CHEQUE, CREATE CHEQUE RECORD =====
             if payment_method == 'Cheque':

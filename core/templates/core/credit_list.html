@@ -309,7 +309,7 @@
             <div class="form-group"><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
             <div class="btn-group">
                 <button type="button" class="btn-modal cancel" onclick="closePayNowModal()">Cancel</button>
-                <button type="submit" class="btn-modal confirm" onclick="this.disabled=true;">✅ Confirm Payment</button>
+                <button type="submit" class="btn-modal confirm" onclick="this.disabled=true; this.form.submit();">✅ Confirm Payment</button>
             </div>
         </form>
     </div>
@@ -370,7 +370,7 @@
 
             <div class="btn-group">
                 <button type="button" class="btn-modal cancel" onclick="closeMultiPayModal()">Cancel</button>
-                <button type="submit" class="btn-modal confirm" onclick="this.disabled=true;">✅ Confirm Payment</button>
+                <button type="submit" class="btn-modal confirm" onclick="this.disabled=true; this.form.submit();">✅ Confirm Payment</button>
             </div>
         </form>
     </div>
