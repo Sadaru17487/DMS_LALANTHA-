@@ -130,37 +130,65 @@
         </div>
     </div>
 
-    <!-- Payments -->
-    <div class="card">
-        <h3>💳 Payments</h3>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Payment Type</th>
-                        <th style="text-align:right;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in payments %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td><strong>{{ payment.type }}</strong></td>
-                        <td style="text-align:right;">Rs {{ payment.amount|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="3" style="text-align:center;color:#999;">No payments recorded.</td></tr>
-                    {% endfor %}
-                    <tr class="total-row">
-                        <td colspan="2" style="text-align:right;">Total Paid:</td>
-                        <td style="text-align:right;font-size:16px;color:#28a745;">
-                            Rs {% for payment in payments %}{% if forloop.first %}{{ payment.amount|floatformat:2 }}{% endif %}{% endfor %}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+    <h3 style="margin-top:30px;">💳 Payments</h3>
+    <div class="table-container" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <thead>
+                <tr style="background:#f8f9fc; text-align:left;">
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">#</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Date & Time</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Payment Type</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Collected By</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td style="padding:12px; border-bottom:1px solid #edf1f7;">{{ forloop.counter }}</td>
+                    <td style="padding:12px; border-bottom:1px solid #edf1f7; color:#666;">
+                        {{ payment.created_at|date:"Y-m-d H:i"|default:"-" }}
+                    </td>
+                    <td style="padding:12px; border-bottom:1px solid #edf1f7;">
+                        <strong>{{ payment.type }}</strong>
+                        {% if payment.type == 'Cheque' and payment.cheque_no %}
+                            <br><span style="font-size:11px; color:#6f42c1;">#{{ payment.cheque_no }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px; border-bottom:1px solid #edf1f7;">
+                        {% if payment.collected_by_vehicle %}
+                            🚛 {{ payment.collected_by_vehicle.vehicle_number }}
+                        {% else %}
+                            <span style="color:#bbb;">-</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px; border-bottom:1px solid #edf1f7; text-align:right; font-weight:600;">
+                        Rs {{ payment.amount|floatformat:2 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding:20px; text-align:center; color:#999;">No payments recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f8f9fc; font-weight:700;">
+                    <td colspan="4" style="padding:15px; text-align:right;">Total Paid:</td>
+                    <td style="padding:15px; text-align:right; color:#28a745; font-size:16px;">
+                        Rs {{ total_paid|floatformat:2 }}
+                    </td>
+                </tr>
+                {% if outstanding > 0 %}
+                <tr style="background:#fff3cd; font-weight:700;">
+                    <td colspan="4" style="padding:15px; text-align:right; color:#856404;">Outstanding Balance:</td>
+                    <td style="padding:15px; text-align:right; color:#dc3545; font-size:16px;">
+                        Rs {{ outstanding|floatformat:2 }}
+                    </td>
+                </tr>
+                {% endif %}
+            </tfoot>
+        </table>
     </div>
 
     <!-- Buttons -->

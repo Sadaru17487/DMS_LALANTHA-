@@ -679,12 +679,21 @@ def sales_detail(request, bill_id):
             status = 'PENDING'
     else:
         status = 'PENDING'
+
+    # Calculate total paid EXCLUDING the initial "Credit" amount
+    total_paid = bill.payments.exclude(type='Credit').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0')
+    
+    outstanding = bill.net_total - total_paid
     
     context = {
         'bill': bill,
         'items': items,
         'payments': payments,
         'status': status,
+        'total_paid': total_paid,
+        'outstanding': outstanding,
     }
     
     return render(request, 'core/sales_detail.html', context)
