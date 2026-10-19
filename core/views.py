@@ -4594,17 +4594,11 @@ def session_complete(request):
 @login_required
 @permission_required('pay_now')
 def pay_credit_bill(request):
-    """
-    Handle credit payment (part or full) with optional cheque details.
-    Bulletproof version with full error handling.
-    """
-    import traceback
     
     if request.method != 'POST':
         return redirect('/credit-list/')
     
     try:
-        # ===== GET FORM DATA =====
         bill_id = request.POST.get('bill_id', '').strip()
         amount_str = request.POST.get('amount', '0').strip() or '0'
         payment_date_str = request.POST.get('payment_date', '').strip()
@@ -4612,9 +4606,6 @@ def pay_credit_bill(request):
         reference_no = request.POST.get('reference_no', '').strip()
         notes = request.POST.get('notes', '').strip()
         
-        logger.info(f"pay_credit_bill: bill_id={bill_id}, amount={amount_str}, method={payment_method}")
-        
-        # ===== VALIDATE BILL ID =====
         if not bill_id or not bill_id.isdigit():
             messages.error(request, '❌ Invalid bill ID.')
             return redirect('/credit-list/')
@@ -4625,7 +4616,6 @@ def pay_credit_bill(request):
             messages.error(request, f'❌ Bill not found.')
             return redirect('/credit-list/')
         
-        # ===== PARSE AMOUNT SAFELY =====
         try:
             amount = Decimal(amount_str)
         except Exception:
@@ -4636,19 +4626,13 @@ def pay_credit_bill(request):
             messages.error(request, '❌ Amount must be greater than zero.')
             return redirect('/credit-list/')
         
-        # ===== CALCULATE OUTSTANDING =====
-        non_credit_total = bill.payments.filter(
-            is_reversed=False
-        ).exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        non_credit_total = bill.payments.filter(is_reversed=False).exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
         outstanding = bill.net_total - non_credit_total
-        
-        logger.info(f"Outstanding for {bill.invoice_no}: {outstanding}")
         
         if amount > outstanding:
             messages.error(request, f'❌ Amount Rs {amount} exceeds outstanding Rs {outstanding}.')
             return redirect('/credit-list/')
         
-        # ===== PARSE PAYMENT DATE =====
         payment_date = date.today()
         if payment_date_str:
             try:
@@ -4656,15 +4640,7 @@ def pay_credit_bill(request):
             except ValueError:
                 pass
         
-        # ===== CREATE PAYMENT =====
         with transaction.atomic():
-            Payment.objects.create(
-                bill=bill,
-                type=payment_method,
-                amount=amount,
-            )
-            logger.info(f"Payment created: {payment_method} Rs {amount} for {bill.invoice_no}")
-
             # Get vehicle
             vehicle_id = request.POST.get('collected_by_vehicle', '')
             collected_vehicle = None
@@ -4674,11 +4650,12 @@ def pay_credit_bill(request):
                 except Vehicle.DoesNotExist:
                     pass
 
+            # ✅ CREATE PAYMENT ONLY ONCE HERE
             Payment.objects.create(
                 bill=bill,
                 type=payment_method,
                 amount=amount,
-                collected_by_vehicle=collected_vehicle,  # ✅ Add this
+                collected_by_vehicle=collected_vehicle,
             )
             
             # ===== IF CHEQUE, CREATE CHEQUE RECORD =====
@@ -4686,8 +4663,6 @@ def pay_credit_bill(request):
                 cheque_no = request.POST.get('cheque_no', '').strip()
                 cheque_date_str = request.POST.get('cheque_date', '').strip()
                 bank_id = request.POST.get('cheque_bank', '').strip()
-                
-                logger.info(f"Cheque fields: no='{cheque_no}', date='{cheque_date_str}', bank_id='{bank_id}'")
                 
                 if cheque_no and cheque_date_str and bank_id:
                     try:
@@ -4707,16 +4682,8 @@ def pay_credit_bill(request):
                             status='PENDING',
                             notes=f"Credit payment via cheque - {notes}" if notes else "Credit payment via cheque"
                         )
-                        logger.info(f"Cheque record created: {cheque_no}")
                     except Bank.DoesNotExist:
-                        logger.warning(f"Bank {bank_id} not found")
-                        messages.warning(request, 'Payment recorded but bank not found for cheque.')
-                    except Exception as cheque_err:
-                        logger.error(f"Cheque creation error: {cheque_err}")
-                        messages.warning(request, 'Payment recorded but cheque could not be saved.')
-                else:
-                    logger.warning("Cheque selected but details incomplete")
-                    messages.warning(request, 'Payment recorded. Cheque details were incomplete.')
+                        messages.warning(request, 'Payment recorded but bank not found.')
             
             # ===== UPDATE BILL STATUS =====
             new_paid = non_credit_total + amount
@@ -4725,15 +4692,10 @@ def pay_credit_bill(request):
             if new_outstanding <= Decimal('0.01'):
                 bill.status = 'COMPLETED'
                 bill.save()
-                logger.info(f"Bill {bill.invoice_no} fully paid")
                 messages.success(request, f'✅ Bill {bill.invoice_no} fully paid!')
             else:
-                messages.success(
-                    request,
-                    f'✅ Payment Rs {amount} recorded. Remaining: Rs {new_outstanding:.2f}'
-                )
+                messages.success(request, f'✅ Payment Rs {amount} recorded. Remaining: Rs {new_outstanding:.2f}')
             
-            # Also update paid_amount field if it exists on SalesBill
             if hasattr(bill, 'paid_amount'):
                 bill.paid_amount = new_paid
                 bill.save()
@@ -4741,9 +4703,7 @@ def pay_credit_bill(request):
         return redirect('/credit-list/')
     
     except Exception as e:
-        error_msg = traceback.format_exc()
         logger.error(f"pay_credit_bill FATAL: {e}")
-        logger.error(error_msg)
         messages.error(request, f'❌ Payment error: {str(e)}')
         return redirect('/credit-list/')
 
