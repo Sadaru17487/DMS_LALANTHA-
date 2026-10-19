@@ -4656,6 +4656,7 @@ def pay_credit_bill(request):
                 type=payment_method,
                 amount=amount,
                 collected_by_vehicle=collected_vehicle,
+                payment_date=payment_date,
             )
             
             # ===== IF CHEQUE, CREATE CHEQUE RECORD =====
@@ -8627,6 +8628,7 @@ def pay_multiple_bills(request):
                 type=payment_method,
                 amount=outstanding,
                 collected_by_vehicle=vehicle,
+                payment_date=pay_date,
             )
             total_paid += outstanding
             processed += 1

@@ -346,6 +346,8 @@ class Payment(models.Model):
     type = models.CharField(max_length=10, choices=PAYMENT_TYPES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
+    payment_date = models.DateField(null=True, blank=True) 
+
     def __str__(self):
         return f"{self.type}: {self.amount}"
     is_reversed = models.BooleanField(default=False)
