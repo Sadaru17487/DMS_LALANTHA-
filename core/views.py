@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 
+
 @login_required
 def dashboard(request):
     """Main Dashboard - Landing page after login"""
@@ -8762,4 +8763,102 @@ def take_for_collection(request):
             )
     
     return redirect('/credit-list/')
+
+@login_required
+def edit_sales_bill(request, bill_id):
+    
+    bill = get_object_or_404(SalesBill, id=bill_id)
+    
+    # Optional safety: Don't allow editing if a return exists for this bill
+    # if SalesReturn.objects.filter(original_bill=bill).exists():
+    #     messages.error(request, "Cannot edit a bill that has returns.")
+    #     return redirect('/sales-list/')
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # 1. REVERT OLD STOCK (Add back to vehicle)
+                old_items = bill.items.all()
+                if bill.vehicle:
+                    for item in old_items:
+                        item.product.vehicle_stock += item.qty
+                        item.product.save()
+                
+                # 2. DELETE OLD ITEMS & PAYMENTS
+                old_items.delete()
+                bill.payments.all().delete()
+                
+                # 3. ADD NEW ITEMS
+                subtotal = Decimal('0')
+                i = 1
+                while f'product_{i}' in request.POST:
+                    product_id = request.POST.get(f'product_{i}')
+                    qty = Decimal(request.POST.get(f'qty_{i}', '0'))
+                    rate = Decimal(request.POST.get(f'rate_{i}', '0'))
+                    is_foc = request.POST.get(f'is_foc_{i}') == 'true'
+                    
+                    if product_id and qty > 0:
+                        product = Product.objects.get(id=product_id)
+                        
+                        # Deduct new stock
+                        if bill.vehicle:
+                            product.vehicle_stock -= qty
+                            product.save()
+                            
+                        total = 0 if is_foc else (qty * rate)
+                        if not is_foc: subtotal += total
+                        
+                        SalesItem.objects.create(
+                            bill=bill, product=product, quantity=qty, rate=rate, total=total, is_foc=is_foc
+                        )
+                    i += 1
+                
+                # 4. UPDATE TOTALS
+                discount_type = request.POST.get('bill_discount_type', '')
+                discount_value = Decimal(request.POST.get('bill_discount_value', '0'))
+                discount_amount = Decimal('0')
+                if discount_type == 'PERCENTAGE':
+                    discount_amount = (subtotal * discount_value) / 100
+                elif discount_type == 'FIXED':
+                    discount_amount = min(discount_value, subtotal)
+                    
+                bill.subtotal = subtotal
+                bill.discount = discount_amount
+                bill.net_total = subtotal - discount_amount
+                
+                # 5. ADD NEW PAYMENT
+                payment_method = request.POST.get('payment_method', 'Cash')
+                pay_amount = Decimal(request.POST.get('payment_amount', bill.net_total))
+                
+                Payment.objects.create(
+                    bill=bill, type=payment_method, amount=pay_amount
+                )
+                
+                if payment_method == 'Credit':
+                    bill.status = 'PENDING'
+                else:
+                    bill.status = 'COMPLETED'
+                    
+                bill.save()
+                
+            messages.success(request, f'✅ Bill {bill.invoice_no} updated successfully!')
+            return redirect('/sales-list/')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error updating bill: {str(e)}')
+            return redirect(f'/sales/edit/{bill.id}/')
+
+    # GET Request - Render the page
+    items = bill.items.all()
+    payments = bill.payments.all()
+    
+    context = {
+        'bill': bill,
+        'items': items,
+        'payments': payments,
+        'products': Product.objects.all(),
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'reps': Employee.objects.filter(position='Rep', is_active=True),
+    }
+    return render(request, 'core/sales_edit.html', context)
 

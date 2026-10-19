@@ -261,5 +261,8 @@ urlpatterns = [
     
     path('pay-multiple-bills/', views.pay_multiple_bills, name='pay_multiple_bills'),
 
+    path('sales/edit/<int:bill_id>/', views.edit_sales_bill, name='edit_sales_bill'),
+
+    
     
 ]

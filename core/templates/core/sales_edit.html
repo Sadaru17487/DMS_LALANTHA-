@@ -1,0 +1,127 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<div class="container" style="max-width: 1000px; margin: auto; padding: 20px;">
+    <h2>✏️ Edit Bill: {{ bill.invoice_no }}</h2>
+    <p style="color: #dc3545; font-weight: 600;">⚠️ Warning: Editing this bill will adjust vehicle stock and reset payments.</p>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- LOCKED FIELDS -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; background: #f8f9fc; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <div>
+                <label style="font-weight: 600; color: #666;">Customer (Locked)</label>
+                <input type="text" value="{{ bill.shop_name }}" disabled style="width: 100%; padding: 10px; background: #e9ecef; border: 1px solid #ccc; border-radius: 8px;">
+            </div>
+            <div>
+                <label style="font-weight: 600; color: #666;">Vehicle (Locked)</label>
+                <input type="text" value="{{ bill.vehicle.vehicle_number }}" disabled style="width: 100%; padding: 10px; background: #e9ecef; border: 1px solid #ccc; border-radius: 8px;">
+            </div>
+            <div>
+                <label style="font-weight: 600; color: #666;">Date (Locked)</label>
+                <input type="text" value="{{ bill.date|date:'Y-m-d' }}" disabled style="width: 100%; padding: 10px; background: #e9ecef; border: 1px solid #ccc; border-radius: 8px;">
+            </div>
+        </div>
+
+        <!-- EDITABLE ITEMS -->
+        <h3>🛒 Items</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;" id="itemsTable">
+            <thead>
+                <tr style="background: #e9ecef;">
+                    <th style="padding: 10px; text-align: left;">Product</th>
+                    <th style="padding: 10px;">Qty</th>
+                    <th style="padding: 10px;">Rate</th>
+                    <th style="padding: 10px;">Total</th>
+                    <th style="padding: 10px;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="itemsBody">
+                {% for item in items %}
+                <tr class="item-row">
+                    <td style="padding: 5px;">
+                        <select name="product_{{ forloop.counter }}" style="width: 100%; padding: 8px; border-radius: 6px;">
+                            {% for p in products %}
+                                <option value="{{ p.id }}" {% if p.id == item.product.id %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="padding: 5px;">
+                        <input type="number" step="0.01" name="qty_{{ forloop.counter }}" value="{{ item.qty }}" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;">
+                    </td>
+                    <td style="padding: 5px;">
+                        <input type="number" step="0.01" name="rate_{{ forloop.counter }}" value="{{ item.rate }}" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;">
+                    </td>
+                    <td style="padding: 5px; text-align: right; font-weight: bold;">Rs {{ item.total }}</td>
+                    <td style="padding: 5px; text-align: center;">
+                        <button type="button" onclick="this.closest('tr').remove()" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <button type="button" onclick="addRow()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px;">+ Add Item</button>
+
+        <!-- DISCOUNT & PAYMENT -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8f9fc; padding: 20px; border-radius: 12px;">
+            <div>
+                <h4>💰 Payment Method</h4>
+                <select name="payment_method" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                    <option value="Cash" {% if bill.payments.first.type == 'Cash' %}selected{% endif %}>Cash</option>
+                    <option value="Credit" {% if bill.payments.first.type == 'Credit' %}selected{% endif %}>Credit</option>
+                    <option value="Cheque" {% if bill.payments.first.type == 'Cheque' %}selected{% endif %}>Cheque</option>
+                    <option value="Online" {% if bill.payments.first.type == 'Online' %}selected{% endif %}>Online</option>
+                </select>
+                
+                <label style="font-weight: 600;">New Payment Amount</label>
+                <input type="number" step="0.01" name="payment_amount" value="{{ bill.net_total }}" style="width: 100%; padding: 10px; border-radius: 8px;">
+            </div>
+            
+            <div>
+                <h4>📉 Bill Discount</h4>
+                <div style="display: flex; gap: 10px;">
+                    <select name="bill_discount_type" style="padding: 10px; border-radius: 8px;">
+                        <option value="">None</option>
+                        <option value="PERCENTAGE" {% if bill.discount > 0 %}selected{% endif %}>Percentage (%)</option>
+                        <option value="FIXED" {% if bill.discount > 0 %}selected{% endif %}>Fixed (Rs)</option>
+                    </select>
+                    <input type="number" step="0.01" name="bill_discount_value" value="{{ bill.discount }}" style="flex: 1; padding: 10px; border-radius: 8px;">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; gap: 15px;">
+            <button type="submit" style="padding: 15px 30px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">💾 Save Changes</button>
+            <a href="/sales-list/" style="padding: 15px 30px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: bold; text-decoration: none;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    let rowCount = {{ items.count }};
+    
+    function addRow() {
+        rowCount++;
+        const tbody = document.getElementById('itemsBody');
+        const row = document.createElement('tr');
+        row.className = 'item-row';
+        row.innerHTML = `
+            <td style="padding: 5px;">
+                <select name="product_${rowCount}" style="width: 100%; padding: 8px; border-radius: 6px;">
+                    <option value="">-- Select Product --</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td style="padding: 5px;"><input type="number" step="0.01" name="qty_${rowCount}" value="1" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;"></td>
+            <td style="padding: 5px;"><input type="number" step="0.01" name="rate_${rowCount}" value="0" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;"></td>
+            <td style="padding: 5px; text-align: right; font-weight: bold;">Rs 0.00</td>
+            <td style="padding: 5px; text-align: center;"><button type="button" onclick="this.closest('tr').remove()" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button></td>
+        `;
+        tbody.appendChild(row);
+    }
+</script>
+
+{% endblock %}
