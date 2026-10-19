@@ -352,7 +352,6 @@ class Payment(models.Model):
     reversed_at = models.DateTimeField(blank=True, null=True)
     reversed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reversed_payments')
     reversed_cheque = models.ForeignKey('Cheque', on_delete=models.SET_NULL, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     collected_by_vehicle = models.ForeignKey(
         'Vehicle', 
         on_delete=models.SET_NULL, 
@@ -360,6 +359,7 @@ class Payment(models.Model):
         blank=True,
         related_name='payments_collected'
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class UserProfile(models.Model):
