@@ -8769,11 +8769,6 @@ def edit_sales_bill(request, bill_id):
     
     bill = get_object_or_404(SalesBill, id=bill_id)
     
-    # Optional safety: Don't allow editing if a return exists for this bill
-    # if SalesReturn.objects.filter(original_bill=bill).exists():
-    #     messages.error(request, "Cannot edit a bill that has returns.")
-    #     return redirect('/sales-list/')
-
     if request.method == 'POST':
         try:
             with transaction.atomic():
@@ -8788,7 +8783,7 @@ def edit_sales_bill(request, bill_id):
                 old_items.delete()
                 bill.payments.all().delete()
                 
-                # 3. ADD NEW ITEMS
+                # 3. ADD NEW ITEMS (with FOC logic)
                 subtotal = Decimal('0')
                 i = 1
                 while f'product_{i}' in request.POST:
@@ -8805,18 +8800,24 @@ def edit_sales_bill(request, bill_id):
                             product.vehicle_stock -= qty
                             product.save()
                             
-                        total = 0 if is_foc else (qty * rate)
-                        if not is_foc: subtotal += total
+                        # If FOC, force rate and total to 0
+                        if is_foc:
+                            rate = Decimal('0')
+                            total = Decimal('0')
+                        else:
+                            total = qty * rate
+                            subtotal += total
                         
                         SalesItem.objects.create(
-                            bill=bill, product=product, quantity=qty, rate=rate, total=total, is_foc=is_foc
+                            bill=bill, product=product, qty=qty, rate=rate, total=total, is_foc=is_foc
                         )
                     i += 1
                 
-                # 4. UPDATE TOTALS
+                # 4. CALCULATE DISCOUNT & NET TOTAL
                 discount_type = request.POST.get('bill_discount_type', '')
                 discount_value = Decimal(request.POST.get('bill_discount_value', '0'))
                 discount_amount = Decimal('0')
+                
                 if discount_type == 'PERCENTAGE':
                     discount_amount = (subtotal * discount_value) / 100
                 elif discount_type == 'FIXED':
@@ -8826,18 +8827,37 @@ def edit_sales_bill(request, bill_id):
                 bill.discount = discount_amount
                 bill.net_total = subtotal - discount_amount
                 
-                # 5. ADD NEW PAYMENT
+                # 5. HANDLE PAYMENTS (Single, Cheque, Multi)
                 payment_method = request.POST.get('payment_method', 'Cash')
-                pay_amount = Decimal(request.POST.get('payment_amount', bill.net_total))
                 
-                Payment.objects.create(
-                    bill=bill, type=payment_method, amount=pay_amount
-                )
-                
-                if payment_method == 'Credit':
-                    bill.status = 'PENDING'
+                if payment_method == 'Multi':
+                    # Handle Multi Pay
+                    type1 = request.POST.get('multi_type1', 'Cash')
+                    amt1 = Decimal(request.POST.get('multi_amount1', '0'))
+                    type2 = request.POST.get('multi_type2', 'Cash')
+                    amt2 = Decimal(request.POST.get('multi_amount2', '0'))
+                    
+                    if amt1 > 0:
+                        Payment.objects.create(bill=bill, type=type1, amount=amt1)
+                        if type1 == 'Cheque':
+                            self_create_cheque(request, bill, amt1, '1')
+                            
+                    if amt2 > 0:
+                        Payment.objects.create(bill=bill, type=type2, amount=amt2)
+                        if type2 == 'Cheque':
+                            self_create_cheque(request, bill, amt2, '2')
+                            
+                    bill.status = 'PENDING' if (type1 == 'Credit' or type2 == 'Credit') else 'COMPLETED'
+                    
                 else:
-                    bill.status = 'COMPLETED'
+                    # Handle Single Pay
+                    pay_amount = Decimal(request.POST.get('payment_amount', bill.net_total))
+                    Payment.objects.create(bill=bill, type=payment_method, amount=pay_amount)
+                    
+                    if payment_method == 'Cheque':
+                        self_create_cheque(request, bill, pay_amount, '')
+                        
+                    bill.status = 'PENDING' if payment_method == 'Credit' else 'COMPLETED'
                     
                 bill.save()
                 
@@ -8848,7 +8868,7 @@ def edit_sales_bill(request, bill_id):
             messages.error(request, f'❌ Error updating bill: {str(e)}')
             return redirect(f'/sales/edit/{bill.id}/')
 
-    # GET Request - Render the page
+    # GET Request
     items = bill.items.all()
     payments = bill.payments.all()
     
@@ -8859,6 +8879,26 @@ def edit_sales_bill(request, bill_id):
         'products': Product.objects.all(),
         'vehicles': Vehicle.objects.filter(is_active=True),
         'reps': Employee.objects.filter(position='Rep', is_active=True),
+        'banks': Bank.objects.all(), # Need banks for cheque
     }
     return render(request, 'core/sales_edit.html', context)
 
+
+# Helper function to keep the view clean
+def self_create_cheque(request, bill, amount, suffix):
+    cheque_no = request.POST.get(f'cheque_no{suffix}', '').strip()
+    cheque_date_str = request.POST.get(f'cheque_date{suffix}', '').strip()
+    bank_id = request.POST.get(f'cheque_bank{suffix}', '').strip()
+    
+    if cheque_no and cheque_date_str and bank_id.isdigit():
+        try:
+            from datetime import datetime
+            c_date = datetime.strptime(cheque_date_str, '%Y-%m-%d').date()
+            bank = Bank.objects.get(id=int(bank_id))
+            Cheque.objects.create(
+                cheque_no=cheque_no, bank=bank, cheque_date=c_date,
+                amount=amount, sales_bill=bill, status='PENDING',
+                customer_name=(bill.shop_name or bill.shop_code or 'N/A')[:200]
+            )
+        except Exception:
+            pass

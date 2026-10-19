@@ -5,7 +5,7 @@
     <h2>✏️ Edit Bill: {{ bill.invoice_no }}</h2>
     <p style="color: #dc3545; font-weight: 600;">⚠️ Warning: Editing this bill will adjust vehicle stock and reset payments.</p>
 
-    <form method="POST">
+    <form method="POST" id="editForm">
         {% csrf_token %}
         
         <!-- LOCKED FIELDS -->
@@ -32,6 +32,7 @@
                     <th style="padding: 10px; text-align: left;">Product</th>
                     <th style="padding: 10px;">Qty</th>
                     <th style="padding: 10px;">Rate</th>
+                    <th style="padding: 10px;">FOC?</th>
                     <th style="padding: 10px;">Total</th>
                     <th style="padding: 10px;">Action</th>
                 </tr>
@@ -47,14 +48,18 @@
                         </select>
                     </td>
                     <td style="padding: 5px;">
-                        <input type="number" step="0.01" name="qty_{{ forloop.counter }}" value="{{ item.qty }}" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;">
+                        <input type="number" step="0.01" name="qty_{{ forloop.counter }}" value="{{ item.qty }}" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;" oninput="calculateTotals()">
                     </td>
                     <td style="padding: 5px;">
-                        <input type="number" step="0.01" name="rate_{{ forloop.counter }}" value="{{ item.rate }}" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;">
+                        <input type="number" step="0.01" name="rate_{{ forloop.counter }}" value="{{ item.rate }}" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;" oninput="calculateTotals()">
                     </td>
-                    <td style="padding: 5px; text-align: right; font-weight: bold;">Rs {{ item.total }}</td>
                     <td style="padding: 5px; text-align: center;">
-                        <button type="button" onclick="this.closest('tr').remove()" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button>
+                        <!-- FOC Checkbox -->
+                        <input type="checkbox" name="is_foc_{{ forloop.counter }}" class="foc-checkbox" {% if item.is_foc %}checked{% endif %} onchange="toggleFoc(this)">
+                    </td>
+                    <td style="padding: 5px; text-align: right; font-weight: bold;" class="row-total">Rs {{ item.total }}</td>
+                    <td style="padding: 5px; text-align: center;">
+                        <button type="button" onclick="this.closest('tr').remove(); calculateTotals();" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -65,28 +70,61 @@
 
         <!-- DISCOUNT & PAYMENT -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8f9fc; padding: 20px; border-radius: 12px;">
+            
+            <!-- PAYMENTS -->
             <div>
                 <h4>💰 Payment Method</h4>
-                <select name="payment_method" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                <select name="payment_method" id="paymentMethod" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px;" onchange="togglePaymentFields()">
                     <option value="Cash" {% if bill.payments.first.type == 'Cash' %}selected{% endif %}>Cash</option>
                     <option value="Credit" {% if bill.payments.first.type == 'Credit' %}selected{% endif %}>Credit</option>
                     <option value="Cheque" {% if bill.payments.first.type == 'Cheque' %}selected{% endif %}>Cheque</option>
                     <option value="Online" {% if bill.payments.first.type == 'Online' %}selected{% endif %}>Online</option>
+                    <option value="Multi" {% if bill.payments.count > 1 %}selected{% endif %}>Multi Payment</option>
                 </select>
-                
-                <label style="font-weight: 600;">New Payment Amount</label>
-                <input type="number" step="0.01" name="payment_amount" value="{{ bill.net_total }}" style="width: 100%; padding: 10px; border-radius: 8px;">
+
+                <!-- Single Payment Amount -->
+                <div id="singlePayFields">
+                    <label style="font-weight: 600;">Payment Amount</label>
+                    <input type="number" step="0.01" name="payment_amount" id="paymentAmount" value="{{ bill.net_total }}" style="width: 100%; padding: 10px; border-radius: 8px;">
+                </div>
+
+                <!-- Single Cheque Details -->
+                <div id="chequeFields" style="display: none; margin-top: 10px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px;">
+                    <input type="text" name="cheque_no" placeholder="Cheque Number" style="width: 100%; margin-bottom: 5px; padding: 8px;">
+                    <input type="date" name="cheque_date" style="width: 100%; margin-bottom: 5px; padding: 8px;">
+                    <select name="cheque_bank" style="width: 100%; padding: 8px;">
+                        <option value="">-- Select Bank --</option>
+                        {% for bank in banks %}<option value="{{ bank.id }}">{{ bank.name }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                <!-- Multi Payment Fields -->
+                <div id="multiPayFields" style="display: none; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                        <select name="multi_type1" style="flex: 1; padding: 8px;"><option value="Cash">Cash</option><option value="Cheque">Cheque</option><option value="Credit">Credit</option></select>
+                        <input type="number" step="0.01" name="multi_amount1" placeholder="Amount 1" style="width: 80px; padding: 8px;">
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <select name="multi_type2" style="flex: 1; padding: 8px;"><option value="Cash">Cash</option><option value="Cheque">Cheque</option><option value="Credit">Credit</option></select>
+                        <input type="number" step="0.01" name="multi_amount2" placeholder="Amount 2" style="width: 80px; padding: 8px;">
+                    </div>
+                </div>
             </div>
             
+            <!-- DISCOUNT -->
             <div>
                 <h4>📉 Bill Discount</h4>
-                <div style="display: flex; gap: 10px;">
-                    <select name="bill_discount_type" style="padding: 10px; border-radius: 8px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <select name="bill_discount_type" id="discountType" style="padding: 10px; border-radius: 8px;" onchange="calculateTotals()">
                         <option value="">None</option>
                         <option value="PERCENTAGE" {% if bill.discount > 0 %}selected{% endif %}>Percentage (%)</option>
                         <option value="FIXED" {% if bill.discount > 0 %}selected{% endif %}>Fixed (Rs)</option>
                     </select>
-                    <input type="number" step="0.01" name="bill_discount_value" value="{{ bill.discount }}" style="flex: 1; padding: 10px; border-radius: 8px;">
+                    <input type="number" step="0.01" name="bill_discount_value" id="discountValue" value="{{ bill.discount }}" style="flex: 1; padding: 10px; border-radius: 8px;" oninput="calculateTotals()">
+                </div>
+                
+                <div style="text-align: right; font-size: 18px; font-weight: bold; padding-top: 10px; border-top: 1px solid #ddd;">
+                    Net Total: <span id="displayNetTotal" style="color: #28a745;">Rs {{ bill.net_total }}</span>
                 </div>
             </div>
         </div>
@@ -101,6 +139,7 @@
 <script>
     let rowCount = {{ items.count }};
     
+    // Add dynamic product row
     function addRow() {
         rowCount++;
         const tbody = document.getElementById('itemsBody');
@@ -115,13 +154,80 @@
                     {% endfor %}
                 </select>
             </td>
-            <td style="padding: 5px;"><input type="number" step="0.01" name="qty_${rowCount}" value="1" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;"></td>
-            <td style="padding: 5px;"><input type="number" step="0.01" name="rate_${rowCount}" value="0" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;"></td>
-            <td style="padding: 5px; text-align: right; font-weight: bold;">Rs 0.00</td>
-            <td style="padding: 5px; text-align: center;"><button type="button" onclick="this.closest('tr').remove()" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button></td>
+            <td style="padding: 5px;"><input type="number" step="0.01" name="qty_${rowCount}" value="1" class="qty-input" style="width: 80px; padding: 8px; border-radius: 6px;" oninput="calculateTotals()"></td>
+            <td style="padding: 5px;"><input type="number" step="0.01" name="rate_${rowCount}" value="0" class="rate-input" style="width: 100px; padding: 8px; border-radius: 6px;" oninput="calculateTotals()"></td>
+            <td style="padding: 5px; text-align: center;"><input type="checkbox" name="is_foc_${rowCount}" class="foc-checkbox" onchange="toggleFoc(this)"></td>
+            <td style="padding: 5px; text-align: right; font-weight: bold;" class="row-total">Rs 0.00</td>
+            <td style="padding: 5px; text-align: center;"><button type="button" onclick="this.closest('tr').remove(); calculateTotals();" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">✕</button></td>
         `;
         tbody.appendChild(row);
     }
-</script>
 
+    // FOC toggle disables rate input
+    function toggleFoc(checkbox) {
+        const row = checkbox.closest('tr');
+        const rateInput = row.querySelector('.rate-input');
+        if (checkbox.checked) {
+            rateInput.value = '0';
+            rateInput.disabled = true;
+        } else {
+            rateInput.disabled = false;
+        }
+        calculateTotals();
+    }
+
+    // Live Calculate Totals and update Payment Amount
+    function calculateTotals() {
+        let subtotal = 0;
+        
+        document.querySelectorAll('.item-row').forEach(row => {
+            let qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+            let rate = parseFloat(row.querySelector('.rate-input').value) || 0;
+            let isFoc = row.querySelector('.foc-checkbox').checked;
+            
+            let total = isFoc ? 0 : (qty * rate);
+            row.querySelector('.row-total').innerText = `Rs ${total.toFixed(2)}`;
+            subtotal += total;
+        });
+
+        let discType = document.getElementById('discountType').value;
+        let discVal = parseFloat(document.getElementById('discountValue').value) || 0;
+        let discAmount = 0;
+        
+        if (discType === 'PERCENTAGE') discAmount = (subtotal * discVal) / 100;
+        if (discType === 'FIXED') discAmount = Math.min(discVal, subtotal);
+
+        let netTotal = subtotal - discAmount;
+        
+        // Update the displayed Net Total
+        document.getElementById('displayNetTotal').innerText = `Rs ${netTotal.toFixed(2)}`;
+        
+        // Update the Payment Amount field automatically if it's a single payment
+        if (document.getElementById('paymentMethod').value !== 'Multi') {
+            document.getElementById('paymentAmount').value = netTotal.toFixed(2);
+        }
+    }
+
+    // Toggle Payment Fields based on dropdown
+    function togglePaymentFields() {
+        const method = document.getElementById('paymentMethod').value;
+        
+        document.getElementById('singlePayFields').style.display = method === 'Multi' ? 'none' : 'block';
+        document.getElementById('chequeFields').style.display = method === 'Cheque' ? 'block' : 'none';
+        document.getElementById('multiPayFields').style.display = method === 'Multi' ? 'block' : 'none';
+        
+        if (method !== 'Multi') {
+            calculateTotals(); // Refresh payment amount
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener("DOMContentLoaded", function() {
+        // Apply FOC logic to existing rows
+        document.querySelectorAll('.foc-checkbox').forEach(cb => {
+            if (cb.checked) cb.closest('tr').querySelector('.rate-input').disabled = true;
+        });
+        togglePaymentFields();
+    });
+</script>
 {% endblock %}
