@@ -503,6 +503,7 @@
     // FORM SUBMIT - POPULATE HIDDEN FIELDS
     // ============================================================
     document.getElementById('returnForm').addEventListener('submit', function(e) {
+        // 1. Validate
         if (!document.getElementById('vehicleSelect').value) {
             e.preventDefault();
             alert('Please select a vehicle.');
@@ -519,29 +520,35 @@
             return;
         }
         
-        // Clear existing hidden fields
+        // 2. Clear old hidden fields
         document.querySelectorAll('.hidden-item').forEach(el => el.remove());
         
         const form = document.getElementById('returnForm');
         
-        // Add return items as hidden fields
+        // Helper function to safely add hidden inputs WITHOUT destroying the form
+        function addHidden(name, value) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            input.className = 'hidden-item';
+            form.appendChild(input); // ✅ appendChild doesn't reset the form
+        }
+        
+        // 3. Add return items
         returnItems.forEach((item, idx) => {
             const i = idx + 1;
-            form.innerHTML += `
-                <input type="hidden" class="hidden-item" name="return_product_${i}" value="${item.id}">
-                <input type="hidden" class="hidden-item" name="return_qty_${i}" value="${item.qty}">
-                <input type="hidden" class="hidden-item" name="return_rate_${i}" value="${item.rate}">
-            `;
+            addHidden(`return_product_${i}`, item.id);
+            addHidden(`return_qty_${i}`, item.qty);
+            addHidden(`return_rate_${i}`, item.rate);
         });
         
-        // Add exchange items as hidden fields
+        // 4. Add exchange items
         exchangeItems.forEach((item, idx) => {
             const i = idx + 1;
-            form.innerHTML += `
-                <input type="hidden" class="hidden-item" name="exchange_product_${i}" value="${item.id}">
-                <input type="hidden" class="hidden-item" name="exchange_qty_${i}" value="${item.qty}">
-                <input type="hidden" class="hidden-item" name="exchange_rate_${i}" value="${item.rate}">
-            `;
+            addHidden(`exchange_product_${i}`, item.id);
+            addHidden(`exchange_qty_${i}`, item.qty);
+            addHidden(`exchange_rate_${i}`, item.rate);
         });
     });
 </script>

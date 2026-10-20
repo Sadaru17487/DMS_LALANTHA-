@@ -7517,6 +7517,7 @@ def create_sales_return(request):
                 )
                 
                 # ===== PROCESS RETURNED ITEMS =====
+                # ===== PROCESS RETURNED ITEMS =====
                 return_value = Decimal('0')
                 for i in range(1, MAX_ITEMS + 1):
                     product_id = request.POST.get(f'return_product_{i}')
@@ -7544,9 +7545,8 @@ def create_sales_return(request):
                     )
                     
                     # ===== STOCK HANDLING =====
-                    # Good Return → add back to vehicle
-                    # Bad Return  → no stock change
                     if return_type == 'GOOD':
+                        # Good Return → add back to vehicle
                         vehicle_stock, _ = VehicleStock.objects.get_or_create(
                             vehicle=vehicle, product=product
                         )
@@ -7554,24 +7554,17 @@ def create_sales_return(request):
                         vehicle_stock.save()
                         logger.info(f"GOOD RETURN: +{qty} {product.name} → {vehicle.vehicle_number}")
                     else:
-                        logger.info(f"BAD RETURN: {qty} {product.name} NOT added back")
+                        # Bad Return → log the loss
+                        BadStockLog.objects.create(
+                            return_doc=return_doc,
+                            product=product,
+                            quantity=qty,
+                            cost_value=product.cost_price * qty,
+                            reason=return_reason or 'DAMAGED',
+                        )
+                        logger.info(f"BAD STOCK LOG: {qty} {product.name} = Rs {product.cost_price * qty}")
                     
                     return_value += total
-
-                if return_type == 'GOOD':
-                    vehicle_stock, _ = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
-                    vehicle_stock.quantity += qty
-                    vehicle_stock.save()
-                else:
-                    # BAD RETURN: log the loss
-                    BadStockLog.objects.create(
-                        return_doc=return_doc,
-                        product=product,
-                        quantity=qty,
-                        cost_value=product.cost_price * qty,
-                        reason=return_reason or 'DAMAGED',
-                    )
-                    logger.info(f"BAD STOCK LOG: {qty} {product.name} = Rs {product.cost_price * qty}")
                 
                 # ===== PROCESS EXCHANGE ITEMS =====
                 exchange_value = Decimal('0')
