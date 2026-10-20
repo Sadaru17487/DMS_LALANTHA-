@@ -8766,6 +8766,9 @@ def take_for_collection(request):
 
 @login_required
 def edit_sales_bill(request, bill_id):
+    from django.db import transaction
+    from decimal import Decimal
+    from datetime import datetime
     
     bill = get_object_or_404(SalesBill, id=bill_id)
     
@@ -8776,87 +8779,102 @@ def edit_sales_bill(request, bill_id):
                 old_items = bill.items.all()
                 if bill.vehicle:
                     for item in old_items:
-                        item.product.vehicle_stock += item.qty
-                        item.product.save()
+                        vs, created = VehicleStock.objects.get_or_create(vehicle=bill.vehicle, product=item.product)
+                        # If it was a normal sale, add the quantity back
+                        if item.quantity > 0:
+                            vs.quantity += item.quantity
+                        # If it was a return, subtract the quantity back
+                        elif item.quantity < 0:
+                            vs.quantity -= abs(item.quantity)
+                        vs.save()
                 
                 # 2. DELETE OLD ITEMS & PAYMENTS
                 old_items.delete()
                 bill.payments.all().delete()
                 
-                # 3. ADD NEW ITEMS (with FOC logic)
+                # 3. ADD NEW ITEMS
                 subtotal = Decimal('0')
                 i = 1
                 while f'product_{i}' in request.POST:
                     product_id = request.POST.get(f'product_{i}')
-                    qty = Decimal(request.POST.get(f'qty_{i}', '0'))
-                    rate = Decimal(request.POST.get(f'rate_{i}', '0'))
+                    qty_str = request.POST.get(f'qty_{i}', '0')
+                    rate_str = request.POST.get(f'rate_{i}', '0')
                     is_foc = request.POST.get(f'is_foc_{i}') == 'true'
                     
-                    if product_id and qty > 0:
-                        product = Product.objects.get(id=product_id)
+                    if not product_id or not qty_str or qty_str == '0':
+                        i += 1
+                        continue
+                    
+                    product = Product.objects.get(id=product_id)
+                    qty = Decimal(qty_str)
+                    rate = Decimal(rate_str)
+                    
+                    if is_foc:
+                        rate = Decimal('0')
+                        total = Decimal('0')
+                    else:
+                        total = qty * rate
+                        subtotal += total
                         
-                        # Deduct new stock
-                        if bill.vehicle:
-                            product.vehicle_stock -= qty
-                            product.save()
+                    # Deduct new stock from VehicleStock
+                    if bill.vehicle:
+                        vs = VehicleStock.objects.filter(vehicle=bill.vehicle, product=product).first()
+                        if not vs:
+                            if qty > 0:
+                                raise Exception(f"❌ {product.name} is not loaded on {bill.vehicle.vehicle_number}.")
+                            vs = VehicleStock.objects.create(vehicle=bill.vehicle, product=product, quantity=0)
+                        
+                        if qty > 0 and vs.quantity < qty:
+                            raise Exception(f"❌ Not enough stock on {bill.vehicle.vehicle_number} for {product.name}. Available: {vs.quantity}")
                             
-                        # If FOC, force rate and total to 0
-                        if is_foc:
-                            rate = Decimal('0')
-                            total = Decimal('0')
-                        else:
-                            total = qty * rate
-                            subtotal += total
-                        
-                        SalesItem.objects.create(
-                            bill=bill, product=product, qty=qty, rate=rate, total=total, is_foc=is_foc
-                        )
+                        vs.quantity -= qty
+                        vs.save()
+                    
+                    # ✅ Use SalesItem
+                    SalesItem.objects.create(
+                        bill=bill, 
+                        product=product, 
+                        quantity=qty, 
+                        rate=rate,
+                        discounted_rate=rate, 
+                        total=total, 
+                        is_foc=is_foc
+                    )
                     i += 1
-                
+                    
                 # 4. CALCULATE DISCOUNT & NET TOTAL
-                discount_type = request.POST.get('bill_discount_type', '')
-                discount_value = Decimal(request.POST.get('bill_discount_value', '0'))
-                discount_amount = Decimal('0')
+                disc_type = request.POST.get('bill_discount_type', '')
+                disc_val = Decimal(request.POST.get('bill_discount_value', '0') or '0')
+                disc_amount = Decimal('0')
                 
-                if discount_type == 'PERCENTAGE':
-                    discount_amount = (subtotal * discount_value) / 100
-                elif discount_type == 'FIXED':
-                    discount_amount = min(discount_value, subtotal)
+                if disc_type == 'PERCENTAGE' and disc_val > 0:
+                    disc_amount = (subtotal * disc_val) / 100
+                elif disc_type == 'FIXED' and disc_val > 0:
+                    disc_amount = min(disc_val, subtotal)
                     
                 bill.subtotal = subtotal
-                bill.discount = discount_amount
-                bill.net_total = subtotal - discount_amount
+                bill.bill_discount_type = disc_type if disc_val > 0 else None
+                bill.bill_discount_value = disc_val if disc_val > 0 else Decimal('0')
+                bill.bill_discount_amount = disc_amount
+                bill.net_total = subtotal - disc_amount
                 
-                # 5. HANDLE PAYMENTS (Single, Cheque, Multi)
+                # 5. HANDLE PAYMENTS
                 payment_method = request.POST.get('payment_method', 'Cash')
                 
                 if payment_method == 'Multi':
-                    # Handle Multi Pay
                     type1 = request.POST.get('multi_type1', 'Cash')
-                    amt1 = Decimal(request.POST.get('multi_amount1', '0'))
+                    amt1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
                     type2 = request.POST.get('multi_type2', 'Cash')
-                    amt2 = Decimal(request.POST.get('multi_amount2', '0'))
+                    amt2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
                     
-                    if amt1 > 0:
-                        Payment.objects.create(bill=bill, type=type1, amount=amt1)
-                        if type1 == 'Cheque':
-                            self_create_cheque(request, bill, amt1, '1')
-                            
-                    if amt2 > 0:
-                        Payment.objects.create(bill=bill, type=type2, amount=amt2)
-                        if type2 == 'Cheque':
-                            self_create_cheque(request, bill, amt2, '2')
-                            
-                    bill.status = 'PENDING' if (type1 == 'Credit' or type2 == 'Credit') else 'COMPLETED'
+                    if amt1 > 0: Payment.objects.create(bill=bill, type=type1, amount=amt1)
+                    if amt2 > 0: Payment.objects.create(bill=bill, type=type2, amount=amt2)
                     
+                    bill.status = 'PENDING' if 'Credit' in [type1, type2] else 'COMPLETED'
                 else:
-                    # Handle Single Pay
-                    pay_amount = Decimal(request.POST.get('payment_amount', bill.net_total))
+                    pay_amount = Decimal(request.POST.get('payment_amount', bill.net_total) or bill.net_total)
                     Payment.objects.create(bill=bill, type=payment_method, amount=pay_amount)
                     
-                    if payment_method == 'Cheque':
-                        self_create_cheque(request, bill, pay_amount, '')
-                        
                     bill.status = 'PENDING' if payment_method == 'Credit' else 'COMPLETED'
                     
                 bill.save()
@@ -8876,29 +8894,10 @@ def edit_sales_bill(request, bill_id):
         'bill': bill,
         'items': items,
         'payments': payments,
-        'products': Product.objects.all(),
+        'products': Product.objects.filter(is_active=True),
         'vehicles': Vehicle.objects.filter(is_active=True),
         'reps': Employee.objects.filter(position='Rep', is_active=True),
-        'banks': Bank.objects.all(), # Need banks for cheque
+        'banks': Bank.objects.all(),
     }
     return render(request, 'core/sales_edit.html', context)
 
-
-# Helper function to keep the view clean
-def self_create_cheque(request, bill, amount, suffix):
-    cheque_no = request.POST.get(f'cheque_no{suffix}', '').strip()
-    cheque_date_str = request.POST.get(f'cheque_date{suffix}', '').strip()
-    bank_id = request.POST.get(f'cheque_bank{suffix}', '').strip()
-    
-    if cheque_no and cheque_date_str and bank_id.isdigit():
-        try:
-            from datetime import datetime
-            c_date = datetime.strptime(cheque_date_str, '%Y-%m-%d').date()
-            bank = Bank.objects.get(id=int(bank_id))
-            Cheque.objects.create(
-                cheque_no=cheque_no, bank=bank, cheque_date=c_date,
-                amount=amount, sales_bill=bill, status='PENDING',
-                customer_name=(bill.shop_name or bill.shop_code or 'N/A')[:200]
-            )
-        except Exception:
-            pass
