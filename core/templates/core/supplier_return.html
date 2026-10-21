@@ -134,15 +134,33 @@
         document.getElementById('totalDisplay').textContent = `Rs ${total.toFixed(2)}`;
     }
     
+    // ✅ FIXED SUBMIT HANDLER
     document.querySelector('form').addEventListener('submit', function(e) {
-        if (items.length === 0) { e.preventDefault(); alert('Add at least one item.'); return; }
+        if (items.length === 0) { 
+            e.preventDefault(); 
+            alert('Add at least one item.'); 
+            return; 
+        }
+        
+        // Clear old hidden fields
         document.querySelectorAll('.hidden-item').forEach(el => el.remove());
         const form = document.querySelector('form');
+        
+        // ✅ Safely add hidden inputs without destroying the form
+        function addHidden(name, value) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            input.className = 'hidden-item';
+            form.appendChild(input);
+        }
+        
         items.forEach((it, i) => {
             const n = i + 1;
-            form.innerHTML += `<input type="hidden" class="hidden-item" name="product_${n}" value="${it.id}">
-                               <input type="hidden" class="hidden-item" name="qty_${n}" value="${it.qty}">
-                               <input type="hidden" class="hidden-item" name="rate_${n}" value="${it.rate}">`;
+            addHidden(`product_${n}`, it.id);
+            addHidden(`qty_${n}`, it.qty);
+            addHidden(`rate_${n}`, it.rate);
         });
     });
 </script>
