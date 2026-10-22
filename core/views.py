@@ -2866,16 +2866,17 @@ def create_sales_bill(request):
                         logger.info(f"DISCOUNT - amount={bill_discount_amount}, net_total={bill.net_total}")
                         
                         # Calculate discounted rate
-                        discounted_rate = rate
+                        line_total = quantity * rate
                         if discount_type == 'PERCENTAGE' and discount_value > 0:
-                            discounted_rate = rate - (rate * discount_value / 100)
+                            line_total = line_total - (line_total * discount_value / 100)
                         elif discount_type == 'FIXED' and discount_value > 0:
-                            discounted_rate = rate - discount_value
+                            line_total = line_total - (discount_value * (1 if quantity > 0 else -1))
                         
-                        if discounted_rate < 0:
-                            discounted_rate = Decimal('0')
-                        
-                        total = quantity * discounted_rate
+                        if quantity > 0 and line_total < 0:
+                            line_total = Decimal('0')
+                            
+                        discounted_rate = line_total / quantity if quantity != 0 else Decimal('0')
+                        total = line_total
                         
                         # ====================================================
                         # ===== STOCK HANDLING =====
