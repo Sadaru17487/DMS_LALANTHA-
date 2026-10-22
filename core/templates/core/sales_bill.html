@@ -362,16 +362,15 @@
                 <table class="cart" id="regularCart">
                     <thead>
                         <tr>
-                            <th style="width:28%;">Product</th>
-                            <th style="width:12%;">Qty</th>
-                            <th style="width:15%;">Rate (Rs)</th>
-                            <th style="width:20%;">Discount</th>
-                            <th style="width:15%;">Total (Rs)</th>
-                            <th style="width:10%;">Action</th>
+                            <th style="width:35%;">Product</th>
+                            <th style="width:15%;">Qty</th>
+                            <th style="width:18%;">Rate (Rs)</th>
+                            <th style="width:18%;">Total (Rs)</th>
+                            <th style="width:14%;">Action</th>
                         </tr>
                     </thead>
                     <tbody id="regularCartBody">
-                        <tr><td colspan="6" class="empty-cart">No regular items added.</td></tr>
+                        <tr><td colspan="5" class="empty-cart">No regular items added.</td></tr>
                     </tbody>
                 </table>
 
@@ -478,8 +477,6 @@
                     <input type="hidden" name="rate_{{ forloop.counter }}" id="hidden_rate_{{ forloop.counter }}" value="0">
                     <input type="hidden" name="is_foc_{{ forloop.counter }}" id="hidden_is_foc_{{ forloop.counter }}" value="false">
                     <input type="hidden" name="price_id_{{ forloop.counter }}" id="hidden_price_id_{{ forloop.counter }}" value="">
-                    <input type="hidden" name="discount_type_{{ forloop.counter }}" id="hidden_discount_type_{{ forloop.counter }}" value="">
-                    <input type="hidden" name="discount_value_{{ forloop.counter }}" id="hidden_discount_value_{{ forloop.counter }}" value="0">
                 {% endfor %}
             </div>
             <input type="hidden" name="bill_discount_type" id="hidden_bill_discount_type" value="">
@@ -868,9 +865,6 @@
                 total: isFoc ? 0 : rate,
                 is_foc: isFoc,
                 price_id: priceId
-                discount_type: '',  
-                discount_value: 0  
-            
             });
         }
         renderCart();
