@@ -894,19 +894,20 @@
         const focItems = cart.filter(item => item.is_foc);
         const regularBody = document.getElementById('regularCartBody');
         const focBody = document.getElementById('focCartBody');
-        const regularTotalDisplay = document.getElementById('regularTotalDisplay');
-        const focTotalDisplay = document.getElementById('focTotalDisplay');
-        const subtotalDisplay = document.getElementById('subtotalDisplay');
-        const focValueDisplay = document.getElementById('focValueDisplay');
+        
+        let originalSubtotal = 0;
 
         if (regularItems.length === 0) {
             regularBody.innerHTML = `<tr><td colspan="6" class="empty-cart">No regular items added.</td></tr>`;
-            regularTotalDisplay.textContent = '0.00';
+            document.getElementById('regularTotalDisplay').textContent = '0.00';
         } else {
             let html = '';
             let regularTotal = 0;
             regularItems.forEach((item) => {
                 const index = cart.indexOf(item);
+                
+                const origLineTotal = item.qty * item.rate;
+                originalSubtotal += origLineTotal;
                 
                 let discountedRate = item.rate;
                 if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) {
@@ -937,18 +938,18 @@
                                 </select>
                             </div>
                         </td>
-                        <td>${sign} Rs ${discountedTotal.toFixed(2)}</td>
+                        <td>${sign} Rs ${Math.abs(discountedTotal).toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
                     </tr>
                 `;
             });
             regularBody.innerHTML = html;
-            regularTotalDisplay.textContent = regularTotal.toFixed(2);
+            document.getElementById('regularTotalDisplay').textContent = Math.abs(regularTotal).toFixed(2);
         }
 
         if (focItems.length === 0) {
             focBody.innerHTML = `<tr><td colspan="5" class="empty-cart">No FOC items added.</td></tr>`;
-            focTotalDisplay.textContent = '0.00';
+            document.getElementById('focTotalDisplay').textContent = '0.00';
         } else {
             let html = '';
             let focTotal = 0;
@@ -962,29 +963,17 @@
                         <td><strong>${item.name}</strong></td>
                         <td><input type="number" step="0.01" value="${item.qty}" onchange="updateCartItem(${index}, 'qty', this.value)"></td>
                         <td>${item.rate.toFixed(2)}</td>
-                        <td>${sign} Rs ${total.toFixed(2)}</td>
+                        <td>${sign} Rs ${Math.abs(total).toFixed(2)}</td>
                         <td><button type="button" class="remove-btn" onclick="removeFromCart(${index})">✕</button></td>
                     </tr>
                 `;
             });
             focBody.innerHTML = html;
-            focTotalDisplay.textContent = focTotal.toFixed(2);
+            document.getElementById('focTotalDisplay').textContent = Math.abs(focTotal).toFixed(2);
         }
 
-        // Update Subtotals using Discounted Rates
-        let finalSubtotal = 0;
-        regularItems.forEach(item => {
-            let dRate = item.rate;
-            if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) dRate -= (item.rate * item.discount_value / 100);
-            else if (item.discount_type === 'FIXED' && item.discount_value > 0) dRate -= item.discount_value;
-            if (dRate < 0) dRate = 0;
-            finalSubtotal += (item.qty * dRate);
-        });
-        
-        let focValue = focItems.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-        
-        subtotalDisplay.textContent = `Rs ${finalSubtotal.toFixed(2)}`;
-        focValueDisplay.textContent = `Rs ${focValue.toFixed(2)}`;
+        document.getElementById('subtotalDisplay').textContent = `Rs ${Math.abs(originalSubtotal).toFixed(2)}`;
+        document.getElementById('focValueDisplay').textContent = `Rs ${Math.abs(focItems.reduce((s, i) => s + (i.qty * i.rate), 0)).toFixed(2)}`;
         
         updateBillDiscount();
         populateHiddenFields();
