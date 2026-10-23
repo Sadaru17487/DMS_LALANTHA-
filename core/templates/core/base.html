@@ -233,7 +233,7 @@
         <div class="nav-section">Inventory</div>
         {% endif %}
         
-        {% if request.user.profile|has_perm:'view_products' %}
+        {% if request.user.profile.role == 'Admin' %}
         <a href="/products/" class="{% if 'product' in request.path %}active{% endif %}">
             <i class="fas fa-box"></i> Products
         </a>

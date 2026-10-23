@@ -51,12 +51,10 @@
         </div>
         <div class="form-group">
             <label>Role</label>
-            <select name="role">
-                <option value="Admin">Admin - Full Access</option>
-                <option value="Accountant">Accountant - Sales & Reports</option>
-                <option value="Loader">Loader - Vehicle Loading Only</option>
-                <option value="Viewer" selected>Viewer - Read Only Reports</option>
-            </select>
+                <select name="role" required class="form-control">
+                    <option value="Admin">Admin</option>
+                    <option value="Users">Users</option>
+                </select>
         </div>
         <div class="form-group">
             <label>Phone (Optional)</label>

@@ -11,6 +11,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from functools import wraps
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Sum, Count, Q
@@ -53,7 +55,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
+def admin_only(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if request.user.profile.role != 'Admin':
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 
 @login_required
@@ -1184,6 +1192,7 @@ def add_bank_api(request):
 
 
 @login_required
+@admin_only
 @permission_required('view_products')
 def product_list(request):
     """List all products with search and filter"""
@@ -1223,6 +1232,7 @@ def product_list(request):
 
 
 @login_required
+@admin_only
 @permission_required('manage_products')
 def product_add(request):
     try:
@@ -1242,6 +1252,7 @@ def product_add(request):
 
 
 @login_required
+@admin_only
 @permission_required('manage_products')
 def product_edit(request, product_id):
     try:
@@ -1267,6 +1278,7 @@ def product_edit(request, product_id):
 
 
 @login_required
+@admin_only
 @permission_required('manage_products')
 def product_delete(request, product_id):
     """Delete a product (with confirmation)"""
@@ -1281,6 +1293,7 @@ def product_delete(request, product_id):
 
 
 @login_required
+@admin_only
 @permission_required('manage_products')
 def product_toggle_status(request, product_id):
     """Activate or deactivate a product"""
@@ -4312,6 +4325,7 @@ def sales_edit(request, bill_id):
 
 
 @login_required
+@admin_only
 @permission_required('delete_sales')
 def sales_delete(request, bill_id):
     """Delete a sales bill and restore stock to vehicle"""
@@ -8758,6 +8772,7 @@ def take_for_collection(request):
     return redirect('/credit-list/')
 
 @login_required
+@admin_only
 def edit_sales_bill(request, bill_id):
     from django.db import transaction
     from decimal import Decimal

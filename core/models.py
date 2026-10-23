@@ -368,7 +368,6 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('Users', 'Users'),
-        ('Viewer', 'Viewer'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
