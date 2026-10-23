@@ -2865,18 +2865,17 @@ def create_sales_bill(request):
 
                         logger.info(f"DISCOUNT - amount={bill_discount_amount}, net_total={bill.net_total}")
                         
-                        # Calculate discounted rate
-                        line_total = quantity * rate
+                        # Calculate discounted rate (Subtracts Rs from the Rate, matching the Frontend)
+                        discounted_rate = rate
                         if discount_type == 'PERCENTAGE' and discount_value > 0:
-                            line_total = line_total - (line_total * discount_value / 100)
+                            discounted_rate = rate - (rate * discount_value / 100)
                         elif discount_type == 'FIXED' and discount_value > 0:
-                            line_total = line_total - (discount_value * (1 if quantity > 0 else -1))
-                        
-                        if quantity > 0 and line_total < 0:
-                            line_total = Decimal('0')
+                            discounted_rate = rate - discount_value
                             
-                        discounted_rate = line_total / quantity if quantity != 0 else Decimal('0')
-                        total = line_total
+                        if discounted_rate < 0:
+                            discounted_rate = Decimal('0')
+                            
+                        total = quantity * discounted_rate
                         
                         # ====================================================
                         # ===== STOCK HANDLING =====
@@ -3303,7 +3302,7 @@ def create_sales_bill(request):
         
         else:
             messages.error(request, 'Please correct the errors below.')
-            customers = Customer.objects.filter(is_active=True)
+            customers = Customer.objects.filter(is_active=True) 
             products = _build_product_list_for_template(selected_vehicle)
             vehicles = Vehicle.objects.filter(is_active=True)
             reps = Employee.objects.filter(position='Rep', is_active=True)

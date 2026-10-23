@@ -1031,23 +1031,31 @@
         const discountType = document.getElementById('billDiscountType').value;
         const discountValue = parseFloat(document.getElementById('billDiscountValue').value) || 0;
         
-        // Use the item-discounted subtotal
         const regularItems = cart.filter(item => !item.is_foc);
-        let subtotal = 0;
+        let originalSubtotal = 0;
+        let totalItemDiscount = 0;
+        
         regularItems.forEach(item => {
+            const origLine = item.qty * item.rate;
+            originalSubtotal += origLine;
+            
             let dRate = item.rate;
             if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) dRate -= (item.rate * item.discount_value / 100);
             else if (item.discount_type === 'FIXED' && item.discount_value > 0) dRate -= item.discount_value;
             if (dRate < 0) dRate = 0;
-            subtotal += (item.qty * dRate);
+            
+            const itemDiscAmt = (item.rate - dRate) * Math.abs(item.qty);
+            totalItemDiscount += itemDiscAmt;
         });
 
-        let discountAmount = 0;
-        if (discountType === 'PERCENTAGE' && discountValue > 0) discountAmount = (subtotal * discountValue) / 100;
-        else if (discountType === 'FIXED' && discountValue > 0) discountAmount = Math.min(discountValue, subtotal);
+        let billDiscountAmount = 0;
+        if (discountType === 'PERCENTAGE' && discountValue > 0) billDiscountAmount = (Math.abs(originalSubtotal) * discountValue) / 100;
+        else if (discountType === 'FIXED' && discountValue > 0) billDiscountAmount = Math.min(discountValue, Math.abs(originalSubtotal) - totalItemDiscount);
 
-        const netTotal = subtotal - discountAmount;
-        document.getElementById('discountDisplay').textContent = `Rs ${discountAmount.toFixed(2)}`;
+        const netTotal = Math.abs(originalSubtotal) - totalItemDiscount - billDiscountAmount;
+        const grandTotalDiscount = totalItemDiscount + billDiscountAmount;
+
+        document.getElementById('discountDisplay').textContent = `Rs ${grandTotalDiscount.toFixed(2)}`;
         document.getElementById('netTotalDisplay').textContent = `Rs ${netTotal.toFixed(2)}`;
 
         billDiscountType = discountType;
