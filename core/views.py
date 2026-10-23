@@ -55,11 +55,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+from django.core.exceptions import PermissionDenied
+from functools import wraps
+
 def admin_only(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
-        if request.user.profile.role != 'Admin':
+        if not request.user.is_authenticated:
+            return redirect('/login/')
+            
+        # Safe check: Handles Superusers, Admins, and missing profiles
+        is_admin = False
+        if request.user.is_superuser:
+            is_admin = True
+        elif hasattr(request.user, 'profile') and request.user.profile.role == 'Admin':
+            is_admin = True
+            
+        if not is_admin:
             raise PermissionDenied
+            
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
