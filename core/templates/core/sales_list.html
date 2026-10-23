@@ -89,7 +89,7 @@
                             <a href="/sales-detail/{{ bill.id }}/" class="view" title="View Details">👁️</a>
                             <a href="/sales-print/{{ bill.id }}/" class="print" title="Print Invoice" target="_blank">🖨️</a>
 
-                            {% if request.user.is_superuser or request.user.profile.role == 'Admin' %}
+                            {% if request.user.is_superuser or request.user.profile and request.user.profile.role == 'Admin' %}
                                 <a href="/sales/edit/{{ bill.id }}/" class="edit" title="Edit Bill" style="color: #fd7e14; text-decoration: none;">✏️</a>
                                 <a href="/sales-delete/{{ bill.id }}/" class="delete" title="Delete" 
                                 onclick="return confirm('⚠️ Delete this bill?\n\nInvoice: {{ bill.invoice_no }}\nCustomer: {{ bill.customer }}\nAmount: Rs {{ bill.net_total|floatformat:2 }}\n\n⚠️ Stock will be RESTORED to the vehicle.')">

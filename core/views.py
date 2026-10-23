@@ -723,29 +723,15 @@ def sales_detail(request, bill_id):
 
 
 def login_view(request):
-    """User Login Page"""
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
-        
         if user is not None:
-            # Auto-create profile if missing
-            if not hasattr(user, 'profile'):
-                UserProfile.objects.create(
-                    user=user,
-                    role='Viewer',
-                    phone='',
-                    is_active=True
-                )
-                messages.info(request, f'Welcome {user.username}! Your profile has been created.')
-            
             login(request, user)
-            messages.success(request, f'Welcome back, {user.username}!')
-            return redirect('/')
+            return redirect('/') # <-- Just redirect to dashboard!
         else:
-            messages.error(request, 'Invalid username or password.')
-    
+            messages.error(request, 'Invalid credentials')
     return render(request, 'core/login.html')
 
 
