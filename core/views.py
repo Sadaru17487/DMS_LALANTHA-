@@ -753,33 +753,47 @@ def edit_user_permissions(request, user_id):
 @admin_only
 def register_user(request):
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '')
-        role = request.POST.get('role', 'Users')
-        
-        # Safety: If the form sends an empty role, force it to 'Users'
-        if not role or role == '':
-            role = 'Users'
-
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Username already exists.')
-            return redirect('/admin-dashboard/')
-
         try:
-            # Create the user
+            username = request.POST.get('username', '').strip()
+            password = request.POST.get('password', '').strip()
+            role = request.POST.get('role', 'Users').strip()
+            
+            # 🛡️ Safety: Force valid roles
+            if role not in ['Admin', 'Users']:
+                role = 'Users'
+                
+            if not username or not password:
+                messages.error(request, 'Username and password are required.')
+                return redirect('/register/')
+                
+            if User.objects.filter(username=username).exists():
+                messages.error(request, 'Username already exists.')
+                return redirect('/register/')
+
+            # 1. Create User
             user = User.objects.create_user(username=username, password=password)
             
-            # Create the profile
+            # 2. Create Profile
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.role = role
             profile.save()
             
-            messages.success(request, f'✅ User "{username}" created successfully with role {role}!')
-            return redirect('/admin-dashboard/') # 👈 Redirects back to the correct page!
+            messages.success(request, f'✅ User "{username}" created successfully with role {role}.')
+            return redirect('/admin-dashboard/')
             
         except Exception as e:
+            # Log the exact error to DigitalOcean
+            logger.error(f"Error creating user: {e}")
+            logger.error(traceback.format_exc())
+            
             messages.error(request, f'❌ Error creating user: {str(e)}')
-            return redirect('/admin-dashboard/')
+            
+            # If DEBUG is True, show the yellow error page
+            from django.conf import settings
+            if settings.DEBUG:
+                raise e
+                
+            return redirect('/register/')
 
     return render(request, 'core/register.html')
 
