@@ -16,7 +16,7 @@ from functools import wraps
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Sum, Count, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, request
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
@@ -724,29 +724,30 @@ def sales_detail(request, bill_id):
 
 @login_required
 @admin_only
-def edit_user_permissions(request, user_id):
-    from django.contrib.auth.models import User
-    target_user = get_object_or_404(User, id=user_id)
-    profile, created = UserProfile.objects.get_or_create(user=target_user)
-    
+def register_user(request):
     if request.method == 'POST':
-        new_permissions = request.POST.getlist('permissions')
-        perm_dict = {perm: True for perm in new_permissions}
-        profile.custom_permissions = perm_dict
-        profile.save()
-        messages.success(request, f'✅ Permissions updated for {target_user.username}')
-        return redirect('/users/') # Adjust if your user list URL is different
+        # ... (your form saving logic) ...
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        role = request.POST.get('role', 'Users')
         
-    # Get a simple list of checked permission keys
-    active_permissions = [k for k, v in profile.custom_permissions.items() if v]
-    
-    context = {
-        'target_user': target_user,
-        'profile': profile,
-        'available_permissions': UserProfile.AVAILABLE_PERMISSIONS,
-        'active_permissions': active_permissions,
-    }
-    return render(request, 'core/edit_permissions.html', context)
+        # Check if user already exists
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists')
+            return redirect('register') # Or whatever your URL name is
+
+        # Create User
+        user = User.objects.create_user(username=username, password=password)
+        
+        # ✅ Ensure profile is created safely
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        profile.role = role
+        profile.save() # If this line crashes, it's because a model field is missing/mismatched
+        
+        messages.success(request, f'User {username} created successfully!')
+        return redirect('/users/')
+        
+    return render(request, 'core/register.html')
 
 
 def login_view(request):
