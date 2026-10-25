@@ -735,7 +735,7 @@ def edit_user_permissions(request, user_id):
         profile.custom_permissions = perm_dict
         profile.save()
         messages.success(request, f'✅ Permissions updated for {target_user.username}')
-        return redirect('/users/') # Adjust if your user list URL is different
+        return redirect('/admin-dashboard/')# Adjust if your user list URL is different
         
     # Get a simple list of checked permission keys
     active_permissions = [k for k, v in profile.custom_permissions.items() if v]

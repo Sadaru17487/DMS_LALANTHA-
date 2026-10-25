@@ -264,5 +264,9 @@ urlpatterns = [
     path('sales/edit/<int:bill_id>/', views.edit_sales_bill, name='edit_sales_bill'),
 
     path('users/edit_user_permissions/<int:user_id>/', views.edit_user_permissions, name='edit_user_permissions'),
+
+    
+
+
     
 ]
