@@ -756,6 +756,7 @@ def register_user(request):
         try:
             username = request.POST.get('username', '').strip()
             password = request.POST.get('password', '').strip()
+            password2 = request.POST.get('password2', '').strip() # If your form has this
             role = request.POST.get('role', 'Users').strip()
             
             # 🛡️ Safety: Force valid roles
@@ -764,16 +765,20 @@ def register_user(request):
                 
             if not username or not password:
                 messages.error(request, 'Username and password are required.')
-                return redirect('/register/')
+                return render(request, 'core/register.html')
+                
+            if password2 and password != password2:
+                messages.error(request, 'Passwords do not match.')
+                return render(request, 'core/register.html')
                 
             if User.objects.filter(username=username).exists():
                 messages.error(request, 'Username already exists.')
-                return redirect('/register/')
+                return render(request, 'core/register.html')
 
             # 1. Create User
             user = User.objects.create_user(username=username, password=password)
             
-            # 2. Create Profile
+            # 2. Create Profile (NO PHONE FIELD!)
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.role = role
             profile.save()
@@ -782,18 +787,8 @@ def register_user(request):
             return redirect('/admin-dashboard/')
             
         except Exception as e:
-            # Log the exact error to DigitalOcean
-            logger.error(f"Error creating user: {e}")
-            logger.error(traceback.format_exc())
-            
             messages.error(request, f'❌ Error creating user: {str(e)}')
-            
-            # If DEBUG is True, show the yellow error page
-            from django.conf import settings
-            if settings.DEBUG:
-                raise e
-                
-            return redirect('/register/')
+            return render(request, 'core/register.html')
 
     return render(request, 'core/register.html')
 
@@ -816,31 +811,6 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out.')
     return redirect('/login/')  # ✅ FIXED
-
-
-def register_view(request):
-    """Create a new user account (Admin only)"""
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        password2 = request.POST.get('password2')
-        role = request.POST.get('role', 'Viewer')
-        phone = request.POST.get('phone', '')
-        
-        if password != password2:
-            messages.error(request, 'Passwords do not match.')
-            return render(request, 'core/register.html')
-        
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Username already exists.')
-            return render(request, 'core/register.html')
-        
-        user = User.objects.create_user(username=username, password=password)
-        UserProfile.objects.create(user=user, role=role, phone=phone)
-        messages.success(request, f'User {username} created successfully!')
-        return redirect('/admin-dashboard/')  # ✅ FIXED
-    
-    return render(request, 'core/register.html')
 
 
 @login_required

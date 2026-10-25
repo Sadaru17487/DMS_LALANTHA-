@@ -11,7 +11,7 @@ urlpatterns = [
 
     path('logout/', views.logout_view, name='logout'),
 
-    path('register/', views.register_view, name='register'),
+    path('register/', views.register_user, name='register'),
 
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
 
@@ -265,7 +265,7 @@ urlpatterns = [
 
     path('users/edit_user_permissions/<int:user_id>/', views.edit_user_permissions, name='edit_user_permissions'),
 
-    
+
 
 
     
