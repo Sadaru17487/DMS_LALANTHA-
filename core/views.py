@@ -746,7 +746,7 @@ def edit_user_permissions(request, user_id):
         'available_permissions': UserProfile.AVAILABLE_PERMISSIONS,
         'active_permissions': active_permissions,
     }
-    return render(request, 'core/edit_permissions.html', context)
+    return render(request, 'core/edit_user_permissions.html', context)
 
 
 def login_view(request):
