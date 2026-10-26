@@ -1,0 +1,118 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<style>
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+    .summary-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-top: 4px solid #ccc; }
+    .summary-card.complete { border-top-color: #28a745; }
+    .summary-card.credit-sales { border-top-color: #fd7e14; }
+    .summary-card.credit-pay { border-top-color: #007bff; }
+    .summary-card.returns { border-top-color: #dc3545; }
+    .summary-card.expense { border-top-color: #6c757d; }
+    .summary-card.net { border-top-color: #6f42c1; background: #f8f0ff; }
+    
+    .summary-card .label { font-size: 12px; color: #666; text-transform: uppercase; font-weight: 700; }
+    .summary-card .value { font-size: 24px; font-weight: 800; margin-top: 5px; }
+    
+    .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge.cash { background: #d4edda; color: #155724; }
+    .badge.credit { background: #fff3cd; color: #856404; }
+    .badge.cheque { background: #cce5ff; color: #004085; }
+</style>
+
+<div class="container">
+    <div class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2>📊 Daily Sales Summary</h2>
+            <span class="subtitle">Daily overview of Sales, Collections, and Cash</span>
+        </div>
+        <button onclick="window.print()" style="padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">🖨️ Print Report</button>
+    </div>
+
+    <!-- Filter Bar -->
+    <form method="GET" style="background:white; padding:15px 20px; border-radius:12px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:end; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <div>
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Date</label>
+            <input type="date" name="date" value="{{ selected_date }}" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px;">
+        </div>
+        <div>
+            <label style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase;">Vehicle</label>
+            <select name="vehicle" style="padding:8px 12px; border:2px solid #e0e4eb; border-radius:8px; min-width: 200px;">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }} - {{ v.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
+    </form>
+
+    <!-- Data Table -->
+    <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow-x:auto; margin-bottom: 25px;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="background:#f8f9fc; text-align:left;">
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Invoice</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Date</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Customer</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Vehicle</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Method</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Sub Total</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Returns</th>
+                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Net Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in bill_list %}
+                <tr>
+                    <td style="padding:10px; border-bottom:1px solid #eee;"><strong>{{ bill.invoice_no }}</strong></td>
+                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.date|date:"Y-m-d H:i" }}</td>
+                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.customer }}</td>
+                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.vehicle }}</td>
+                    <td style="padding:10px; border-bottom:1px solid #eee;">
+                        <span class="badge {{ bill.payment_method|lower }}">{{ bill.payment_method }}</span>
+                    </td>
+                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">Rs {{ bill.sub_total|floatformat:2 }}</td>
+                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right; color:#dc3545;">Rs {{ bill.return_amount|floatformat:2 }}</td>
+                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">Rs {{ bill.net_amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">No sales found for this date.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Cards (Bottom) -->
+    <h3 style="margin-bottom: 15px; color: #1a2634;">📈 System Summary</h3>
+    <div class="summary-grid">
+        <div class="summary-card complete">
+            <div class="label">Total Complete Sales</div>
+            <div class="value" style="color: #28a745;">Rs {{ total_complete_sales|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card credit-sales">
+            <div class="label">Total Credit Sales</div>
+            <div class="value" style="color: #fd7e14;">Rs {{ total_credit_sales|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card credit-pay">
+            <div class="label">Total Credit Payments</div>
+            <div class="value" style="color: #007bff;">Rs {{ total_credit_payments|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card returns">
+            <div class="label">Total Returns</div>
+            <div class="value" style="color: #dc3545;">Rs {{ total_returns|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card expense">
+            <div class="label">Total Expenses</div>
+            <div class="value" style="color: #6c757d;">Rs {{ total_expenses|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card net">
+            <div class="label">Net Cash Balance</div>
+            <div class="value" style="color: #6f42c1;">Rs {{ net_cash_balance|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -265,8 +265,9 @@ urlpatterns = [
 
     path('users/edit_user_permissions/<int:user_id>/', views.edit_user_permissions, name='edit_user_permissions'),
 
+    path('reports/daily-sales-summary/', views.daily_sales_summary, name='daily_sales_summary'),
 
-
+    
 
     
 ]

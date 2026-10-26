@@ -8955,3 +8955,89 @@ def edit_sales_bill(request, bill_id):
     }
     return render(request, 'core/sales_edit.html', context)
 
+
+@login_required
+@permission_required('view_reports')
+def daily_sales_summary(request):
+    
+    today = date.today()
+    selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
+    vehicle_id = request.GET.get('vehicle', '')
+    
+    try:
+        target_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+    except ValueError:
+        target_date = today
+        selected_date = target_date.strftime('%Y-%m-%d')
+
+    # Base Queries
+    bills = SalesBill.objects.filter(date=target_date).select_related('vehicle', 'rep').order_by('created_at')
+    payments = Payment.objects.filter(payment_date=target_date)
+    returns = SalesReturn.objects.filter(date=target_date)
+    expenses = Expense.objects.filter(date=target_date)
+    
+    # Apply Vehicle Filter if selected
+    if vehicle_id and vehicle_id.isdigit():
+        bills = bills.filter(vehicle_id=int(vehicle_id))
+        payments = payments.filter(bill__vehicle_id=int(vehicle_id))
+        returns = returns.filter(vehicle_id=int(vehicle_id))
+        expenses = expenses.filter(vehicle_id=int(vehicle_id))
+
+    # Calculate Summary Totals
+    total_complete_sales = Decimal('0')
+    total_credit_sales = Decimal('0')
+    
+    # Process each bill to determine if it's Complete or Credit
+    bill_list = []
+    for b in bills:
+        has_credit = b.payments.filter(type='Credit').exists()
+        if has_credit:
+            total_credit_sales += b.net_total
+            pay_method = 'Credit'
+        else:
+            total_complete_sales += b.net_total
+            # Get first payment method (Cash/Cheque/Online/Multi)
+            p = b.payments.exclude(type='Credit').first()
+            pay_method = p.type if p else 'Cash'
+            
+        # Get return amount for this specific bill if it exists
+        return_amt = SalesReturn.objects.filter(original_invoice=b).aggregate(t=Sum('return_value'))['t'] or Decimal('0')
+        
+        bill_list.append({
+            'invoice_no': b.invoice_no,
+            'date': b.created_at,
+            'customer': b.shop_name or b.shop_code,
+            'vehicle': b.vehicle.vehicle_number if b.vehicle else '-',
+            'payment_method': pay_method,
+            'sub_total': b.net_total,
+            'return_amount': return_amt,
+            'net_amount': b.net_total - return_amt
+        })
+
+    total_credit_payments = payments.exclude(type='Credit').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    total_returns = returns.aggregate(t=Sum('return_value'))['t'] or Decimal('0')
+    total_expenses = expenses.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+    
+    # Net Cash = Complete Sales + Credit Payments - Returns - Expenses
+    net_cash_balance = total_complete_sales + total_credit_payments - total_returns - total_expenses
+
+    # Vehicles for dropdown
+    vehicles = Vehicle.objects.filter(is_active=True)
+
+    context = {
+        'selected_date': selected_date,
+        'selected_vehicle': vehicle_id,
+        'vehicles': vehicles,
+        'bill_list': bill_list,
+        
+        # Summary Totals
+        'total_complete_sales': total_complete_sales,
+        'total_credit_sales': total_credit_sales,
+        'total_credit_payments': total_credit_payments,
+        'total_returns': total_returns,
+        'total_expenses': total_expenses,
+        'net_cash_balance': net_cash_balance,
+    }
+    return render(request, 'core/daily_sales_summary.html', context)
+
+
