@@ -159,7 +159,13 @@
             <tbody>
                 {% for item in bills %}
                 <tr>
-                    <td><input type="checkbox" class="bill-checkbox" value="{{ item.bill.id }}" data-outstanding="{{ item.outstanding|floatformat:2 }}" onchange="updateMultiTotals()"></td>
+                    <td>
+                        <input type="checkbox" class="bill-checkbox" 
+                            value="{{ item.bill.id }}" 
+                            data-outstanding="{{ item.outstanding|floatformat:2 }}" 
+                            data-invoice="{{ item.bill.invoice_no }}" 
+                            onchange="updateMultiTotals()">
+                    </td>
                     <td><strong>{{ item.bill.invoice_no }}</strong></td>
                     <td>{{ item.customer }}</td>
                     <td style="text-align:right; font-weight:600;">Rs {{ item.bill.net_total|floatformat:2 }}</td>
@@ -378,32 +384,82 @@
 
 <script>
 // ============================================================
-// CHECKBOX / MULTI-SELECT
+// CHECKBOX / MULTI-SELECT (With Session Storage)
 // ============================================================
+let selectedBills = JSON.parse(sessionStorage.getItem('selectedCreditBills') || '[]');
+
 function toggleAllBills(source) {
     document.querySelectorAll('.bill-checkbox').forEach(cb => { cb.checked = source.checked; });
     updateMultiTotals();
 }
 
 function updateMultiTotals() {
-    const boxes = document.querySelectorAll('.bill-checkbox:checked');
+    // 1. Sync DOM checkboxes with memory
+    document.querySelectorAll('.bill-checkbox').forEach(cb => {
+        const billId = cb.value;
+        const isChecked = cb.checked;
+        const index = selectedBills.findIndex(b => b.id === billId);
+        
+        if (isChecked && index === -1) {
+            selectedBills.push({
+                id: billId,
+                invoice: cb.dataset.invoice || '',
+                outstanding: parseFloat(cb.dataset.outstanding || 0)
+            });
+        } else if (!isChecked && index !== -1) {
+            selectedBills.splice(index, 1);
+        }
+    });
+
+    // 2. Save to browser memory
+    sessionStorage.setItem('selectedCreditBills', JSON.stringify(selectedBills));
+
+    // 3. Update UI Bar
     const bar = document.getElementById('multiBillBar');
     if (!bar) return;
     
     let total = 0;
-    boxes.forEach(cb => { total += parseFloat(cb.dataset.outstanding || 0); });
+    selectedBills.forEach(b => { total += b.outstanding; });
     
-    document.getElementById('selectedBillCount').textContent = boxes.length;
+    document.getElementById('selectedBillCount').textContent = selectedBills.length;
     document.getElementById('selectedTotalOutstanding').textContent = total.toFixed(2);
-    bar.style.display = boxes.length > 0 ? 'flex' : 'none';
+    bar.style.display = selectedBills.length > 0 ? 'flex' : 'none';
 }
 
 function clearBillSelection() {
+    selectedBills = [];
+    sessionStorage.removeItem('selectedCreditBills');
+    
     document.querySelectorAll('.bill-checkbox').forEach(cb => cb.checked = false);
     const sel = document.getElementById('selectAllBills');
     if (sel) sel.checked = false;
+    
     updateMultiTotals();
 }
+
+// ============================================================
+// TAKE FOR COLLECTION FORM SUBMISSION
+// ============================================================
+document.getElementById('takeForm').addEventListener('submit', function(e) {
+    // Remove previously injected hidden inputs
+    this.querySelectorAll('.dynamic-bill-input').forEach(el => el.remove());
+
+    if (selectedBills.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one bill to take for collection.');
+        return;
+    }
+
+    // Inject hidden inputs so Django can read them
+    selectedBills.forEach(b => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'bill_ids';
+        input.value = b.id;
+        input.className = 'dynamic-bill-input';
+        this.appendChild(input);
+    });
+});
 
 // ============================================================
 // RETURN MODAL
@@ -462,7 +518,6 @@ function openPayNowModal(billId, invoiceNo, outstanding, originalVehicleId) {
     document.getElementById('payChequeDate').value = '';
     document.getElementById('payChequeBank').value = '';
     
-    // Set default vehicle
     const vSelect = document.getElementById('payVehicle');
     if (vSelect && originalVehicleId) vSelect.value = originalVehicleId;
     
@@ -474,25 +529,29 @@ function closePayNowModal() {
 }
 
 // ============================================================
-// MULTI-PAY MODAL
+// MULTI-PAY MODAL (Kept exactly as it was)
 // ============================================================
 function openMultiPayModal() {
-    const boxes = document.querySelectorAll('.bill-checkbox:checked');
-    if (boxes.length === 0) { alert('Please select at least one bill.'); return; }
+    if (selectedBills.length === 0) { 
+        alert('Please select at least one bill.'); 
+        return; 
+    }
     
     let total = 0;
     const container = document.getElementById('mpBillIdsContainer');
     container.innerHTML = '';
-    boxes.forEach(cb => {
-        total += parseFloat(cb.dataset.outstanding || 0);
+    
+    // Use memory array instead of DOM
+    selectedBills.forEach(b => {
+        total += b.outstanding;
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = 'bill_ids';
-        input.value = cb.value;
+        input.value = b.id;
         container.appendChild(input);
     });
     
-    document.getElementById('mpBillCount').textContent = boxes.length;
+    document.getElementById('mpBillCount').textContent = selectedBills.length;
     document.getElementById('mpTotalOutstanding').textContent = total.toFixed(2);
     document.getElementById('mpAmount').value = total.toFixed(2);
     document.getElementById('mpMethod').value = 'Cash';
@@ -596,9 +655,18 @@ document.addEventListener('click', function(e) {
 })();
 
 // ============================================================
-// AUTO-OPEN PAY NOW IF bill_id IN URL
+// AUTO-RESTORE CHECKBOXES ON PAGE LOAD
 // ============================================================
-window.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // Restore checkboxes based on memory
+    document.querySelectorAll('.bill-checkbox').forEach(cb => {
+        if (selectedBills.some(b => b.id === cb.value)) {
+            cb.checked = true;
+        }
+    });
+    updateMultiTotals(); // Update the UI Bar
+    
+    // Auto-open Pay Now modal if in URL
     const urlParams = new URLSearchParams(window.location.search);
     const billId = urlParams.get('bill_id');
     if (billId) {
