@@ -1,0 +1,116 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<style>
+    .filter-bar { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: end; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; }
+    .filter-group input, .filter-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
+    
+    .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow-x: auto; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f8f9fc; padding: 12px; text-align: left; border-bottom: 2px solid #e0e4eb; }
+    td { padding: 12px; border-bottom: 1px solid #eee; }
+    
+    .summary-box { background: #f8f0ff; border: 2px solid #6f42c1; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: #6f42c1; }
+</style>
+
+<div class="container">
+    <div class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2>🔍 Item Sales Report</h2>
+            <span class="subtitle">Find all bills containing a specific product</span>
+        </div>
+        <button onclick="window.print()" style="padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">🖨️ Print Report</button>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group" style="flex: 2;">
+            <label>Product *</label>
+            <select name="product" required style="min-width: 250px;">
+                <option value="">-- Select Product --</option>
+                {% for p in products %}
+                    <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+                        {{ p.name }} ({{ p.code }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group" style="flex: 1;">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        
+        <button type="submit" style="padding: 10px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 41px;">🔍 Generate</button>
+        <a href="/reports/item-sales/" style="padding: 10px 20px; background: #6c757d; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; height: 41px; line-height: 20px; box-sizing: border-box;">Clear</a>
+    </form>
+
+    <!-- Results Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Vehicle</th>
+                    <th style="text-align: right;">Qty</th>
+                    <th style="text-align: right;">Rate (Rs)</th>
+                    <th style="text-align: right;">Total (Rs)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><strong>{{ item.bill.invoice_no }}</strong></td>
+                    <td>{{ item.bill.date|date:"Y-m-d" }} <br><small style="color:#888;">{{ item.bill.created_at|date:"H:i" }}</small></td>
+                    <td>{{ item.bill.shop_name|default:"-" }}</td>
+                    <td>{{ item.bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td style="text-align: right; font-weight: 600; color: #007bff;">{{ item.quantity }}</td>
+                    <td style="text-align: right;">{{ item.rate|floatformat:2 }}</td>
+                    <td style="text-align: right; font-weight: 700; color: #28a745;">{{ item.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 30px; color: #999;">
+                        {% if selected_product %}
+                            No sales found for this product with the selected filters.
+                        {% else %}
+                            Please select a product to generate the report.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Footer -->
+    {% if selected_product %}
+    <div class="summary-box">
+        <div>Total Quantity Sold: <span style="color: #007bff;">{{ total_qty_sold }}</span></div>
+        <div>Total Revenue: <span style="color: #28a745;">Rs {{ total_revenue|floatformat:2 }}</span></div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

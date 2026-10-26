@@ -267,7 +267,7 @@ urlpatterns = [
 
     path('reports/daily-sales-summary/', views.daily_sales_summary, name='daily_sales_summary'),
 
-    
+    path('reports/item-sales/', views.item_sales_report, name='item_sales_report'),
 
     
 ]

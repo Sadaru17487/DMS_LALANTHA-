@@ -9052,3 +9052,49 @@ def daily_sales_summary(request):
     }
     return render(request, 'core/daily_sales_summary.html', context)
 
+
+@login_required
+@permission_required('view_reports')
+def item_sales_report(request):
+    from django.db.models import Sum
+    
+    # Get Filters
+    product_id = request.GET.get('product', '')
+    vehicle_id = request.GET.get('vehicle', '')
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    
+    # Base Query: Get all sold items (excluding returns for now)
+    items = SalesItem.objects.select_related('bill', 'product', 'bill__vehicle').filter(is_return=False).order_by('-bill__date', '-bill__created_at')
+    
+    # Apply Filters
+    if product_id and product_id.isdigit():
+        items = items.filter(product_id=int(product_id))
+        
+    if vehicle_id and vehicle_id.isdigit():
+        items = items.filter(bill__vehicle_id=int(vehicle_id))
+        
+    if start_date:
+        items = items.filter(bill__date__gte=start_date)
+        
+    if end_date:
+        items = items.filter(bill__date__lte=end_date)
+        
+    # Calculate Totals for the filtered list
+    total_qty_sold = items.aggregate(t=Sum('quantity'))['t'] or 0
+    total_revenue = items.aggregate(t=Sum('total'))['t'] or 0
+    
+    context = {
+        'items': items,
+        'products': Product.objects.filter(is_active=True).order_by('name'),
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'selected_product': product_id,
+        'selected_vehicle': vehicle_id,
+        'start_date': start_date,
+        'end_date': end_date,
+        'total_qty_sold': total_qty_sold,
+        'total_revenue': total_revenue,
+    }
+    
+    return render(request, 'core/item_sales_report.html', context)
+
