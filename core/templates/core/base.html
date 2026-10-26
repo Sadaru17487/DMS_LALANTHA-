@@ -200,7 +200,7 @@
             <i class="fas fa-clipboard-check"></i> Today's Collections
         </a>
         {% endif %}
-                
+                        
         {% if request.user.profile|has_perm:'view_cheque_list' %}
         <a href="/cheques/" class="{% if 'cheque' in request.path %}active{% endif %}">
             <i class="fas fa-money-check-alt"></i> Cheque List
@@ -353,6 +353,11 @@
         </a>
         {% endif %}
         
+        {% if request.user.profile|has_perm:'view_reports' %}
+        <a href="/reports/daily-sales-summary/" class="{% if 'daily-sales-summary' in request.path %}active{% endif %}">
+        📈 Daily Sales Summary
+        </a>
+        {% endif %}
         
         <!-- ===== ADMIN (Admin only) ===== -->
         {% if request.user.profile.role == 'Admin' %}
