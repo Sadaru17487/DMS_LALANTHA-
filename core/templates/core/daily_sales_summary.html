@@ -183,6 +183,10 @@
                 <td>Today's Net Cash Value <br><small style="font-size:12px; font-weight:normal; color:#666;">(Complete Sales + Credit Collections)</small></td>
                 <td class="amount">Rs {{ today_net_cash|floatformat:2 }}</td>
             </tr>
+            <tr>
+                <td>Total Stock Loss (Adjustments)</td>
+                <td class="amount" style="color: #dc3545;">- Rs {{ total_stock_loss|floatformat:2 }}</td>
+            </tr>
         </table>
     </div>
 </div>

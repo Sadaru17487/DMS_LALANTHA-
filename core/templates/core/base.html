@@ -227,6 +227,12 @@
             <i class="fas fa-users"></i> Customers
         </a>
         {% endif %}
+
+        {% if request.user.profile|has_perm:'view_stock_adjustments' %}
+        <a href="/stock-adjustments/" class="{% if 'stock-adjustment' in request.path %}active{% endif %}">
+            <i class="fas fa-exchange-alt"></i> Stock Adjustments
+        </a>
+        {% endif %}
         
         <!-- ===== INVENTORY ===== -->
         {% if request.user.profile|has_perm:'view_products' or request.user.profile|has_perm:'view_stock' or request.user.profile|has_perm:'view_categories' %}

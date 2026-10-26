@@ -14,11 +14,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from functools import wraps
 from django.contrib.auth.models import User
-from django.db import transaction
 from django.db.models import Sum, Count, Q
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+
 
 
 from .decorators import permission_required
@@ -28,7 +28,8 @@ from .models import (
     SalesBill, SalesItem, Payment, Expense, UserProfile, Customer, 
     Cheque, OnlinePayment, MultiPayment, Bank, Supplier, Purchase, PurchasePayment,
     PurchaseItem, StockMovement, StockTransfer, CreditCollection, DailySession,
-    SalesReturn, SalesReturnItem, SalesReturnExchangeItem, SupplierReturn, SupplierReturnItem
+    SalesReturn, SalesReturnItem, SalesReturnExchangeItem, SupplierReturn, SupplierReturnItem,
+    StockAdjustment
 )
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -8820,9 +8821,6 @@ def take_for_collection(request):
 @login_required
 @admin_only
 def edit_sales_bill(request, bill_id):
-    from django.db import transaction
-    from decimal import Decimal
-    from datetime import datetime
     
     bill = get_object_or_404(SalesBill, id=bill_id)
     
@@ -8959,9 +8957,6 @@ def edit_sales_bill(request, bill_id):
 @login_required
 @permission_required('view_reports')
 def daily_sales_summary(request):
-    from django.db.models import Sum
-    from decimal import Decimal
-    from datetime import datetime
     
     today = date.today()
     selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
@@ -9029,6 +9024,12 @@ def daily_sales_summary(request):
 
     vehicles = Vehicle.objects.filter(is_active=True)
 
+    stock_losses = StockAdjustment.objects.filter(date=target_date, difference__lt=0) # Only losses
+    if vehicle_id and vehicle_id.isdigit():
+        stock_losses = stock_losses.filter(vehicle_id=int(vehicle_id))
+        
+    total_stock_loss = abs(stock_losses.aggregate(t=Sum('cost_value'))['t'] or Decimal('0'))
+
     context = {
         'selected_date': selected_date,
         'selected_vehicle': vehicle_id,
@@ -9049,6 +9050,7 @@ def daily_sales_summary(request):
         'total_expenses': total_expenses,
         'total_returns': total_returns,
         'today_net_cash': today_net_cash,
+        'total_stock_loss': total_stock_loss,
     }
     return render(request, 'core/daily_sales_summary.html', context)
 
@@ -9098,3 +9100,105 @@ def item_sales_report(request):
     
     return render(request, 'core/item_sales_report.html', context)
 
+
+@login_required
+@admin_only
+def stock_adjustment(request):
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                location_type = request.POST.get('location_type')
+                vehicle_id = request.POST.get('vehicle')
+                adj_date_str = request.POST.get('adjustment_date')
+                
+                # Parse date
+                try:
+                    adj_date = datetime.strptime(adj_date_str, '%Y-%m-%d').date()
+                except:
+                    adj_date = date.today()
+                
+                vehicle = None
+                if location_type == 'Vehicle' and vehicle_id and vehicle_id.isdigit():
+                    vehicle = Vehicle.objects.get(id=int(vehicle_id))
+
+                # Process adjustments
+                i = 1
+                while f'product_id_{i}' in request.POST:
+                    product_id = request.POST.get(f'product_id_{i}')
+                    physical_qty_str = request.POST.get(f'physical_qty_{i}', '')
+                    reason = request.POST.get(f'reason_{i}', '')
+                    
+                    if product_id and physical_qty_str and reason:
+                        product = Product.objects.get(id=product_id)
+                        physical_qty = Decimal(physical_qty_str)
+                        
+                        # Get current system qty
+                        system_qty = Decimal('0')
+                        if location_type == 'Vehicle' and vehicle:
+                            stock, _ = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
+                            system_qty = stock.quantity
+                            # Update Stock
+                            stock.quantity = physical_qty
+                            stock.save()
+                        else:
+                            stock, _ = WarehouseStock.objects.get_or_create(product=product)
+                            system_qty = stock.quantity
+                            # Update Stock
+                            stock.quantity = physical_qty
+                            stock.save()
+                            
+                        difference = physical_qty - system_qty
+                        
+                        # Only log if there is an actual difference
+                        if difference != 0:
+                            cost_val = difference * (product.cost_price or Decimal('0'))
+                            StockAdjustment.objects.create(
+                                date=adj_date,
+                                location_type=location_type,
+                                vehicle=vehicle,
+                                product=product,
+                                system_qty=system_qty,
+                                physical_qty=physical_qty,
+                                difference=difference,
+                                cost_value=cost_val,
+                                reason=reason,
+                                adjusted_by=request.user
+                            )
+                    i += 1
+                
+                messages.success(request, '✅ Stock adjustments saved successfully!')
+                return redirect('/stock-adjustment/')
+        except Exception as e:
+            messages.error(request, f'❌ Error saving adjustments: {str(e)}')
+            return redirect('/stock-adjustment/')
+
+    # GET Request
+    context = {
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'products': Product.objects.filter(is_active=True).order_by('name'),
+        'today': date.today(),
+    }
+    return render(request, 'core/stock_adjustment.html', context)
+
+
+@login_required
+def api_get_stock(request):
+    """API to get current stock for a product based on location"""
+    
+    loc_type = request.GET.get('loc_type')
+    vehicle_id = request.GET.get('vehicle')
+    product_id = request.GET.get('product')
+    
+    if not product_id:
+        return JsonResponse({'qty': 0})
+        
+    qty = 0
+    if loc_type == 'Vehicle' and vehicle_id:
+        vs = VehicleStock.objects.filter(vehicle_id=vehicle_id, product_id=product_id).first()
+        qty = float(vs.quantity) if vs else 0
+    elif loc_type == 'Warehouse':
+        ws = WarehouseStock.objects.filter(product_id=product_id).first()
+        qty = float(ws.quantity) if ws else 0
+        
+    return JsonResponse({'qty': qty})

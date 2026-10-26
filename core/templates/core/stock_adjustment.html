@@ -1,0 +1,178 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<div class="container">
+    <div class="page-title" style="margin-bottom: 20px;">
+        <h2>⚖️ Stock Reconciliation</h2>
+        <span class="subtitle">Adjust Physical Stock vs System Stock</span>
+    </div>
+
+    <form method="POST" id="adjustForm">
+        {% csrf_token %}
+        
+        <!-- Header Settings -->
+        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+            <div>
+                <label style="font-weight:600; font-size:13px; display:block; margin-bottom:5px;">Location *</label>
+                <select name="location_type" id="locType" required onchange="toggleVehicle()" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; width:200px;">
+                    <option value="Vehicle">Vehicle</option>
+                    <option value="Warehouse">Warehouse</option>
+                </select>
+            </div>
+            
+            <div id="vehicleDiv">
+                <label style="font-weight:600; font-size:13px; display:block; margin-bottom:5px;">Select Vehicle *</label>
+                <select name="vehicle" id="vehicleSelect" onchange="updateAllRows()" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; width:250px;">
+                    <option value="">-- Select Vehicle --</option>
+                    {% for v in vehicles %}
+                        <option value="{{ v.id }}">{{ v.vehicle_number }} - {{ v.driver_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label style="font-weight:600; font-size:13px; display:block; margin-bottom:5px;">Date *</label>
+                <input type="date" name="adjustment_date" value="{{ today|date:'Y-m-d' }}" required style="padding:10px; border:2px solid #e0e4eb; border-radius:8px;">
+            </div>
+        </div>
+
+        <!-- Adjustment Table -->
+        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow-x: auto;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight:600;">Add Product to Adjust:</label>
+                <select id="productSelector" onchange="addProductRow(this)" style="padding:10px; border:2px solid #e0e4eb; border-radius:8px; width:100%; max-width:400px; margin-left:10px;">
+                    <option value="">-- Search & Select Product --</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}" data-name="{{ p.name }}" data-code="{{ p.code }}">{{ p.name }} ({{ p.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f8f9fc; text-align:left;">
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Product</th>
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:center;">System Qty</th>
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:center;">Physical Qty</th>
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:center;">Difference</th>
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Reason</th>
+                        <th style="padding:12px; border-bottom:2px solid #e0e4eb;"></th>
+                    </tr>
+                </thead>
+                <tbody id="adjustmentBody">
+                    <!-- Rows injected by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 15px;">
+            <button type="submit" style="padding: 14px 40px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 16px; cursor: pointer;">💾 Save Adjustments</button>
+            <a href="/dashboard/" style="padding: 14px 40px; background: #6c757d; color: white; border-radius: 8px; font-weight: 600; text-decoration: none;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    let rowCount = 0;
+
+    function toggleVehicle() {
+        const type = document.getElementById('locType').value;
+        document.getElementById('vehicleDiv').style.display = type === 'Vehicle' ? 'block' : 'none';
+        updateAllRows();
+    }
+
+    function addProductRow(select) {
+        if (!select.value) return;
+        
+        const productId = select.value;
+        const productName = select.options[select.selectedIndex].dataset.name;
+        const productCode = select.options[select.selectedIndex].dataset.code;
+        
+        // Check if already added
+        if (document.querySelector(`input[name="product_id_${rowCount}"][value="${productId}"]`)) {
+            alert('Product already added to the list.');
+            select.value = '';
+            return;
+        }
+
+        rowCount++;
+        const tbody = document.getElementById('adjustmentBody');
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+            <td style="padding:12px; border-bottom:1px solid #eee;">
+                <strong>${productName}</strong><br><small style="color:#888;">${productCode}</small>
+                <input type="hidden" name="product_id_${rowCount}" value="${productId}" class="row-product-id">
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #eee; text-align:center;">
+                <span class="system-qty" id="sys_qty_${rowCount}">0</span>
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #eee; text-align:center;">
+                <input type="number" step="0.01" name="physical_qty_${rowCount}" required 
+                       oninput="calcDiff(${rowCount})" id="phy_qty_${rowCount}"
+                       style="width:80px; padding:8px; text-align:center; border:2px solid #e0e4eb; border-radius:6px;">
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #eee; text-align:center; font-weight:bold;" id="diff_${rowCount}">0.00</td>
+            <td style="padding:12px; border-bottom:1px solid #eee;">
+                <select name="reason_${rowCount}" required style="width:100%; padding:8px; border:2px solid #e0e4eb; border-radius:6px;">
+                    <option value="">-- Select --</option>
+                    <option value="DAMAGED">Damaged</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="THEFT">Theft/Lost</option>
+                    <option value="FOUND">Found/Extra</option>
+                    <option value="ERROR">Data Entry Error</option>
+                </select>
+            </td>
+            <td style="padding:12px; border-bottom:1px solid #eee; text-align:center;">
+                <button type="button" onclick="this.closest('tr').remove()" style="background:#fee; color:#dc3545; border:none; padding:6px 12px; border-radius:6px; cursor:pointer;">✕</button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+        select.value = ''; // Reset dropdown
+        
+        // Fetch system stock
+        updateRowStock(rowCount, productId);
+    }
+
+    function updateAllRows() {
+        document.querySelectorAll('.row-product-id').forEach(input => {
+            const row = input.closest('tr');
+            const rowId = input.name.split('_').pop();
+            updateRowStock(rowId, input.value);
+        });
+    }
+
+    function updateRowStock(rowId, productId) {
+        const locType = document.getElementById('locType').value;
+        const vehicleId = document.getElementById('vehicleSelect').value;
+        
+        if (locType === 'Vehicle' && !vehicleId) {
+            document.getElementById(`sys_qty_${rowId}`).textContent = '0';
+            return;
+        }
+
+        fetch(`/api/get-stock/?loc_type=${locType}&vehicle=${vehicleId}&product=${productId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById(`sys_qty_${rowId}`).textContent = data.qty;
+                document.getElementById(`sys_qty_${rowId}`).dataset.raw = data.qty;
+                calcDiff(rowId);
+            });
+    }
+
+    function calcDiff(rowId) {
+        const sysQty = parseFloat(document.getElementById(`sys_qty_${rowId}`).dataset.raw || 0);
+        const phyQty = parseFloat(document.getElementById(`phy_qty_${rowId}`).value) || 0;
+        const diff = phyQty - sysQty;
+        
+        const diffEl = document.getElementById(`diff_${rowId}`);
+        diffEl.textContent = diff.toFixed(2);
+        
+        if (diff > 0) diffEl.style.color = '#28a745'; // Green for extra
+        else if (diff < 0) diffEl.style.color = '#dc3545'; // Red for loss
+        else diffEl.style.color = '#333';
+    }
+</script>
+
+{% endblock %}

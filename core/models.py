@@ -1428,5 +1428,34 @@ class BadStockLog(models.Model):
     def __str__(self):
         return f"{self.product.name} x{self.quantity} ({self.reason})"
 
+
+class StockAdjustment(models.Model):
+    LOCATION_CHOICES = [
+        ('Vehicle', 'Vehicle'),
+        ('Warehouse', 'Warehouse'),
+    ]
+    REASON_CHOICES = [
+        ('DAMAGED', 'Damaged'),
+        ('EXPIRED', 'Expired'),
+        ('THEFT', 'Theft/Lost'),
+        ('FOUND', 'Found/Extra'),
+        ('ERROR', 'Data Entry Error'),
+    ]
+
+    date = models.DateField()
+    location_type = models.CharField(max_length=20, choices=LOCATION_CHOICES)
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.SET_NULL, null=True, blank=True)
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)
     
-     
+    system_qty = models.DecimalField(max_digits=10, decimal_places=2)
+    physical_qty = models.DecimalField(max_digits=10, decimal_places=2)
+    difference = models.DecimalField(max_digits=10, decimal_places=2) # (Physical - System)
+    
+    cost_value = models.DecimalField(max_digits=12, decimal_places=2, default=0) # Difference * Cost Price
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    
+    adjusted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.difference} on {self.date}"    
