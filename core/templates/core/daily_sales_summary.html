@@ -2,29 +2,26 @@
 {% block content %}
 
 <style>
-    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-    .summary-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-top: 4px solid #ccc; }
-    .summary-card.complete { border-top-color: #28a745; }
-    .summary-card.credit-sales { border-top-color: #fd7e14; }
-    .summary-card.credit-pay { border-top-color: #007bff; }
-    .summary-card.returns { border-top-color: #dc3545; }
-    .summary-card.expense { border-top-color: #6c757d; }
-    .summary-card.net { border-top-color: #6f42c1; background: #f8f0ff; }
+    .report-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 25px; }
+    .report-section h3 { margin-top: 0; color: #1a2634; border-bottom: 2px solid #e0e4eb; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .report-table th { background: #f8f9fc; padding: 10px; text-align: left; border-bottom: 2px solid #e0e4eb; }
+    .report-table td { padding: 10px; border-bottom: 1px solid #eee; }
+    .report-table tr:last-child td { border-bottom: none; }
     
-    .summary-card .label { font-size: 12px; color: #666; text-transform: uppercase; font-weight: 700; }
-    .summary-card .value { font-size: 24px; font-weight: 800; margin-top: 5px; }
-    
-    .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-    .badge.cash { background: #d4edda; color: #155724; }
-    .badge.credit { background: #fff3cd; color: #856404; }
-    .badge.cheque { background: #cce5ff; color: #004085; }
+    .summary-table-container { background: #f8f0ff; border: 2px solid #6f42c1; border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+    .summary-table-container h3 { color: #6f42c1; margin-top: 0; text-align: center; }
+    .summary-table { width: 100%; border-collapse: collapse; font-size: 16px; }
+    .summary-table td { padding: 12px; border-bottom: 1px solid #d1c4e9; font-weight: 600; }
+    .summary-table tr:last-child td { border-bottom: none; font-size: 20px; color: #6f42c1; font-weight: 800; }
+    .summary-table .amount { text-align: right; font-family: monospace; }
 </style>
 
 <div class="container">
     <div class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <h2>📊 Daily Sales Summary</h2>
-            <span class="subtitle">Daily overview of Sales, Collections, and Cash</span>
+            <h2>📊 Detailed Daily Summary</h2>
+            <span class="subtitle">Breakdown of Sales, Collections, Expenses, and Returns</span>
         </div>
         <button onclick="window.print()" style="padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">🖨️ Print Report</button>
     </div>
@@ -49,69 +46,144 @@
         <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
     </form>
 
-    <!-- Data Table -->
-    <div style="background:white; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow-x:auto; margin-bottom: 25px;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-                <tr style="background:#f8f9fc; text-align:left;">
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Invoice</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Date</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Customer</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Vehicle</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb;">Method</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Sub Total</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Returns</th>
-                    <th style="padding:12px; border-bottom:2px solid #e0e4eb; text-align:right;">Net Amount</th>
-                </tr>
-            </thead>
+    <!-- 1. Complete Sales Table -->
+    <div class="report-section">
+        <h3>✅ Complete Sales <span style="font-size:14px; color:#28a745;">Total: Rs {{ total_complete_sales|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Amount</th></tr></thead>
             <tbody>
-                {% for bill in bill_list %}
+                {% for bill in complete_sales_list %}
                 <tr>
-                    <td style="padding:10px; border-bottom:1px solid #eee;"><strong>{{ bill.invoice_no }}</strong></td>
-                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.date|date:"Y-m-d H:i" }}</td>
-                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.customer }}</td>
-                    <td style="padding:10px; border-bottom:1px solid #eee;">{{ bill.vehicle }}</td>
-                    <td style="padding:10px; border-bottom:1px solid #eee;">
-                        <span class="badge {{ bill.payment_method|lower }}">{{ bill.payment_method }}</span>
-                    </td>
-                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">Rs {{ bill.sub_total|floatformat:2 }}</td>
-                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right; color:#dc3545;">Rs {{ bill.return_amount|floatformat:2 }}</td>
-                    <td style="padding:10px; border-bottom:1px solid #eee; text-align:right; font-weight:bold;">Rs {{ bill.net_amount|floatformat:2 }}</td>
+                    <td><strong>{{ bill.invoice_no }}</strong></td>
+                    <td>{{ bill.shop_name }}</td>
+                    <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td class="amount">Rs {{ bill.net_total|floatformat:2 }}</td>
                 </tr>
-                {% empty %}
-                <tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">No sales found for this date.</td></tr>
-                {% endfor %}
+                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No complete sales.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- Summary Cards (Bottom) -->
-    <h3 style="margin-bottom: 15px; color: #1a2634;">📈 System Summary</h3>
-    <div class="summary-grid">
-        <div class="summary-card complete">
-            <div class="label">Total Complete Sales</div>
-            <div class="value" style="color: #28a745;">Rs {{ total_complete_sales|floatformat:2 }}</div>
-        </div>
-        <div class="summary-card credit-sales">
-            <div class="label">Total Credit Sales</div>
-            <div class="value" style="color: #fd7e14;">Rs {{ total_credit_sales|floatformat:2 }}</div>
-        </div>
-        <div class="summary-card credit-pay">
-            <div class="label">Total Credit Payments</div>
-            <div class="value" style="color: #007bff;">Rs {{ total_credit_payments|floatformat:2 }}</div>
-        </div>
-        <div class="summary-card returns">
-            <div class="label">Total Returns</div>
-            <div class="value" style="color: #dc3545;">Rs {{ total_returns|floatformat:2 }}</div>
-        </div>
-        <div class="summary-card expense">
-            <div class="label">Total Expenses</div>
-            <div class="value" style="color: #6c757d;">Rs {{ total_expenses|floatformat:2 }}</div>
-        </div>
-        <div class="summary-card net">
-            <div class="label">Net Cash Balance</div>
-            <div class="value" style="color: #6f42c1;">Rs {{ net_cash_balance|floatformat:2 }}</div>
-        </div>
+    <!-- 2. Credit Bills Table -->
+    <div class="report-section">
+        <h3>📋 Credit Bills <span style="font-size:14px; color:#fd7e14;">Total: Rs {{ total_credit_sales|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+                {% for bill in credit_sales_list %}
+                <tr>
+                    <td><strong>{{ bill.invoice_no }}</strong></td>
+                    <td>{{ bill.shop_name }}</td>
+                    <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td class="amount">Rs {{ bill.net_total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No credit bills.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 3. Credit Collections Table -->
+    <div class="report-section">
+        <h3>💰 Credit Collections <span style="font-size:14px; color:#007bff;">Total: Rs {{ total_credit_collections|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Method</th><th class="amount">Amount Paid</th></tr></thead>
+            <tbody>
+                {% for p in credit_collections_list %}
+                <tr>
+                    <td><strong>{{ p.bill.invoice_no }}</strong></td>
+                    <td>{{ p.bill.shop_name }}</td>
+                    <td>{{ p.type }}</td>
+                    <td class="amount">Rs {{ p.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No credit collections.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 4. Cheque List Table -->
+    <div class="report-section">
+        <h3>🏦 Cheque List</h3>
+        <table class="report-table">
+            <thead><tr><th>Cheque No</th><th>Date</th><th>Bank</th><th>Customer</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+                {% for c in cheques_list %}
+                <tr>
+                    <td><strong>{{ c.cheque_no }}</strong></td>
+                    <td>{{ c.cheque_date|date:"Y-m-d" }}</td>
+                    <td>{{ c.bank.name }}</td>
+                    <td>{{ c.customer_name }}</td>
+                    <td class="amount">Rs {{ c.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="5" style="text-align:center; color:#999;">No cheques recorded.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 5. Expenses Table -->
+    <div class="report-section">
+        <h3>💸 Expenses <span style="font-size:14px; color:#dc3545;">Total: Rs {{ total_expenses|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Category</th><th>Note</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+                {% for e in expenses_list %}
+                <tr>
+                    <td>{{ e.category }}</td>
+                    <td>{{ e.note }}</td>
+                    <td class="amount">Rs {{ e.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="3" style="text-align:center; color:#999;">No expenses recorded.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 6. Returns Table -->
+    <div class="report-section">
+        <h3>🔄 Returns <span style="font-size:14px; color:#dc3545;">Total: Rs {{ total_returns|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Return No</th><th>Invoice</th><th>Customer</th><th>Reason</th><th class="amount">Return Value</th></tr></thead>
+            <tbody>
+                {% for r in returns_list %}
+                <tr>
+                    <td><strong>{{ r.return_no }}</strong></td>
+                    <td>{{ r.original_invoice.invoice_no|default:"-" }}</td>
+                    <td>{{ r.shop_name }}</td>
+                    <td>{{ r.return_reason }}</td>
+                    <td class="amount">Rs {{ r.return_value|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="5" style="text-align:center; color:#999;">No returns recorded.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 7. Final Summary Table (Bottom) -->
+    <div class="summary-table-container">
+        <h3>📈 System Summary</h3>
+        <table class="summary-table">
+            <tr>
+                <td>Total Complete Sales</td>
+                <td class="amount">Rs {{ total_complete_sales|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total Credit Bill Sales</td>
+                <td class="amount">Rs {{ total_credit_sales|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total Credit Bill Collections</td>
+                <td class="amount">Rs {{ total_credit_collections|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total Expenses</td>
+                <td class="amount">Rs {{ total_expenses|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total Return Value</td>
+                <td class="amount">Rs {{ total_returns|floatformat:2 }}</td>
+            </tr>
+            <tr style="border-top: 2px solid #6f42c1; background: #ede7f6;">
+                <td>Today's Net Cash Value <br><small style="font-size:12px; font-weight:normal; color:#666;">(Complete Sales + Credit Collections)</small></td>
+                <td class="amount">Rs {{ today_net_cash|floatformat:2 }}</td>
+            </tr>
+        </table>
     </div>
 </div>
 

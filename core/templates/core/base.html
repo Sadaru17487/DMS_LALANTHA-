@@ -353,11 +353,7 @@
         </a>
         {% endif %}
         
-        {% if request.user.profile|has_perm:'view_reports' %}
-        <a href="/reports/daily-sales-summary/" class="{% if 'daily-sales-summary' in request.path %}active{% endif %}">
-        📈 Daily Sales Summary
-        </a>
-        {% endif %}
+
         
         <!-- ===== ADMIN (Admin only) ===== -->
         {% if request.user.profile.role == 'Admin' %}
