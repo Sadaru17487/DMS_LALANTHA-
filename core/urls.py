@@ -272,5 +272,6 @@ urlpatterns = [
     path('stock-adjustment/', views.stock_adjustment, name='stock_adjustment'),
     
     path('api/get-stock/', views.api_get_stock, name='api_get_stock'),
+
     
 ]
