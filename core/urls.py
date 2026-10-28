@@ -273,5 +273,7 @@ urlpatterns = [
     
     path('api/get-stock/', views.api_get_stock, name='api_get_stock'),
 
+    path('reports/stock-adjustments/', views.stock_adjustment_report, name='stock_adjustment_report'),
+
     
 ]

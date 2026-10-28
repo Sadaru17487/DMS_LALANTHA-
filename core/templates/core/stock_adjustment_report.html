@@ -1,0 +1,137 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<style>
+    .filter-bar { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: end; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { font-size: 12px; font-weight: 600; color: #555; text-transform: uppercase; }
+    .filter-group input, .filter-group select { padding: 8px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; }
+    
+    .table-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow-x: auto; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f8f9fc; padding: 12px; text-align: left; border-bottom: 2px solid #e0e4eb; }
+    td { padding: 12px; border-bottom: 1px solid #eee; }
+    
+    .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .badge.vehicle { background: #cce5ff; color: #004085; }
+    .badge.warehouse { background: #e2e3e5; color: #383d41; }
+    
+    .diff-positive { color: #28a745; font-weight: bold; }
+    .diff-negative { color: #dc3545; font-weight: bold; }
+    
+    .summary-box { background: #f8f0ff; border: 2px solid #6f42c1; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: #6f42c1; }
+</style>
+
+<div class="container">
+    <div class="page-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2>📋 Stock Adjustment History</h2>
+            <span class="subtitle">Track all physical stock corrections</span>
+        </div>
+        <button onclick="window.print()" style="padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">🖨️ Print Report</button>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="filter-bar">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Location</label>
+            <select name="location_type">
+                <option value="">All Locations</option>
+                <option value="Vehicle" {% if selected_loc_type == 'Vehicle' %}selected{% endif %}>Vehicle</option>
+                <option value="Warehouse" {% if selected_loc_type == 'Warehouse' %}selected{% endif %}>Warehouse</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group" style="flex: 2;">
+            <label>Product</label>
+            <select name="product" style="min-width: 200px;">
+                <option value="">All Products</option>
+                {% for p in products %}
+                    <option value="{{ p.id }}" {% if selected_product == p.id|stringformat:"s" %}selected{% endif %}>
+                        {{ p.name }} ({{ p.code }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" style="padding: 10px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 41px;">🔍 Filter</button>
+        <a href="/reports/stock-adjustments/" style="padding: 10px 20px; background: #6c757d; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; height: 41px; line-height: 20px; box-sizing: border-box;">Clear</a>
+    </form>
+
+    <!-- Results Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Location</th>
+                    <th>Product</th>
+                    <th style="text-align: center;">Before (System)</th>
+                    <th style="text-align: center;">After (Physical)</th>
+                    <th style="text-align: center;">Difference</th>
+                    <th>Reason</th>
+                    <th style="text-align: right;">Cost Value</th>
+                    <th>Adjusted By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for adj in adjustments %}
+                <tr>
+                    <td>{{ adj.date|date:"Y-m-d" }} <br><small style="color:#888;">{{ adj.created_at|date:"H:i" }}</small></td>
+                    <td>
+                        <span class="badge {{ adj.location_type|lower }}">{{ adj.location_type }}</span>
+                        {% if adj.vehicle %}
+                            <br><small style="font-weight:600;">{{ adj.vehicle.vehicle_number }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ adj.product.name }}</strong><br>
+                        <small style="color:#888;">{{ adj.product.code }}</small>
+                    </td>
+                    <td style="text-align: center; color: #666;">{{ adj.system_qty|floatformat:2 }}</td>
+                    <td style="text-align: center; font-weight: 600;">{{ adj.physical_qty|floatformat:2 }}</td>
+                    <td style="text-align: center;" class="{% if adj.difference > 0 %}diff-positive{% elif adj.difference < 0 %}diff-negative{% endif %}">
+                        {% if adj.difference > 0 %}+{% endif %}{{ adj.difference|floatformat:2 }}
+                    </td>
+                    <td>
+                        <span style="font-size:12px; font-weight:600; color: #555;">{{ adj.get_reason_display }}</span>
+                    </td>
+                    <td style="text-align: right; font-weight: 600; color: {% if adj.cost_value < 0 %}#dc3545{% else %}#28a745{% endif %};">
+                        Rs {{ adj.cost_value|floatformat:2 }}
+                    </td>
+                    <td style="font-size: 12px;">{{ adj.adjusted_by.username|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 30px; color: #999;">No stock adjustments found for the selected filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Footer -->
+    <div class="summary-box">
+        <div>Total Quantity Difference: <span class="{% if total_diff < 0 %}diff-negative{% else %}diff-positive{% endif %}">{{ total_diff|floatformat:2 }}</span></div>
+        <div>Net Financial Impact: <span style="color: {% if total_value < 0 %}#dc3545{% else %}#28a745{% endif %};">Rs {{ total_value|floatformat:2 }}</span></div>
+    </div>
+</div>
+
+{% endblock %}

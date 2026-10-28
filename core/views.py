@@ -9202,3 +9202,50 @@ def api_get_stock(request):
         qty = float(ws.quantity) if ws else 0
         
     return JsonResponse({'qty': qty})
+
+
+@login_required
+@admin_only
+def stock_adjustment_report(request):
+    from django.db.models import Sum
+    
+    # Get Filters
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
+    loc_type = request.GET.get('location_type', '')
+    vehicle_id = request.GET.get('vehicle', '')
+    product_id = request.GET.get('product', '')
+    
+    # Base Query
+    adjustments = StockAdjustment.objects.select_related('product', 'vehicle', 'adjusted_by').order_by('-date', '-created_at')
+    
+    # Apply Filters
+    if start_date:
+        adjustments = adjustments.filter(date__gte=start_date)
+    if end_date:
+        adjustments = adjustments.filter(date__lte=end_date)
+    if loc_type:
+        adjustments = adjustments.filter(location_type=loc_type)
+    if vehicle_id and vehicle_id.isdigit():
+        adjustments = adjustments.filter(vehicle_id=int(vehicle_id))
+    if product_id and product_id.isdigit():
+        adjustments = adjustments.filter(product_id=int(product_id))
+        
+    # Calculate Totals
+    total_diff = adjustments.aggregate(t=Sum('difference'))['t'] or 0
+    total_value = adjustments.aggregate(t=Sum('cost_value'))['t'] or 0
+    
+    context = {
+        'adjustments': adjustments,
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'products': Product.objects.filter(is_active=True).order_by('name'),
+        'start_date': start_date,
+        'end_date': end_date,
+        'selected_loc_type': loc_type,
+        'selected_vehicle': vehicle_id,
+        'selected_product': product_id,
+        'total_diff': total_diff,
+        'total_value': total_value,
+    }
+    
+    return render(request, 'core/stock_adjustment_report.html', context)
