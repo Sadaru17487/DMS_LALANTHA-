@@ -228,9 +228,9 @@
         </a>
         {% endif %}
 
-        {% if request.user.profile|has_perm:'view_stock_adjustments' %}
-        <a href="/stock-adjustments/" class="{% if 'stock-adjustment' in request.path %}active{% endif %}">
-            <i class="fas fa-exchange-alt"></i> Stock Adjustments
+        {% if request.user.profile|has_perm:'view_stock_adjustment' %}
+        <a href="/stock-adjustment/" class="{% if 'stock-adjustment' in request.path %}active{% endif %}">
+            <i class="fas fa-exchange-alt"></i> Stock Adjustment
         </a>
         {% endif %}
         
