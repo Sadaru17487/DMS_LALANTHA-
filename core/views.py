@@ -8407,7 +8407,7 @@ def vat_bills_report(request):
             is_vat_bill=True,
             date__gte=start_obj,
             date__lte=end_obj
-        ).select_related('vehicle', 'rep', 'customer').order_by('-date')
+        ).select_related('vehicle', 'rep').order_by('-date')
         for b in sales_bills:
             sales_vat.append({
                 'type': 'SALES',
