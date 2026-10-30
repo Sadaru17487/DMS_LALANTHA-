@@ -72,7 +72,7 @@
             </select>
         </div>
         <button type="submit" style="padding: 10px 25px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 41px;">🔍 Filter</button>
-        <a href="/reports/stock-adjustments/" style="padding: 10px 20px; background: #6c757d; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; height: 41px; line-height: 20px; box-sizing: border-box;">Clear</a>
+        <a href="{% url 'core:stock_adjustment_report' %}" style="padding: 10px 20px; background: #6c757d; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; height: 41px; line-height: 20px; box-sizing: border-box;">Clear</a>
     </form>
 
     <!-- Results Table -->
