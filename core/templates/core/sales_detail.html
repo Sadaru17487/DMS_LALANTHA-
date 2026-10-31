@@ -147,7 +147,7 @@
                 <tr>
                     <td style="padding:12px; border-bottom:1px solid #edf1f7;">{{ forloop.counter }}</td>
                     <td style="padding:12px; border-bottom:1px solid #edf1f7; color:#666;">
-                        {{ payment.payment_date|date:"Y-m-d"|default:"-" }}
+                        {{ payment.payment_date|default:payment.bill.date|date:"Y-m-d" }}
                     </td>
                     <td style="padding:12px; border-bottom:1px solid #edf1f7;">
                         <strong>{{ payment.type }}</strong>

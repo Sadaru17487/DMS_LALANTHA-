@@ -3189,7 +3189,7 @@ def create_sales_bill(request):
                     # ===== CREATE PAYMENTS =====
                     if payment_method == 'cheque' or cheque_amount > 0:
                         if cheque_amount > 0:
-                            Payment.objects.create(bill=bill, type='Cheque', amount=cheque_amount)
+                            Payment.objects.create(bill=bill, type='Cheque', amount=cheque_amount, payment_date=bill.date)
                             cheque_no = request.POST.get('cheque_no', '')
                             cheque_date = request.POST.get('cheque_date', '')
                             bank_id = request.POST.get('cheque_bank', '')
@@ -3210,13 +3210,13 @@ def create_sales_bill(request):
                                     pass
                     
                     elif payment_method == 'cash' and cash_amount > 0:
-                        Payment.objects.create(bill=bill, type='Cash', amount=cash_amount)
+                        Payment.objects.create(bill=bill, type='Cash', amount=cash_amount, payment_date=bill.date)
                     
                     elif payment_method == 'credit' and credit_amount > 0:
-                        Payment.objects.create(bill=bill, type='Credit', amount=credit_amount)
+                        Payment.objects.create(bill=bill, type='Credit', amount=credit_amount, payment_date=bill.date)
                     
                     elif payment_method == 'online' and online_amount > 0:
-                        Payment.objects.create(bill=bill, type='Online', amount=online_amount)
+                        Payment.objects.create(bill=bill, type='Online', amount=online_amount, payment_date=bill.date)
                         online_method = request.POST.get('online_method', '')
                         online_ref = request.POST.get('online_ref', '')
                         if online_method:
@@ -3236,11 +3236,7 @@ def create_sales_bill(request):
 
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
                             # Payment 1
-                            Payment.objects.create(
-                                bill=bill,
-                                type=multi_type1,
-                                amount=multi_amount1
-                            )
+                            Payment.objects.create(bill=bill, type=multi_type1, amount=multi_amount1, payment_date=bill.date)
 
                             if multi_type1 == 'Cheque':
                                 try:
@@ -3265,11 +3261,8 @@ def create_sales_bill(request):
                                     logger.error(f"Multi Pay Cheque 1 error: {e}")
 
                             # Payment 2
-                            Payment.objects.create(
-                                bill=bill,
-                                type=multi_type2,
-                                amount=multi_amount2
-                            )
+                            Payment.objects.create(bill=bill, type=multi_type2, amount=multi_amount2, payment_date=bill.date)
+
 
                             if multi_type2 == 'Cheque':
                                 try:
@@ -8957,9 +8950,6 @@ def edit_sales_bill(request, bill_id):
 @login_required
 @permission_required('view_reports')
 def daily_sales_summary(request):
-    from django.db.models import Sum
-    from decimal import Decimal
-    from datetime import datetime
     
     today = date.today()
     selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
@@ -8972,7 +8962,10 @@ def daily_sales_summary(request):
         selected_date = target_date.strftime('%Y-%m-%d')
 
     # Base Querysets (Focus on Payments for splitting)
-    payments = Payment.objects.filter(payment_date=target_date, is_reversed=False).select_related('bill', 'bill__vehicle')
+    payments = Payment.objects.filter(
+        Q(payment_date=target_date) | Q(payment_date__isnull=True, bill__date=target_date),
+        is_reversed=False
+    ).select_related('bill', 'bill__vehicle')
     returns = SalesReturn.objects.filter(date=target_date).select_related('original_invoice', 'vehicle')
     expenses = Expense.objects.filter(date=target_date)
     cheques = Cheque.objects.filter(cheque_date=target_date).select_related('sales_bill', 'bank')
