@@ -3069,7 +3069,9 @@ def create_sales_bill(request):
                             bill.date = date.today()
                     else:
                         bill.date = date.today()
-                        bill.is_vat_bill = request.POST.get('is_vat_bill') == 'on'
+                        
+                    # ✅ FIXED: Move this OUTSIDE the if/else so it always saves!
+                    bill.is_vat_bill = request.POST.get('is_vat_bill') == 'on'
                     
                     # Set rep if provided
                     rep_id = request.POST.get('rep')
