@@ -8957,6 +8957,9 @@ def edit_sales_bill(request, bill_id):
 @login_required
 @permission_required('view_reports')
 def daily_sales_summary(request):
+    from django.db.models import Sum
+    from decimal import Decimal
+    from datetime import datetime
     
     today = date.today()
     selected_date = request.GET.get('date', today.strftime('%Y-%m-%d'))
@@ -8968,89 +8971,90 @@ def daily_sales_summary(request):
         target_date = today
         selected_date = target_date.strftime('%Y-%m-%d')
 
-    # Base Querysets
-    bills = SalesBill.objects.filter(date=target_date).select_related('vehicle').order_by('created_at')
-    payments = Payment.objects.filter(payment_date=target_date).select_related('bill', 'bill__vehicle').order_by('created_at')
-    returns = SalesReturn.objects.filter(date=target_date).select_related('original_invoice', 'vehicle').order_by('created_at')
-    expenses = Expense.objects.filter(date=target_date).order_by('created_at')
-    cheques = Cheque.objects.filter(cheque_date=target_date).select_related('sales_bill', 'sales_bill__vehicle').order_by('created_at')
+    # Base Querysets (Focus on Payments for splitting)
+    payments = Payment.objects.filter(payment_date=target_date, is_reversed=False).select_related('bill', 'bill__vehicle')
+    returns = SalesReturn.objects.filter(date=target_date).select_related('original_invoice', 'vehicle')
+    expenses = Expense.objects.filter(date=target_date)
+    cheques = Cheque.objects.filter(cheque_date=target_date).select_related('sales_bill', 'bank')
     
     # Apply Vehicle Filter
     if vehicle_id and vehicle_id.isdigit():
-        bills = bills.filter(vehicle_id=int(vehicle_id))
         payments = payments.filter(bill__vehicle_id=int(vehicle_id))
         returns = returns.filter(vehicle_id=int(vehicle_id))
-        expenses = expenses.filter(vehicle_id=int(vehicle_id)) # Only if Expense model has vehicle field
+        expenses = expenses.filter(vehicle_id=int(vehicle_id)) 
         cheques = cheques.filter(sales_bill__vehicle_id=int(vehicle_id))
 
     # Lists for Tables
-    complete_sales_list = []
-    credit_sales_list = []
-    credit_collections_list = []
-    
+    complete_sales_list = [] # Cash payments on new bills
+    credit_sales_list = []   # Credit payments on new bills
+    online_payments_list = [] # Online payments
+    credit_collections_list = [] # Payments made on OLD bills
+
     total_complete_sales = Decimal('0')
     total_credit_sales = Decimal('0')
+    total_online_payments = Decimal('0')
     total_credit_collections = Decimal('0')
 
-    # 1 & 2. Separate Complete and Credit Sales
-    for bill in bills:
-        has_credit = bill.payments.filter(type='Credit').exists()
-        if has_credit:
-            credit_sales_list.append(bill)
-            total_credit_sales += bill.net_total
+    # Separate the payments based on logic
+    for p in payments:
+        # If the bill was created today, it's a New Sale
+        if p.bill.date == target_date:
+            if p.type == 'Cash':
+                complete_sales_list.append(p)
+                total_complete_sales += p.amount
+            elif p.type == 'Credit':
+                credit_sales_list.append(p)
+                total_credit_sales += p.amount
+            elif p.type == 'Online':
+                online_payments_list.append(p)
+                total_online_payments += p.amount
         else:
-            complete_sales_list.append(bill)
-            total_complete_sales += bill.net_total
-
-    # 3. Credit Collections (Payments made today for credit bills)
-    for p in payments.exclude(type='Credit'):
-        # Check if the bill has a credit payment in its history
-        if p.bill.payments.filter(type='Credit').exists():
+            # If the bill is from a previous day, it's a Credit Collection
             credit_collections_list.append(p)
             total_credit_collections += p.amount
 
-    # 4. Totals for Expenses and Returns
+    # Totals for Expenses and Returns
     expenses_list = list(expenses)
     total_expenses = sum(e.amount for e in expenses_list)
 
     returns_list = list(returns)
     total_returns = sum(r.return_value for r in returns_list)
 
-    # 5. Cheques List
-    cheques_list = list(cheques)
+    # Total Stock Loss
+    try:
+        stock_losses = StockAdjustment.objects.filter(date=target_date, difference__lt=0)
+        if vehicle_id and vehicle_id.isdigit():
+            stock_losses = stock_losses.filter(vehicle_id=int(vehicle_id))
+        total_stock_loss = abs(stock_losses.aggregate(t=Sum('cost_value'))['t'] or Decimal('0'))
+    except Exception:
+        total_stock_loss = Decimal('0')
 
-    # 6. Net Cash Value (Complete Sales + Credit Collections)
-    today_net_cash = total_complete_sales + total_credit_collections
-
-    vehicles = Vehicle.objects.filter(is_active=True)
-
-    stock_losses = StockAdjustment.objects.filter(date=target_date, difference__lt=0) # Only losses
-    if vehicle_id and vehicle_id.isdigit():
-        stock_losses = stock_losses.filter(vehicle_id=int(vehicle_id))
-        
-    total_stock_loss = abs(stock_losses.aggregate(t=Sum('cost_value'))['t'] or Decimal('0'))
+    # Net Cash = Complete Sales (Cash) + Online + Credit Collections
+    today_net_cash = total_complete_sales + total_online_payments + total_credit_collections
 
     context = {
         'selected_date': selected_date,
         'selected_vehicle': vehicle_id,
-        'vehicles': vehicles,
+        'vehicles': Vehicle.objects.filter(is_active=True),
         
         # Data Lists
         'complete_sales_list': complete_sales_list,
         'credit_sales_list': credit_sales_list,
         'credit_collections_list': credit_collections_list,
-        'cheques_list': cheques_list,
+        'online_payments_list': online_payments_list,
+        'cheques_list': list(cheques),
         'expenses_list': expenses_list,
         'returns_list': returns_list,
         
         # Totals
         'total_complete_sales': total_complete_sales,
         'total_credit_sales': total_credit_sales,
+        'total_online_payments': total_online_payments,
         'total_credit_collections': total_credit_collections,
         'total_expenses': total_expenses,
         'total_returns': total_returns,
-        'today_net_cash': today_net_cash,
         'total_stock_loss': total_stock_loss,
+        'today_net_cash': today_net_cash,
     }
     return render(request, 'core/daily_sales_summary.html', context)
 

@@ -46,20 +46,20 @@
         <button type="submit" style="padding:8px 25px; background:#007bff; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔍 Generate</button>
     </form>
 
-    <!-- 1. Complete Sales Table -->
+    <!-- 1. Complete Sales Table (Cash) -->
     <div class="report-section">
-        <h3>✅ Complete Sales <span style="font-size:14px; color:#28a745;">Total: Rs {{ total_complete_sales|floatformat:2 }}</span></h3>
+        <h3>✅ Complete Sales (Cash) <span style="font-size:14px; color:#28a745;">Total: Rs {{ total_complete_sales|floatformat:2 }}</span></h3>
         <table class="report-table">
             <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Amount</th></tr></thead>
             <tbody>
-                {% for bill in complete_sales_list %}
+                {% for p in complete_sales_list %}
                 <tr>
-                    <td><strong>{{ bill.invoice_no }}</strong></td>
-                    <td>{{ bill.shop_name }}</td>
-                    <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
-                    <td class="amount">Rs {{ bill.net_total|floatformat:2 }}</td>
+                    <td><strong>{{ p.bill.invoice_no }}</strong></td>
+                    <td>{{ p.bill.shop_name }}</td>
+                    <td>{{ p.bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td class="amount">Rs {{ p.amount|floatformat:2 }}</td>
                 </tr>
-                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No complete sales.</td></tr>{% endfor %}
+                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No cash sales.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>
@@ -68,14 +68,14 @@
     <div class="report-section">
         <h3>📋 Credit Bills <span style="font-size:14px; color:#fd7e14;">Total: Rs {{ total_credit_sales|floatformat:2 }}</span></h3>
         <table class="report-table">
-            <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Amount</th></tr></thead>
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Credit Amount</th></tr></thead>
             <tbody>
-                {% for bill in credit_sales_list %}
+                {% for p in credit_sales_list %}
                 <tr>
-                    <td><strong>{{ bill.invoice_no }}</strong></td>
-                    <td>{{ bill.shop_name }}</td>
-                    <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
-                    <td class="amount">Rs {{ bill.net_total|floatformat:2 }}</td>
+                    <td><strong>{{ p.bill.invoice_no }}</strong></td>
+                    <td>{{ p.bill.shop_name }}</td>
+                    <td>{{ p.bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td class="amount">Rs {{ p.amount|floatformat:2 }}</td>
                 </tr>
                 {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No credit bills.</td></tr>{% endfor %}
             </tbody>
@@ -100,7 +100,25 @@
         </table>
     </div>
 
-    <!-- 4. Cheque List Table -->
+    <!-- 4. Online Payments Table (NEW) -->
+    <div class="report-section">
+        <h3>🌐 Online Payments <span style="font-size:14px; color:#17a2b8;">Total: Rs {{ total_online_payments|floatformat:2 }}</span></h3>
+        <table class="report-table">
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Vehicle</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+                {% for p in online_payments_list %}
+                <tr>
+                    <td><strong>{{ p.bill.invoice_no }}</strong></td>
+                    <td>{{ p.bill.shop_name }}</td>
+                    <td>{{ p.bill.vehicle.vehicle_number|default:"-" }}</td>
+                    <td class="amount">Rs {{ p.amount|floatformat:2 }}</td>
+                </tr>
+                {% empty %}<tr><td colspan="4" style="text-align:center; color:#999;">No online payments.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 5. Cheque List Table -->
     <div class="report-section">
         <h3>🏦 Cheque List</h3>
         <table class="report-table">
@@ -119,7 +137,7 @@
         </table>
     </div>
 
-    <!-- 5. Expenses Table -->
+    <!-- 6. Expenses Table -->
     <div class="report-section">
         <h3>💸 Expenses <span style="font-size:14px; color:#dc3545;">Total: Rs {{ total_expenses|floatformat:2 }}</span></h3>
         <table class="report-table">
@@ -136,7 +154,7 @@
         </table>
     </div>
 
-    <!-- 6. Returns Table -->
+    <!-- 7. Returns Table -->
     <div class="report-section">
         <h3>🔄 Returns <span style="font-size:14px; color:#dc3545;">Total: Rs {{ total_returns|floatformat:2 }}</span></h3>
         <table class="report-table">
@@ -155,17 +173,21 @@
         </table>
     </div>
 
-    <!-- 7. Final Summary Table (Bottom) -->
+    <!-- 8. Final Summary Table (Bottom) -->
     <div class="summary-table-container">
         <h3>📈 System Summary</h3>
         <table class="summary-table">
             <tr>
-                <td>Total Complete Sales</td>
+                <td>Total Complete Sales (Cash)</td>
                 <td class="amount">Rs {{ total_complete_sales|floatformat:2 }}</td>
             </tr>
             <tr>
                 <td>Total Credit Bill Sales</td>
                 <td class="amount">Rs {{ total_credit_sales|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total Online Payments</td>
+                <td class="amount">Rs {{ total_online_payments|floatformat:2 }}</td>
             </tr>
             <tr>
                 <td>Total Credit Bill Collections</td>
@@ -179,13 +201,13 @@
                 <td>Total Return Value</td>
                 <td class="amount">Rs {{ total_returns|floatformat:2 }}</td>
             </tr>
-            <tr style="border-top: 2px solid #6f42c1; background: #ede7f6;">
-                <td>Today's Net Cash Value <br><small style="font-size:12px; font-weight:normal; color:#666;">(Complete Sales + Credit Collections)</small></td>
-                <td class="amount">Rs {{ today_net_cash|floatformat:2 }}</td>
-            </tr>
             <tr>
                 <td>Total Stock Loss (Adjustments)</td>
                 <td class="amount" style="color: #dc3545;">- Rs {{ total_stock_loss|floatformat:2 }}</td>
+            </tr>
+            <tr style="border-top: 2px solid #6f42c1; background: #ede7f6;">
+                <td>Today's Net Cash Value <br><small style="font-size:12px; font-weight:normal; color:#666;">(Complete Sales + Online + Credit Collections)</small></td>
+                <td class="amount">Rs {{ today_net_cash|floatformat:2 }}</td>
             </tr>
         </table>
     </div>
