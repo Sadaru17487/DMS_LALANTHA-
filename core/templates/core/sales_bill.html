@@ -909,19 +909,19 @@
                 const origLineTotal = item.qty * item.rate;
                 originalSubtotal += origLineTotal;
                 
-                let discountedRate = item.rate;
+                let discountedTotal = lineTotal;
                 if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) {
-                    discountedRate = item.rate - (item.rate * item.discount_value / 100);
+                    discountedTotal = lineTotal - (lineTotal * item.discount_value / 100);
                 } else if (item.discount_type === 'FIXED' && item.discount_value > 0) {
-                    discountedRate = item.rate - item.discount_value;
+                    discountedTotal = lineTotal - item.discount_value;
                 }
-                if (discountedRate < 0) discountedRate = 0;
                 
-                const discountedTotal = item.qty * discountedRate;
+                if (discountedTotal < 0) discountedTotal = 0;
                 regularTotal += discountedTotal;
                 
                 const sign = returnMode ? '-' : '';
                 const priceLabel = item.price_id ? '🔹' : '';
+
                 
                 html += `
                     <tr>
@@ -1025,15 +1025,15 @@
         let totalItemDiscount = 0;
         
         regularItems.forEach(item => {
-            const origLine = item.qty * item.rate;
-            originalSubtotal += origLine;
+            const lineTotal = item.qty * item.rate;
+            originalSubtotal += lineTotal;
             
-            let dRate = item.rate;
-            if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) dRate -= (item.rate * item.discount_value / 100);
-            else if (item.discount_type === 'FIXED' && item.discount_value > 0) dRate -= item.discount_value;
-            if (dRate < 0) dRate = 0;
+            let dTotal = lineTotal;
+            if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) dTotal = lineTotal - (lineTotal * item.discount_value / 100);
+            else if (item.discount_type === 'FIXED' && item.discount_value > 0) dTotal = lineTotal - item.discount_value;
+            if (dTotal < 0) dTotal = 0;
             
-            const itemDiscAmt = (item.rate - dRate) * Math.abs(item.qty);
+            const itemDiscAmt = lineTotal - dTotal;
             totalItemDiscount += itemDiscAmt;
         });
 
