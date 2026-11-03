@@ -120,19 +120,39 @@
 
     <!-- 5. Cheque List Table -->
     <div class="report-section">
-        <h3>🏦 Cheque List</h3>
+        <h3>🏦 Cheques Collected Today</h3>
         <table class="report-table">
-            <thead><tr><th>Cheque No</th><th>Date</th><th>Bank</th><th>Customer</th><th class="amount">Amount</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Cheque No</th>
+                    <th>Cheque Date (On Paper)</th>
+                    <th>Bank</th>
+                    <th>Customer</th>
+                    <th>Invoice</th>
+                    <th>Type</th>
+                    <th class="amount">Amount</th>
+                </tr>
+            </thead>
             <tbody>
                 {% for c in cheques_list %}
                 <tr>
                     <td><strong>{{ c.cheque_no }}</strong></td>
                     <td>{{ c.cheque_date|date:"Y-m-d" }}</td>
                     <td>{{ c.bank.name }}</td>
-                    <td>{{ c.customer_name }}</td>
+                    <td>{{ c.customer }}</td>
+                    <td><strong>{{ c.invoice_no }}</strong></td>
+                    <td>
+                        {% if c.type == 'New Sale' %}
+                            <span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">New Sale</span>
+                        {% else %}
+                            <span style="background:#cce5ff; color:#004085; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold;">Credit Collection</span>
+                        {% endif %}
+                    </td>
                     <td class="amount">Rs {{ c.amount|floatformat:2 }}</td>
                 </tr>
-                {% empty %}<tr><td colspan="5" style="text-align:center; color:#999;">No cheques recorded.</td></tr>{% endfor %}
+                {% empty %}
+                <tr><td colspan="7" style="text-align:center; color:#999;">No cheques collected today.</td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>

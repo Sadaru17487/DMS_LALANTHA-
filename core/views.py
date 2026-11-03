@@ -8685,7 +8685,7 @@ def daily_sales_summary(request):
     ).select_related('bill', 'bill__vehicle')
     returns = SalesReturn.objects.filter(date=target_date).select_related('original_invoice', 'vehicle')
     expenses = Expense.objects.filter(date=target_date)
-    cheques = Cheque.objects.filter(cheque_date=target_date).select_related('sales_bill', 'bank')
+    cheques = Cheque.objects.filter(created_at__date=target_date).select_related('sales_bill', 'bank')
     
     # Apply Vehicle Filter
     if vehicle_id and vehicle_id.isdigit():
@@ -8699,6 +8699,19 @@ def daily_sales_summary(request):
     credit_sales_list = []   # Credit payments on new bills
     online_payments_list = [] # Online payments
     credit_collections_list = [] # Payments made on OLD bills
+    cheques_list = []
+    for c in cheques:
+        # If the bill date is today, it's a New Sale Cheque. Otherwise, it's a Credit Collection.
+        is_new_sale = c.sales_bill and c.sales_bill.date == target_date
+        cheques_list.append({
+            'cheque_no': c.cheque_no,
+            'cheque_date': c.cheque_date,
+            'bank': c.bank,
+            'customer': c.customer_name,
+            'amount': c.amount,
+            'type': 'New Sale' if is_new_sale else 'Credit Collection',
+            'invoice_no': c.sales_bill.invoice_no if c.sales_bill else '-'
+        })
 
     total_complete_sales = Decimal('0')
     total_credit_sales = Decimal('0')
@@ -8752,7 +8765,7 @@ def daily_sales_summary(request):
         'credit_sales_list': credit_sales_list,
         'credit_collections_list': credit_collections_list,
         'online_payments_list': online_payments_list,
-        'cheques_list': list(cheques),
+        'cheques_list': cheques_list,
         'expenses_list': expenses_list,
         'returns_list': returns_list,
         
