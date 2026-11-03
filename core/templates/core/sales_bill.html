@@ -7,11 +7,12 @@
 
 <style>
     /* ===== BASE STYLES ===== */
-    .top-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: end; }
+   .top-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; align-items: end; }
     .top-row .field-group { flex: 1; min-width: 150px; }
     .top-row .field-group label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
     .top-row .field-group input, .top-row .field-group select { width: 100%; padding: 10px 12px; border: 2px solid #e0e4eb; border-radius: 8px; font-size: 14px; background: #fafbfc; transition: 0.2s; }
     .top-row .field-group input:focus, .top-row .field-group select:focus { border-color: #007bff; outline: none; background: white; }
+    .locked-field { pointer-events: none !important; background: #f0f4f9 !important; color: #666 !important; border-color: #c8d0dc !important; cursor: not-allowed !important; }
 
     /* ===== LOCK STYLES ===== */
     .locked-field {
@@ -716,10 +717,11 @@
             return;
         }
 
-        const filtered = allProducts.filter(p =>
-            p.name.toLowerCase().includes(query) ||
-            p.code.toLowerCase().includes(query)
-        );
+        const filtered = allProducts.filter(p => {
+            const nameMatch = p.name && p.name.toLowerCase().includes(query);
+            const codeMatch = p.code && p.code.toLowerCase().includes(query);
+            return nameMatch || codeMatch;
+        });
 
         if (filtered.length === 0) {
             resultsContainer.innerHTML = `<div class="empty-results">No products found.</div>`;
@@ -730,8 +732,10 @@
         filtered.forEach(product => {
             const stockClass = product.stock <= 0 ? 'low' : (product.stock < 10 ? 'medium' : 'high');
             const hasPrices = product.prices && product.prices.length > 0;
+            const safeName = product.name.replace(/'/g, "\\'");
+            
             const priceDisplay = hasPrices ?
-                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                `<span class="product-price clickable-price" onclick="showPriceSelector(${product.id}, '${safeName}')">
                     Rs ${product.price.toFixed(2)} ▼
                 </span>` :
                 `<span class="product-price">Rs ${product.price.toFixed(2)}</span>`;
@@ -742,8 +746,8 @@
                     ${priceDisplay}
                     <span class="product-stock ${stockClass}">${product.stock}</span>
                     <div class="product-actions">
-                        <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${product.price}, false, null)">🛒 Sale</button>
-                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${product.name.replace(/'/g, "\\'")}', 0, true, null)">🎁 FOC</button>
+                        <button type="button" class="btn-sale" onclick="addToCart(${product.id}, '${safeName}', ${product.price}, false, null)">🛒 Sale</button>
+                        <button type="button" class="btn-foc" onclick="addToCart(${product.id}, '${safeName}', 0, true, null)">🎁 FOC</button>
                     </div>
                 </div>
             `;
@@ -777,7 +781,7 @@
                         <span style="font-size:12px; color:#888; margin-left:8px;">${p.effective_date}</span>
                         ${isActive ? '<span style="font-size:12px; color:#28a745; margin-left:8px;">Active</span>' : ''}
                     </div>
-                    <button type="button" onclick="selectProductPrice(${productId}, ${p.amount}, '${productName.replace(/'/g, "\\'")}', ${p.id})" 
+                    <button type="button" onclick="selectProductPrice(${productId}, ${p.amount}, '${productName}', ${p.id})" 
                             style="padding:6px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Use</button>
                 </div>
             `;
@@ -788,7 +792,7 @@
             <div style="padding:12px; border:1px dashed #007bff; border-radius:8px; display:flex; gap:10px; align-items:center; margin-top:10px;">
                 <span style="font-weight:600;">✏️ Custom</span>
                 <input type="number" id="customPriceInput" step="0.01" placeholder="Enter amount" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:6px;">
-                <button type="button" onclick="selectCustomProductPrice(${productId}, '${productName.replace(/'/g, "\\'")}')" 
+                <button type="button" onclick="selectCustomProductPrice(${productId}, '${productName}')" 
                         style="padding:6px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Apply</button>
             </div>
             <button onclick="closePriceSelector()" style="padding:8px 20px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; margin-top:12px; width:100%;">Cancel</button>
@@ -849,7 +853,6 @@
             badWarning.style.display = 'none';
         }
     }
-
     // ============================================================
     // CART
     // ============================================================
@@ -906,9 +909,10 @@
             regularItems.forEach((item) => {
                 const index = cart.indexOf(item);
                 
-                const origLineTotal = item.qty * item.rate;
-                originalSubtotal += origLineTotal;
+                const lineTotal = item.qty * item.rate;
+                originalSubtotal += lineTotal;
                 
+                // ✅ Item discount applies to the total line amount, not per piece
                 let discountedTotal = lineTotal;
                 if (item.discount_type === 'PERCENTAGE' && item.discount_value > 0) {
                     discountedTotal = lineTotal - (lineTotal * item.discount_value / 100);
@@ -921,7 +925,6 @@
                 
                 const sign = returnMode ? '-' : '';
                 const priceLabel = item.price_id ? '🔹' : '';
-
                 
                 html += `
                     <tr>

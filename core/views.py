@@ -2819,11 +2819,6 @@ def create_sales_bill(request):
         form = SalesBillForm(request.POST)
         
         if form.is_valid():
-            logger.info("=" * 60)
-            logger.info("BILL SUBMIT DEBUG")
-            for key in sorted(request.POST.keys()):
-                logger.info(f"  {key}: '{request.POST[key]}'")
-            logger.info("=" * 60)
             try:
                 with transaction.atomic():
                     bill = form.save(commit=False)
@@ -2875,16 +2870,12 @@ def create_sales_bill(request):
                         if not product_id or not quantity_str or quantity_str == '0':
                             continue
                         
-                        # ===== NOW GET THE PRODUCT =====
                         try:
                             product = Product.objects.get(id=product_id)
                         except Product.DoesNotExist:
-                            logger.warning(f"Product {product_id} not found, skipping")
                             continue
                         
                         quantity = Decimal(quantity_str)
-                        
-                        # ===== DETERMINE THE RATE =====
                         rate = Decimal(rate_str)
                         
                         if price_id and price_id.isdigit():
@@ -2899,106 +2890,37 @@ def create_sales_bill(request):
                                 rate = product.selling_price
                         
                         discount_value = Decimal(discount_value_str) if discount_value_str else Decimal('0')
-
-                        # ===== BILL DISCOUNT =====
-                        bill_discount_type = request.POST.get('bill_discount_type', '').strip()
-                        bill_discount_value_str = request.POST.get('bill_discount_value', '0').strip()
-
-                        try:
-                            bill_discount_value = Decimal(bill_discount_value_str) if bill_discount_value_str else Decimal('0')
-                        except Exception:
-                            bill_discount_value = Decimal('0')
-
-                        logger.info(f"DISCOUNT - type='{bill_discount_type}', value={bill_discount_value}, subtotal={subtotal}")
-
-                        if bill_discount_type == 'PERCENTAGE' and bill_discount_value > 0:
-                            bill_discount_amount = (subtotal * bill_discount_value) / 100
-                        elif bill_discount_type == 'FIXED' and bill_discount_value > 0:
-                            bill_discount_amount = min(bill_discount_value, subtotal)
-                        else:
-                            bill_discount_amount = Decimal('0')
-
-                        bill.bill_discount_type = bill_discount_type if bill_discount_value > 0 else None
-                        bill.bill_discount_value = bill_discount_value if bill_discount_value > 0 else Decimal('0')
-                        bill.bill_discount_amount = bill_discount_amount
-                        bill.net_total = subtotal - bill_discount_amount
-
-                        logger.info(f"DISCOUNT - amount={bill_discount_amount}, net_total={bill.net_total}")
                         
-                        # Calculate discounted rate (Subtracts Rs from the Rate, matching the Frontend)
+                        # Calculate line total with item discount
                         line_total = quantity * rate
                         if discount_type == 'PERCENTAGE' and discount_value > 0:
                             line_total = line_total - (line_total * discount_value / 100)
                         elif discount_type == 'FIXED' and discount_value > 0:
-                            line_total = line_total - (discount_value * (1 if quantity > 0 else -1))
-                        
+                            line_total = line_total - discount_value
+                            
                         if quantity > 0 and line_total < 0:
                             line_total = Decimal('0')
                             
                         discounted_rate = line_total / quantity if quantity != 0 else Decimal('0')
                         total = line_total
                         
-                        # ====================================================
                         # ===== STOCK HANDLING =====
-                        # ====================================================
                         if quantity > 0:
-                            # Regular Sale – deduct from vehicle stock
                             vehicle_stock = VehicleStock.objects.filter(vehicle=vehicle, product=product).first()
-                            
                             if not vehicle_stock:
                                 messages.error(request, f'❌ {product.name} is not loaded on {vehicle.vehicle_number}.')
-                                customers = Customer.objects.filter(is_active=True)
-                                return render(request, 'core/sales_bill.html', {
-                                    'form': form,
-                                    'products': _build_product_list_for_template(selected_vehicle),
-                                    'customers': customers,
-                                    'vehicles': Vehicle.objects.filter(is_active=True),
-                                    'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                    'banks': Bank.objects.filter(is_active=True),
-                                    'max_items': MAX_ITEMS,
-                                    'selected_vehicle': selected_vehicle,
-                                    'selected_rep': selected_rep,
-                                    'today': date.today(),
-                                })
-                            
+                                return redirect('/sales/')
                             if vehicle_stock.quantity < quantity:
                                 messages.error(request, f'❌ Not enough stock on {vehicle.vehicle_number} for {product.name}. Available: {vehicle_stock.quantity}')
-                                customers = Customer.objects.filter(is_active=True)
-                                return render(request, 'core/sales_bill.html', {
-                                    'form': form,
-                                    'products': _build_product_list_for_template(selected_vehicle),
-                                    'customers': customers,
-                                    'vehicles': Vehicle.objects.filter(is_active=True),
-                                    'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                    'banks': Bank.objects.filter(is_active=True),
-                                    'max_items': MAX_ITEMS,
-                                    'selected_vehicle': selected_vehicle,
-                                    'selected_rep': selected_rep,
-                                    'today': date.today(),
-                                })
-                            
+                                return redirect('/sales/')
                             vehicle_stock.quantity -= quantity
                             vehicle_stock.save()
-                            
                         elif quantity < 0:
-                            # ====================================================
-                            # 🔥 RETURN HANDLING: GOOD vs BAD
-                            # ====================================================
                             abs_qty = abs(quantity)
-                            
                             if return_type == 'GOOD':
-                                # ✅ GOOD RETURN: Stock added back to vehicle
-                                vehicle_stock, created = VehicleStock.objects.get_or_create(
-                                    vehicle=vehicle, 
-                                    product=product
-                                )
+                                vehicle_stock, created = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
                                 vehicle_stock.quantity += abs_qty
                                 vehicle_stock.save()
-                                logger.info(f"GOOD RETURN: {abs_qty} of {product.name} added back to {vehicle.vehicle_number}")
-                                
-                            elif return_type == 'BAD':
-                                # ❌ BAD RETURN: Stock NOT added back
-                                logger.info(f"BAD RETURN: {abs_qty} of {product.name} NOT added back (damaged/expired)")
                         
                         subtotal += total
                         items_to_save.append({
@@ -3016,27 +2938,12 @@ def create_sales_bill(request):
                             'return_reason': return_reason if is_return and quantity < 0 else None,
                         })
                     
-                    # ===== SAFETY: If no items were processed, show error =====
                     if not items_to_save:
-                        messages.error(request, '❌ No valid items were found in the bill. Please add items again.')
-                        customers = Customer.objects.filter(is_active=True)
-                        return render(request, 'core/sales_bill.html', {
-                            'form': form,
-                            'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': customers,
-                            'vehicles': Vehicle.objects.filter(is_active=True),
-                            'reps': Employee.objects.filter(position='Rep', is_active=True),
-                            'banks': Bank.objects.filter(is_active=True),
-                            'max_items': MAX_ITEMS,
-                            'selected_vehicle': selected_vehicle,
-                            'selected_rep': selected_rep,
-                            'today': date.today(),
-                        })
+                        messages.error(request, '❌ No valid items were found in the bill.')
+                        return redirect('/sales/')
                     
-                    # ===== CALCULATE TOTALS =====
+                    # ===== CALCULATE BILL DISCOUNT (AFTER ITEM LOOP) =====
                     bill.subtotal = subtotal
-                    bill.discount_total = Decimal('0')
-                    
                     bill_discount_type = request.POST.get('bill_discount_type', '')
                     bill_discount_value_str = request.POST.get('bill_discount_value', '0')
                     bill_discount_value = Decimal(bill_discount_value_str) if bill_discount_value_str else Decimal('0')
@@ -3044,9 +2951,7 @@ def create_sales_bill(request):
                     if bill_discount_type == 'PERCENTAGE' and bill_discount_value > 0:
                         bill_discount_amount = (subtotal * bill_discount_value) / 100
                     elif bill_discount_type == 'FIXED' and bill_discount_value > 0:
-                        bill_discount_amount = bill_discount_value
-                        if bill_discount_amount > subtotal:
-                            bill_discount_amount = subtotal
+                        bill_discount_amount = min(bill_discount_value, subtotal)
                     else:
                         bill_discount_amount = Decimal('0')
                     
@@ -3061,7 +2966,6 @@ def create_sales_bill(request):
                     bill.return_type = return_type
                     bill.return_reason = return_reason
                     
-                    # Set date from form
                     bill_date = request.POST.get('bill_date')
                     if bill_date:
                         try:
@@ -3071,10 +2975,8 @@ def create_sales_bill(request):
                     else:
                         bill.date = date.today()
                         
-                    # ✅ FIXED: Move this OUTSIDE the if/else so it always saves!
                     bill.is_vat_bill = request.POST.get('is_vat_bill') == 'on'
                     
-                    # Set rep if provided
                     rep_id = request.POST.get('rep')
                     if rep_id and rep_id.isdigit():
                         try:
@@ -3082,41 +2984,14 @@ def create_sales_bill(request):
                         except Employee.DoesNotExist:
                             pass
                     
-                    # ===== INVOICE NUMBER HANDLING =====
                     user_invoice = request.POST.get('invoice_no', '').strip()
                     if not user_invoice:
                         messages.error(request, '❌ Invoice Number is required.')
-                        customers = Customer.objects.filter(is_active=True)
-                        return render(request, 'core/sales_bill.html', {
-                            'form': form,
-                            'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': customers,
-                            'vehicles': Vehicle.objects.filter(is_active=True),
-                            'reps': Employee.objects.filter(position='Rep', is_active=True),
-                            'banks': Bank.objects.filter(is_active=True),
-                            'max_items': MAX_ITEMS,
-                            'selected_vehicle': selected_vehicle,
-                            'selected_rep': selected_rep,
-                            'today': date.today(),
-                        })
+                        return redirect('/sales/')
                     
                     if SalesBill.objects.filter(invoice_no=user_invoice).exists():
                         messages.error(request, f'❌ Invoice number "{user_invoice}" already exists.')
-                        customers = Customer.objects.filter(is_active=True)
-                        return render(request, 'core/sales_bill.html', {
-                            'form': form,
-                            'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': customers,
-                            'vehicles': Vehicle.objects.filter(is_active=True),
-                            'reps': Employee.objects.filter(position='Rep', is_active=True),
-                            'banks': Bank.objects.filter(is_active=True),
-                            'max_items': MAX_ITEMS,
-                            'selected_vehicle': selected_vehicle,
-                            'selected_rep': selected_rep,
-                            'random_invoice': user_invoice,
-                            'duplicate_error': True,
-                            'today': date.today(),
-                        })
+                        return redirect('/sales/')
                     
                     bill.invoice_no = user_invoice
                     bill.save()
@@ -3126,7 +3001,6 @@ def create_sales_bill(request):
                         bill.completed_at = timezone.now()
                         bill.save()
                     
-                    # ===== SAVE ITEM LINES =====
                     for item_data in items_to_save:
                         SalesItem.objects.create(
                             bill=bill,
@@ -3150,46 +3024,20 @@ def create_sales_bill(request):
                     credit_amount = Decimal(request.POST.get('credit_amount', '0') or '0')
                     online_amount = Decimal(request.POST.get('online_amount', '0') or '0')
                     
-                    logger.info(f"Payment method: {payment_method}, Cash: {cash_amount}, Credit: {credit_amount}, Cheque: {cheque_amount}, Online: {online_amount}")
-                    
-                    # Validate payment matches net total
-                    # ===== CALCULATE TOTAL PAID BASED ON PAYMENT METHOD =====
-                    
                     net_total = bill.net_total
                     total_paid = Decimal('0')
 
                     if payment_method == 'multi':
-                        # For Multi Pay, sum both amounts
-                        try:
-                            multi_amt1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
-                        except Exception:
-                            multi_amt1 = Decimal('0')
-                        try:
-                            multi_amt2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
-                        except Exception:
-                            multi_amt2 = Decimal('0')
+                        multi_amt1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
+                        multi_amt2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
                         total_paid = multi_amt1 + multi_amt2
-                        logger.info(f"Multi Pay: amount1={multi_amt1}, amount2={multi_amt2}, total={total_paid}")
                     else:
                         total_paid = cash_amount + credit_amount + cheque_amount + online_amount
 
-                    # Validate
                     if net_total > 0 and abs(total_paid - net_total) > Decimal('0.01'):
                         messages.error(request, f'❌ Payment total ({total_paid}) does not match Bill Total ({net_total})!')
-                        return render(request, 'core/sales_bill.html', {
-                            'form': form,
-                            'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': Customer.objects.filter(is_active=True),
-                            'vehicles': Vehicle.objects.filter(is_active=True),
-                            'reps': Employee.objects.filter(position='Rep', is_active=True),
-                            'banks': Bank.objects.filter(is_active=True),
-                            'max_items': MAX_ITEMS,
-                            'selected_vehicle': selected_vehicle,
-                            'selected_rep': selected_rep,
-                            'today': date.today(),
-                        })
+                        return redirect('/sales/')
                     
-                    # ===== CREATE PAYMENTS =====
                     if payment_method == 'cheque' or cheque_amount > 0:
                         if cheque_amount > 0:
                             Payment.objects.create(bill=bill, type='Cheque', amount=cheque_amount, payment_date=bill.date)
@@ -3200,37 +3048,18 @@ def create_sales_bill(request):
                                 try:
                                     bank = Bank.objects.get(id=bank_id)
                                     Cheque.objects.create(
-                                        cheque_no=cheque_no,
-                                        bank=bank,
-                                        cheque_date=cheque_date,
-                                        amount=cheque_amount,
-                                        customer_name=bill.shop_name or bill.shop_code or 'N/A',
-                                        sales_bill=bill,
-                                        status='PENDING',
-                                        notes=f"Auto-created from invoice: {bill.invoice_no}"
+                                        cheque_no=cheque_no, bank=bank, cheque_date=cheque_date,
+                                        amount=cheque_amount, customer_name=bill.shop_name or 'N/A',
+                                        sales_bill=bill, status='PENDING'
                                     )
                                 except Bank.DoesNotExist:
                                     pass
-                    
                     elif payment_method == 'cash' and cash_amount > 0:
                         Payment.objects.create(bill=bill, type='Cash', amount=cash_amount, payment_date=bill.date)
-                    
                     elif payment_method == 'credit' and credit_amount > 0:
                         Payment.objects.create(bill=bill, type='Credit', amount=credit_amount, payment_date=bill.date)
-                    
                     elif payment_method == 'online' and online_amount > 0:
                         Payment.objects.create(bill=bill, type='Online', amount=online_amount, payment_date=bill.date)
-                        online_method = request.POST.get('online_method', '')
-                        online_ref = request.POST.get('online_ref', '')
-                        if online_method:
-                            OnlinePayment.objects.create(
-                                bill=bill,
-                                payment_method=online_method,
-                                reference_no=online_ref,
-                                amount=online_amount
-                            )
-                    
-                    # ===== MULTI PAYMENT =====
                     elif payment_method == 'multi':
                         multi_type1 = request.POST.get('multi_type1', '')
                         multi_amount1 = Decimal(request.POST.get('multi_amount1', '0') or '0')
@@ -3238,156 +3067,50 @@ def create_sales_bill(request):
                         multi_amount2 = Decimal(request.POST.get('multi_amount2', '0') or '0')
 
                         if multi_type1 and multi_type2 and multi_amount1 > 0 and multi_amount2 > 0:
-                            # Payment 1
                             Payment.objects.create(bill=bill, type=multi_type1, amount=multi_amount1, payment_date=bill.date)
-
                             if multi_type1 == 'Cheque':
                                 try:
-                                    cheque_no = request.POST.get('multi_cheque_no_1', '').strip()
-                                    cheque_date = request.POST.get('multi_cheque_date_1', '')
-                                    bank_id = request.POST.get('multi_cheque_bank_1', '')
-                                    
-                                    if cheque_no and cheque_date and bank_id:
-                                        bank = Bank.objects.get(id=bank_id)
-                                        Cheque.objects.create(
-                                            cheque_no=cheque_no,
-                                            bank=bank,
-                                            cheque_date=cheque_date,
-                                            amount=multi_amount1,
-                                            customer_name=bill.shop_name or bill.shop_code or 'N/A',
-                                            sales_bill=bill,
-                                            status='PENDING',
-                                            notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
-                                        )
-                                        logger.info(f"Multi Pay Cheque 1 created: {cheque_no}")
-                                except Exception as e:
-                                    logger.error(f"Multi Pay Cheque 1 error: {e}")
-
-                            # Payment 2
+                                    bank = Bank.objects.get(id=request.POST.get('multi_cheque_bank_1', ''))
+                                    Cheque.objects.create(
+                                        cheque_no=request.POST.get('multi_cheque_no_1', ''), bank=bank, 
+                                        cheque_date=request.POST.get('multi_cheque_date_1', ''),
+                                        amount=multi_amount1, sales_bill=bill, status='PENDING'
+                                    )
+                                except: pass
+                                
                             Payment.objects.create(bill=bill, type=multi_type2, amount=multi_amount2, payment_date=bill.date)
-
-
                             if multi_type2 == 'Cheque':
                                 try:
-                                    cheque_no = request.POST.get('multi_cheque_no_2', '').strip()
-                                    cheque_date = request.POST.get('multi_cheque_date_2', '')
-                                    bank_id = request.POST.get('multi_cheque_bank_2', '')
-                                    
-                                    if cheque_no and cheque_date and bank_id:
-                                        bank = Bank.objects.get(id=bank_id)
-                                        Cheque.objects.create(
-                                            cheque_no=cheque_no,
-                                            bank=bank,
-                                            cheque_date=cheque_date,
-                                            amount=multi_amount2,
-                                            customer_name=bill.shop_name or bill.shop_code or 'N/A',
-                                            sales_bill=bill,
-                                            status='PENDING',
-                                            notes=f"Multi Pay - Cheque from invoice: {bill.invoice_no}"
-                                        )
-                                        logger.info(f"Multi Pay Cheque 2 created: {cheque_no}")
-                                except Exception as e:
-                                    logger.error(f"Multi Pay Cheque 2 error: {e}")
-                        else:
-                            messages.error(request, '❌ Please enter valid amounts for both payment types.')
-                            customers = Customer.objects.filter(is_active=True)
-                            return render(request, 'core/sales_bill.html', {
-                                'form': form,
-                                'products': _build_product_list_for_template(selected_vehicle),
-                                'customers': customers,
-                                'vehicles': Vehicle.objects.filter(is_active=True),
-                                'reps': Employee.objects.filter(position='Rep', is_active=True),
-                                'banks': Bank.objects.filter(is_active=True),
-                                'max_items': MAX_ITEMS,
-                                'selected_vehicle': selected_vehicle,
-                                'selected_rep': selected_rep,
-                                'today': date.today(),
-                            })
-                    
-                    else:
-                        messages.error(request, '❌ Invalid payment method selected.')
-                        customers = Customer.objects.filter(is_active=True)
-                        return render(request, 'core/sales_bill.html', {
-                            'form': form,
-                            'products': _build_product_list_for_template(selected_vehicle),
-                            'customers': customers,
-                            'vehicles': Vehicle.objects.filter(is_active=True),
-                            'reps': Employee.objects.filter(position='Rep', is_active=True),
-                            'banks': Bank.objects.filter(is_active=True),
-                            'max_items': MAX_ITEMS,
-                            'selected_vehicle': selected_vehicle,
-                            'selected_rep': selected_rep,
-                            'today': date.today(),
-                        })
-                    
+                                    bank = Bank.objects.get(id=request.POST.get('multi_cheque_bank_2', ''))
+                                    Cheque.objects.create(
+                                        cheque_no=request.POST.get('multi_cheque_no_2', ''), bank=bank, 
+                                        cheque_date=request.POST.get('multi_cheque_date_2', ''),
+                                        amount=multi_amount2, sales_bill=bill, status='PENDING'
+                                    )
+                                except: pass
+
                     # ===== SAVE TO SESSION =====
                     try:
-                        if bill.vehicle:
-                            request.session['last_vehicle_id'] = int(bill.vehicle.id)
-                        else:
-                            request.session['last_vehicle_id'] = None
-                        if bill.rep:
-                            request.session['last_rep_id'] = int(bill.rep.id)
-                        else:
-                            request.session['last_rep_id'] = None
+                        if bill.vehicle: request.session['last_vehicle_id'] = int(bill.vehicle.id)
+                        if bill.rep: request.session['last_rep_id'] = int(bill.rep.id)
                         request.session.modified = True
-                    except Exception as e:
-                        logger.warning(f"Failed to save session: {e}")
+                    except: pass
                     
                     messages.success(request, f'✅ Bill {bill.invoice_no} saved successfully! Total: {bill.net_total}')
                     return redirect('/sales/')
             
             except Exception as e:
                 import traceback
-                logger.error(f"create_sales_bill error: {e}")
                 logger.error(traceback.format_exc())
                 messages.error(request, f'❌ Error saving bill: {str(e)}')
-                customers = Customer.objects.filter(is_active=True)
-                return render(request, 'core/sales_bill.html', {
-                    'form': form,
-                    'products': _build_product_list_for_template(selected_vehicle),
-                    'customers': customers,
-                    'vehicles': Vehicle.objects.filter(is_active=True),
-                    'reps': Employee.objects.filter(position='Rep', is_active=True),
-                    'banks': Bank.objects.filter(is_active=True),
-                    'max_items': MAX_ITEMS,
-                    'selected_vehicle': selected_vehicle,
-                    'selected_rep': selected_rep,
-                    'today': date.today(),
-                })
+                return redirect('/sales/')
         
         else:
-            messages.error(request, 'Please correct the errors below.')
-            customers = Customer.objects.filter(is_active=True) 
-            products = _build_product_list_for_template(selected_vehicle)
-            vehicles = Vehicle.objects.filter(is_active=True)
-            reps = Employee.objects.filter(position='Rep', is_active=True)
-            banks = Bank.objects.filter(is_active=True)
-            context = {
-                'form': form,
-                'products': products,
-                'customers': customers,
-                'vehicles': vehicles,
-                'reps': reps,
-                'banks': banks,
-                'max_items': MAX_ITEMS,
-                'today': date.today(),
-                'random_invoice': request.POST.get('invoice_no', ''),
-                'selected_vehicle': selected_vehicle,
-                'selected_rep': selected_rep,
-                'shop_name': request.POST.get('shop_name', ''),
-                'shop_code': request.POST.get('shop_code', ''),
-                'customer_id': request.POST.get('customer', ''),
-                'cart_items': [],
-                'return_mode': False,
-                'duplicate_error': False,
-            }
-            return render(request, 'core/sales_bill.html', context)
-    
-    else:
-        form = SalesBillForm()
+            messages.error(request, 'Please correct the errors in the form.')
+            return redirect('/sales/')
     
     # ===== GET REQUEST =====
+    form = SalesBillForm()
     products = Product.objects.filter(is_active=True)
     customers = Customer.objects.filter(is_active=True)
     vehicles = Vehicle.objects.filter(is_active=True)
@@ -3397,35 +3120,26 @@ def create_sales_bill(request):
     vehicle_stock_dict = {}
     if selected_vehicle:
         try:
-            vehicle_id = int(selected_vehicle)
-            vehicle = Vehicle.objects.get(id=vehicle_id)
-            vehicle_stocks = VehicleStock.objects.filter(vehicle=vehicle)
-            for stock in vehicle_stocks:
+            vehicle = Vehicle.objects.get(id=int(selected_vehicle))
+            for stock in VehicleStock.objects.filter(vehicle=vehicle):
                 vehicle_stock_dict[stock.product_id] = stock.quantity
-        except (ValueError, TypeError, Vehicle.DoesNotExist):
-            pass
+        except Exception: pass
     
     product_list = []
     for product in products:
         selling_prices = product.get_selling_prices()
-        price_options = [{
-            'id': p.id,
-            'amount': float(p.amount),
-            'effective_date': p.effective_date.strftime('%Y-%m-%d'),
-            'is_active': p.is_active
-        } for p in selling_prices]
+        price_options = [{'id': p.id, 'amount': float(p.amount), 'effective_date': p.effective_date.strftime('%Y-%m-%d'), 'is_active': p.is_active} for p in selling_prices]
         
         product_list.append({
             'id': product.id,
             'name': product.name,
-            'code': product.code,
-            'selling_price': product.selling_price,
-            'unit': product.unit,
+            'code': product.code or '',
+            'selling_price': product.selling_price or 0,
+            'unit': product.unit or '',
             'vehicle_stock': vehicle_stock_dict.get(product.id, 0),
             'prices': price_options,
         })
     
-    random_invoice = request.GET.get('invoice_no', '')
     context = {
         'form': form,
         'products': product_list,
@@ -3435,7 +3149,7 @@ def create_sales_bill(request):
         'banks': banks,
         'max_items': MAX_ITEMS,
         'today': date.today(),
-        'random_invoice': random_invoice,
+        'random_invoice': request.GET.get('invoice_no', ''),
         'selected_vehicle': selected_vehicle,
         'selected_rep': selected_rep,
         'shop_name': request.GET.get('shop_name', ''),
