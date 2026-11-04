@@ -275,5 +275,7 @@ urlpatterns = [
 
     path('reports/stock-adjustment/', views.stock_adjustment_report, name='stock_adjustment_report'),
 
+    path('reports/lock-day/', views.lock_day_data, name='lock_day_data'),
+
     
 ]

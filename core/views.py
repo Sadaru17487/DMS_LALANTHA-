@@ -2761,7 +2761,7 @@ def customer_check_duplicate(request):
 
 
 
-def _build_product_list_for_template(selected_vehicle=None):
+def build_product_list_for_template(selected_vehicle=None):
     """Build product_list with prices for template rendering."""
     products = Product.objects.filter(is_active=True)
     
@@ -2816,6 +2816,17 @@ def create_sales_bill(request):
         selected_rep = str(session_rep) if session_rep else ''
     
     if request.method == 'POST':
+
+        bill_date_str = request.POST.get('bill_date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+
         form = SalesBillForm(request.POST)
         
         if form.is_valid():
@@ -3295,6 +3306,19 @@ def expense_add(request):
     employees = Employee.objects.filter(is_active=True)
     
     if request.method == 'POST':
+
+        bill_date_str = request.POST.get('date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+        
+        form = SalesBillForm(request.POST)
+
         # Get form data
         expense_date = request.POST.get('date')  # Renamed to expense_date
         category = request.POST.get('category')
@@ -4368,6 +4392,19 @@ def session_complete(request):
 def pay_credit_bill(request):
     
     if request.method != 'POST':
+
+        bill_date_str = request.POST.get('payment_date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+        
+        form = SalesBillForm(request.POST)
+
         return redirect('/credit-list/')
     
     try:
@@ -7203,6 +7240,19 @@ def create_sales_return(request):
     selected_rep = request.GET.get('rep') or request.session.get('last_rep_id')
     
     if request.method == 'POST':
+
+        bill_date_str = request.POST.get('return_date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+        
+        form = SalesBillForm(request.POST)
+
         try:
             with transaction.atomic():
                 # ===== HEADER =====
@@ -8535,6 +8585,19 @@ def edit_sales_bill(request, bill_id):
     bill = get_object_or_404(SalesBill, id=bill_id)
     
     if request.method == 'POST':
+
+        bill_date_str = request.POST.get('bill_date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+        
+        form = SalesBillForm(request.POST)
+
         try:
             with transaction.atomic():
                 # 1. REVERT OLD STOCK (Add back to vehicle)
@@ -8755,6 +8818,11 @@ def daily_sales_summary(request):
     # Net Cash = Complete Sales (Cash) + Online + Credit Collections
     today_net_cash = total_complete_sales + total_online_payments + total_credit_collections
 
+    settings = SystemSettings.get_settings()
+    is_locked = False
+    if settings.locked_until_date and target_date <= settings.locked_until_date:
+        is_locked = True
+
     context = {
         'selected_date': selected_date,
         'selected_vehicle': vehicle_id,
@@ -8778,8 +8846,11 @@ def daily_sales_summary(request):
         'total_returns': total_returns,
         'total_stock_loss': total_stock_loss,
         'today_net_cash': today_net_cash,
+        'locked_until_date': settings.locked_until_date,
+        'is_locked': is_locked,
     }
     return render(request, 'core/daily_sales_summary.html', context)
+
 
 
 @login_required
@@ -8833,6 +8904,19 @@ def item_sales_report(request):
 def stock_adjustment(request):
     
     if request.method == 'POST':
+
+        bill_date_str = request.POST.get('adjustment_date')
+        if bill_date_str:
+            try:
+                bill_date_obj = datetime.strptime(bill_date_str, '%Y-%m-%d').date()
+                if is_date_locked(bill_date_obj):
+                    messages.error(request, f'❌ Cannot save! Data entry is locked for {bill_date_obj}.')
+                    return redirect('/sales/')
+            except ValueError:
+                pass
+        
+        form = SalesBillForm(request.POST)
+
         try:
             with transaction.atomic():
                 location_type = request.POST.get('location_type')
@@ -8976,3 +9060,37 @@ def stock_adjustment_report(request):
     }
     
     return render(request, 'core/stock_adjustment_report.html', context)
+
+# Helper function to use in other views
+def is_date_locked(target_date):
+    if not target_date:
+        return False
+    settings = SystemSettings.get_settings()
+    if settings.locked_until_date and target_date <= settings.locked_until_date:
+        return True
+    return False
+
+@login_required
+@admin_only
+def lock_day_data(request):
+    if request.method == 'POST':
+        target_date_str = request.POST.get('date')
+        vehicle_id = request.POST.get('vehicle')
+        
+        # 🛡️ Safety: Only lock if "All Vehicles" is selected
+        if vehicle_id:
+            messages.error(request, '❌ You can only lock data when "All Vehicles" is selected.')
+            return redirect(f'/reports/daily-sales-summary/?date={target_date_str}')
+            
+        try:
+            target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            settings = SystemSettings.get_settings()
+            settings.locked_until_date = target_date
+            settings.save()
+            messages.success(request, f'🔒 System successfully locked for all entries up to {target_date}.')
+        except Exception as e:
+            messages.error(request, f'❌ Error locking system: {str(e)}')
+            
+    return redirect(f'/reports/daily-sales-summary/?date={target_date_str}')
+
+

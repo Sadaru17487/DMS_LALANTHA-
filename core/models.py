@@ -1458,4 +1458,15 @@ class StockAdjustment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.product.name} - {self.difference} on {self.date}"    
+        return f"{self.product.name} - {self.difference} on {self.date}"   
+
+# In core/models.py
+class SystemSettings(models.Model):
+    # ... your existing fields (like return_window_days) ...
+    locked_until_date = models.DateField(null=True, blank=True, help_text="All data up to this date is locked for editing.")
+    
+    # (Ensure you have this class method if you don't already)
+    @classmethod
+    def get_settings(cls):
+        obj, created = cls.objects.get_or_create(id=1)
+        return obj        

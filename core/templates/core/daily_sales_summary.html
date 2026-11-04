@@ -230,7 +230,35 @@
                 <td class="amount">Rs {{ today_net_cash|floatformat:2 }}</td>
             </tr>
         </table>
-    </div>
+    </div>    
+
+        <div style="margin-top: 25px; text-align: center; border-top: 1px solid #d1c4e9; padding-top: 20px;">
+            {% if is_locked %}
+                <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; font-weight: bold; display: inline-block;">
+                    🔒 Data entry is LOCKED up to {{ locked_until_date|date:"Y-m-d" }}.
+                </div>
+            {% else %}
+                <!-- Only show the button if "All Vehicles" is selected -->
+                {% if not selected_vehicle %}
+                    <form method="POST" action="/reports/lock-day/" style="display: inline-block;">
+                        {% csrf_token %}
+                        <input type="hidden" name="date" value="{{ selected_date }}">
+                        <input type="hidden" name="vehicle" value="">
+                        <button type="submit" onclick="return confirm('⚠️ WARNING: This will lock ALL data entry for {{ selected_date }} and all previous days. You cannot undo this. Are you sure?');" 
+                                style="padding: 15px 40px; background: #6f42c1; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);">
+                            🔒 Complete Entry & Lock Day
+                        </button>
+                    </form>
+                    <p style="color: #666; font-size: 12px; margin-top: 10px;">
+                        This will prevent adding, editing, or deleting any data on or before this date.
+                    </p>
+                {% else %}
+                    <p style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                        ⚠️ Select "All Vehicles" to enable the "Complete Entry" locking button.
+                    </p>
+                {% endif %}
+            {% endif %}
+        </div>
 </div>
 
 {% endblock %}
