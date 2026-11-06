@@ -271,6 +271,7 @@
     </div>
 
     <!-- Detailed Transactions -->
+    <!-- Detailed Transactions -->
     <div class="card">
         <h3>📋 Discount Transaction Details</h3>
         <div class="table-container">
@@ -281,31 +282,44 @@
                         <th>Customer</th>
                         <th>Vehicle</th>
                         <th>Date</th>
-                        <th>Discount Type</th>
-                        <th>Discount Value</th>
-                        <th style="text-align:right;">Discount Amount</th>
+                        <th>Bill Discount</th>
+                        <th>Item Discount</th>
+                        <th style="text-align:right;">Total Discount</th>
                         <th style="text-align:right;">Net Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for bill in bills %}
+                    {% for d in discount_data %}
                     <tr>
-                        <td><strong>{{ bill.invoice_no }}</strong></td>
-                        <td>{{ bill.shop_name|default:"-" }}</td>
-                        <td>{{ bill.vehicle.vehicle_number|default:"-" }}</td>
-                        <td>{{ bill.date|date:"Y-m-d" }}</td>
-                        <td>{{ bill.get_bill_discount_type_display|default:"-" }}</td>
+                        <td><strong>{{ d.bill.invoice_no }}</strong></td>
+                        <td>{{ d.bill.shop_name|default:"-" }}</td>
+                        <td>{{ d.bill.vehicle.vehicle_number|default:"-" }}</td>
+                        <td>{{ d.bill.date|date:"Y-m-d" }}</td>
+                        
+                        <!-- Bill Discount Column -->
                         <td>
-                            {% if bill.bill_discount_type == 'PERCENTAGE' %}
-                                {{ bill.bill_discount_value }}%
-                            {% elif bill.bill_discount_type == 'FIXED' %}
-                                Rs {{ bill.bill_discount_value|floatformat:2 }}
+                            {% if d.bill.bill_discount_amount > 0 %}
+                                {% if d.bill.bill_discount_type == 'PERCENTAGE' %}
+                                    {{ d.bill.bill_discount_value }}% (Rs {{ d.bill_discount|floatformat:2 }})
+                                {% else %}
+                                    Rs {{ d.bill.bill_discount_value|floatformat:2 }}
+                                {% endif %}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
-                        <td style="text-align:right; font-weight:600; color:#dc3545;">Rs {{ bill.bill_discount_amount|floatformat:2 }}</td>
-                        <td style="text-align:right; font-weight:600; color:#28a745;">Rs {{ bill.net_total|floatformat:2 }}</td>
+                        
+                        <!-- Item Discount Column -->
+                        <td>
+                            {% if d.item_discount > 0 %}
+                                Rs {{ d.item_discount|floatformat:2 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        
+                        <td style="text-align:right; font-weight:600; color:#dc3545;">Rs {{ d.total_discount|floatformat:2 }}</td>
+                        <td style="text-align:right; font-weight:600; color:#28a745;">Rs {{ d.bill.net_total|floatformat:2 }}</td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No discounts found in this period.</td></tr>

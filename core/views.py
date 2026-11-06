@@ -5023,11 +5023,13 @@ def free_issue_report(request):
 @login_required
 @permission_required('view_reports')
 def discount_report(request):
-    """Discount Report – shows all bill-level discounts applied"""
+    """Discount Report – shows all bill-level AND item-level discounts"""
+    from django.db.models import Q
     
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    
     category_id = request.GET.get('category', '')
     vehicle_id = request.GET.get('vehicle', '')
     
@@ -5038,28 +5040,58 @@ def discount_report(request):
         start_date_obj = today
         end_date_obj = today
     
-    # Get all completed bills with discounts (bill_discount_amount > 0)
+    # ✅ FIX: Include PENDING (credit) bills, and search for BOTH bill discounts and item discounts
     bills = SalesBill.objects.filter(
-        status='COMPLETED',
         date__gte=start_date_obj,
-        date__lte=end_date_obj,
-        bill_discount_amount__gt=0
-    ).select_related('vehicle', 'rep')
-
+        date__lte=end_date_obj
+    ).exclude(status='DRAFT').filter(
+        Q(bill_discount_amount__gt=0) | Q(items__discount_value__gt=0, items__is_foc=False)
+    ).distinct().select_related('vehicle', 'rep')
+    
+    # Apply Vehicle Filter
     if vehicle_id and vehicle_id.isdigit():
         bills = bills.filter(vehicle_id=int(vehicle_id))
         
-    # ✅ NEW: Apply Category Filter (checks if the bill contains items from this category)
+    # Apply Category Filter
     if category_id and category_id.isdigit():
         bills = bills.filter(items__product__category_id=int(category_id)).distinct()
+        
+    # Calculate Totals
+    total_bill_discounts = Decimal('0')
+    total_item_discounts = Decimal('0')
+    total_original_value = Decimal('0')
+    total_net_value = Decimal('0')
     
-    # Summary
-    total_discount_amount = bills.aggregate(total=Sum('bill_discount_amount'))['total'] or Decimal('0')
-    total_bills = bills.count()
-    total_value_after_discount = bills.aggregate(total=Sum('net_total'))['total'] or Decimal('0')
-    total_original_value = total_value_after_discount + total_discount_amount
+    discount_data = []
     
-    # Group by discount type (Percentage vs Fixed)
+    for bill in bills:
+        bill_disc = bill.bill_discount_amount or Decimal('0')
+        item_disc = Decimal('0')
+        
+        # Calculate item-level discounts for this bill
+        for item in bill.items.all():
+            if not item.is_foc and item.discount_value > 0:
+                # Original = rate * quantity, Actual = item.total
+                item_disc += (item.rate * item.quantity) - item.total
+        
+        total_bill_discounts += bill_disc
+        total_item_discounts += item_disc
+        total_net_value += bill.net_total
+        
+        bill_original = bill.net_total + bill_disc + item_disc
+        total_original_value += bill_original
+        
+        discount_data.append({
+            'bill': bill,
+            'bill_discount': bill_disc,
+            'item_discount': item_disc,
+            'total_discount': bill_disc + item_disc,
+        })
+        
+    total_discount_amount = total_bill_discounts + total_item_discounts
+    total_bills = len(discount_data)
+    
+    # Group by discount type (for the summary cards)
     percent_count = bills.filter(bill_discount_type='PERCENTAGE').count()
     fixed_count = bills.filter(bill_discount_type='FIXED').count()
     percent_total = bills.filter(bill_discount_type='PERCENTAGE').aggregate(total=Sum('bill_discount_amount'))['total'] or Decimal('0')
@@ -5071,32 +5103,30 @@ def discount_report(request):
         ws = wb.active
         ws.title = "Discount Report"
         
-        headers = ['Invoice', 'Customer', 'Vehicle', 'Date', 'Discount Type', 'Discount Value', 'Discount Amount', 'Net Total']
+        headers = ['Invoice', 'Customer', 'Vehicle', 'Date', 'Bill Discount', 'Item Discount', 'Total Discount', 'Net Total']
         ws.append(headers)
         for col in range(1, 9):
             ws.cell(row=1, column=col).font = Font(bold=True)
         
-        for bill in bills:
+        for d in discount_data:
+            b = d['bill']
             ws.append([
-                bill.invoice_no,
-                bill.shop_name or 'N/A',
-                bill.vehicle.vehicle_number if bill.vehicle else 'N/A',
-                bill.date.strftime('%Y-%m-%d'),
-                bill.get_bill_discount_type_display() or 'None',
-                float(bill.bill_discount_value),
-                float(bill.bill_discount_amount),
-                float(bill.net_total),
+                b.invoice_no,
+                b.shop_name or 'N/A',
+                b.vehicle.vehicle_number if b.vehicle else 'N/A',
+                b.date.strftime('%Y-%m-%d'),
+                float(d['bill_discount']),
+                float(d['item_discount']),
+                float(d['total_discount']),
+                float(b.net_total),
             ])
         
         for col in ws.columns:
             max_len = 0
             col_letter = col[0].column_letter
             for cell in col:
-                try:
-                    if len(str(cell.value)) > max_len:
-                        max_len = len(str(cell.value))
-                except:
-                    pass
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
             ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
         
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -5107,10 +5137,12 @@ def discount_report(request):
     context = {
         'start_date': start_date,
         'end_date': end_date,
-        'bills': bills,
+        'start_date_obj': start_date_obj,
+        'end_date_obj': end_date_obj,
+        'discount_data': discount_data,
         'total_discount_amount': total_discount_amount,
         'total_bills': total_bills,
-        'total_value_after_discount': total_value_after_discount,
+        'total_value_after_discount': total_net_value,
         'total_original_value': total_original_value,
         'percent_count': percent_count,
         'fixed_count': fixed_count,
