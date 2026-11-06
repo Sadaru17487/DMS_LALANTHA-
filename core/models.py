@@ -1371,7 +1371,9 @@ class SystemSettings(models.Model):
         max_digits=15, decimal_places=2, default=50000,
         help_text="Returns above this amount require approval"
     )
+    locked_until_date = models.DateField(null=True, blank=True, help_text="All data up to this date is locked for editing.")
     updated_at = models.DateTimeField(auto_now=True)
+    
     
     class Meta:
         verbose_name_plural = "System Settings"
@@ -1381,8 +1383,7 @@ class SystemSettings(models.Model):
     
     @classmethod
     def get_settings(cls):
-        """Get the singleton settings object."""
-        obj, _ = cls.objects.get_or_create(id=1)
+        obj, created = cls.objects.get_or_create(id=1)
         return obj
 
 
@@ -1459,14 +1460,3 @@ class StockAdjustment(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.difference} on {self.date}"   
-
-# In core/models.py
-class SystemSettings(models.Model):
-    # ... your existing fields (like return_window_days) ...
-    locked_until_date = models.DateField(null=True, blank=True, help_text="All data up to this date is locked for editing.")
-    
-    # (Ensure you have this class method if you don't already)
-    @classmethod
-    def get_settings(cls):
-        obj, created = cls.objects.get_or_create(id=1)
-        return obj        
