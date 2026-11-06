@@ -5028,6 +5028,8 @@ def discount_report(request):
     today = date.today()
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    category_id = request.GET.get('category', '')
+    vehicle_id = request.GET.get('vehicle', '')
     
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5043,6 +5045,13 @@ def discount_report(request):
         date__lte=end_date_obj,
         bill_discount_amount__gt=0
     ).select_related('vehicle', 'rep')
+
+    if vehicle_id and vehicle_id.isdigit():
+        bills = bills.filter(vehicle_id=int(vehicle_id))
+        
+    # ✅ NEW: Apply Category Filter (checks if the bill contains items from this category)
+    if category_id and category_id.isdigit():
+        bills = bills.filter(items__product__category_id=int(category_id)).distinct()
     
     # Summary
     total_discount_amount = bills.aggregate(total=Sum('bill_discount_amount'))['total'] or Decimal('0')
@@ -5107,6 +5116,10 @@ def discount_report(request):
         'fixed_count': fixed_count,
         'percent_total': percent_total,
         'fixed_total': fixed_total,
+        'categories': Category.objects.filter(is_active=True).order_by('name'),
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'selected_category': category_id,
+        'selected_vehicle': vehicle_id,
     }
     return render(request, 'core/discount_report.html', context)
 
@@ -5396,6 +5409,7 @@ def return_report(request):
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
     return_type_filter = request.GET.get('return_type', '')  # GOOD, BAD, or ALL
+    vehicle_id = request.GET.get('vehicle', '') 
 
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5415,6 +5429,9 @@ def return_report(request):
     # Filter by return type (GOOD or BAD)
     if return_type_filter in ['GOOD', 'BAD']:
         items = items.filter(return_type=return_type_filter)
+
+    if vehicle_id and vehicle_id.isdigit():
+        items = items.filter(bill__vehicle_id=int(vehicle_id))
 
     # All calculations done in Python
     total_qty = 0
@@ -5493,6 +5510,8 @@ def return_report(request):
         ('BAD', 'Bad Return (Stock NOT Added)'),
     ]
 
+    vehicles = Vehicle.objects.filter(is_active=True)
+
     context = {
         'start_date': start_date,
         'end_date': end_date,
@@ -5508,6 +5527,8 @@ def return_report(request):
         'bad_count': bad_count,
         'return_types': return_types,
         'selected_return_type': return_type_filter,
+        'vehicles': vehicles,               
+        'selected_vehicle': vehicle_id,     
         'today': today,
     }
     return render(request, 'core/return_report.html', context)
@@ -5520,6 +5541,7 @@ def cheque_report(request):
     start_date = request.GET.get('start_date', today.strftime('%Y-%m-%d'))
     end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
     status_filter = request.GET.get('status', '')
+    vehicle_id = request.GET.get('vehicle', '')
 
     try:
         start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -5535,6 +5557,9 @@ def cheque_report(request):
 
     if status_filter:
         cheques = cheques.filter(status=status_filter)
+
+    if vehicle_id and vehicle_id.isdigit():
+        cheques = cheques.filter(sales_bill__vehicle_id=int(vehicle_id))
 
     # Summaries
     total_cheques = cheques.count()
@@ -5622,6 +5647,8 @@ def cheque_report(request):
         'total_received': total_received,
         'total_received_amount': total_received_amount,
         'today': today,
+        'vehicles': Vehicle.objects.filter(is_active=True),
+        'selected_vehicle': vehicle_id,
     }
     return render(request, 'core/cheque_report.html', context)
 

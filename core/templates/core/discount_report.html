@@ -51,7 +51,8 @@
         text-transform: uppercase;
         letter-spacing: 0.3px;
     }
-    .filter-box .filter-group input {
+    .filter-box .filter-group input,
+    .filter-box .filter-group select {
         padding: 8px 12px;
         border: 2px solid #e0e4eb;
         border-radius: 8px;
@@ -59,7 +60,8 @@
         min-width: 150px;
         background: #fafbfc;
     }
-    .filter-box .filter-group input:focus {
+    .filter-box .filter-group input:focus,
+    .filter-box .filter-group select:focus {
         border-color: #007bff;
         outline: none;
     }
@@ -200,9 +202,35 @@
             <label>To Date</label>
             <input type="date" name="end_date" value="{{ end_date }}">
         </div>
+
+        <div class="filter-group">
+            <label>Category</label>
+            <select name="category">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- ✅ NEW: Vehicle Filter -->
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for veh in vehicles %}
+                    <option value="{{ veh.id }}" {% if selected_vehicle == veh.id|stringformat:"s" %}selected{% endif %}>
+                        {{ veh.vehicle_number }} - {{ veh.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
         <button type="submit" class="btn-filter">🔍 Get Report</button>
         <a href="/reports/discount-report/" class="btn-clear">Clear</a>
-        <a href="?export=xlsx&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-excel">📥 Excel</a>
+        <a href="?export=xlsx&start_date={{ start_date }}&end_date={{ end_date }}&category={{ selected_category }}&vehicle={{ selected_vehicle }}" class="btn-excel">📥 Excel</a>
     </form>
 
     <!-- Summary Cards -->

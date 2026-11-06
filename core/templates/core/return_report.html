@@ -211,6 +211,18 @@
         .filter-box .filter-group select { min-width: 100%; }
         .filter-box .btn-excel { margin-left: 0; }
     }
+
+        /* ✅ PRINT STYLES */
+    @media print {
+        body { background: white; }
+        .sidebar, .navbar, .header-box, .filter-box, .btn-excel, .btn-print, .footer {
+            display: none !important;
+        }
+        .report-container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd !important; page-break-inside: avoid; margin-bottom: 15px !important; }
+        .summary-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        table th { background: #eee !important; color: black !important; }
+    }
 </style>
 
 <div class="report-container">
@@ -244,8 +256,22 @@
                 {% endfor %}
             </select>
         </div>
+
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }} - {{ v.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
         <button type="submit" class="btn-filter">🔍 Get Report</button>
         <a href="/reports/return-report/" class="btn-clear">Clear</a>
+        <button type="button" class="btn-print" onclick="window.print()" style="background: #17a2b8; color: white; padding: 8px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 42px; display: inline-flex; align-items: center; margin-left: 10px;">🖨️ Print</button>
         <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
     </form>
 

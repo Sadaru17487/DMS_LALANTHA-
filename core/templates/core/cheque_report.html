@@ -108,7 +108,7 @@
 
     .summary-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr); /* 👈 Changed from 4 to 3 for better print layout */
         gap: 15px;
         margin-bottom: 25px;
     }
@@ -207,6 +207,25 @@
         .filter-box .filter-group select { min-width: 100%; }
         .filter-box .btn-excel { margin-left: 0; }
     }
+
+        /* ✅ PRINT STYLES */
+    @media print {
+        /* Hide non-printable elements */
+        .sidebar, .navbar, .header-box, .filter-box, .btn-excel, .btn-print, .footer, .no-print {
+            display: none !important;
+        }
+        /* Make the container take full width */
+        .report-container { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd !important; page-break-inside: avoid; margin-bottom: 15px !important; padding: 10px !important; }
+        .summary-card { box-shadow: none !important; border: 1px solid #ddd !important; padding: 10px !important; }
+        table th { background: #eee !important; color: black !important; }
+        body { background: white !important; }
+        
+        /* Show print header */
+        .print-header { display: block !important; margin-bottom: 20px; text-align: center; }
+    }
+    /* Hide print header on screen */
+    .print-header { display: none; }
 </style>
 
 <div class="report-container">
@@ -220,6 +239,14 @@
         </div>
     </div>
 
+    <div class="print-header">
+        <h1 style="margin: 0; font-size: 24px;">LALANTHA DISTRIBUTORS</h1>
+        <h3 style="margin: 5px 0; font-size: 18px; font-weight: normal;">Cheque Report</h3>
+        <p style="margin: 0; font-size: 14px; color: #555;">
+            Period: {{ start_date_obj|date:"Y-m-d" }} to {{ end_date_obj|date:"Y-m-d" }}
+        </p>
+    </div>
+
     <form method="GET" class="filter-box">
         <div class="filter-group">
             <label>From Date</label>
@@ -228,6 +255,17 @@
         <div class="filter-group">
             <label>To Date</label>
             <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }} - {{ v.driver_name }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
         <div class="filter-group">
             <label>Status</label>
@@ -242,7 +280,8 @@
         </div>
         <button type="submit" class="btn-filter">🔍 Get Report</button>
         <a href="/reports/cheque-report/" class="btn-clear">Clear</a>
-        <a href="?export=xlsx&{{ request.GET.urlencode }}" class="btn-excel">📥 Excel</a>
+        <button type="button" class="btn-print" onclick="window.print()" style="background: #17a2b8; color: white; padding: 8px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; height: 42px; display: inline-flex; align-items: center; margin-left: auto;">🖨️ Print</button>
+        <a href="?export=xlsx&start_date={{ start_date }}&end_date={{ end_date }}&status={{ selected_status }}&vehicle={{ selected_vehicle }}" class="btn-excel" style="margin-left: 10px;">📥 Excel</a>
     </form>
 
     <div class="summary-grid">
