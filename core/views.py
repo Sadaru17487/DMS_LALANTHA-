@@ -875,22 +875,15 @@ def load_vehicle(request):
         if form.is_valid():
             vehicle = form.cleaned_data['vehicle']
             
-            # ===== DEBUG: Print the submitted date =====
+            # ✅ Get the selected date
             date_str = request.POST.get('date', '')
-            print(f"🔍 DEBUG: Raw date from POST: '{date_str}'")
-            
             if date_str:
                 try:
                     date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    print(f"🔍 DEBUG: Parsed date: {date_obj}")
-                except ValueError as e:
-                    print(f"🔍 DEBUG: Date parse error: {e}")
+                except ValueError:
                     date_obj = date.today()
             else:
-                print("🔍 DEBUG: No date submitted, using today")
                 date_obj = date.today()
-            
-            print(f"🔍 DEBUG: Final date to save: {date_obj}")
             
             with transaction.atomic():
                 loaded_count = 0
@@ -906,77 +899,45 @@ def load_vehicle(request):
                     
                     if quantity > 0:
                         # Warehouse stock
-                        warehouse_stock, created = WarehouseStock.objects.get_or_create(
-                            product=product,
-                            defaults={'quantity': 0}
-                        )
+                        warehouse_stock, created = WarehouseStock.objects.get_or_create(product=product, defaults={'quantity': 0})
                         if warehouse_stock.quantity < quantity:
                             messages.error(request, f'❌ Not enough stock for {product.name}. Available: {warehouse_stock.quantity}')
-                            return render(request, 'core/load_vehicle.html', {
-                                'form': form,
-                                'product_list': product_list
-                            })
+                            return render(request, 'core/load_vehicle.html', {'form': form, 'product_list': product_list})
                         
                         warehouse_stock.quantity -= quantity
                         warehouse_stock.save()
                         
                         # Vehicle stock
-                        vehicle_stock, created = VehicleStock.objects.get_or_create(
-                            vehicle=vehicle, 
-                            product=product
-                        )
+                        vehicle_stock, created = VehicleStock.objects.get_or_create(vehicle=vehicle, product=product)
                         vehicle_stock.quantity += quantity
                         vehicle_stock.save()
                         
-                        # ===== CREATE VEHICLE LOAD RECORD =====
-                        # Try with date field first, fallback if it doesn't exist
-                        try:
-                            load = VehicleLoad.objects.create(
-                                vehicle=vehicle,
-                                product=product,
-                                quantity=quantity,
-                                date=date_obj,  # ✅ Use the parsed date
-                                notes=f"Loaded from warehouse"
-                            )
-                            print(f"🔍 DEBUG: VehicleLoad created with date={load.date}")
-                        except Exception as e:
-                            print(f"🔍 DEBUG: VehicleLoad without date (field missing): {e}")
-                            load = VehicleLoad.objects.create(
-                                vehicle=vehicle,
-                                product=product,
-                                quantity=quantity,
-                                notes=f"Loaded from warehouse"
-                            )
+                        # ✅ Save VehicleLoad WITH the date
+                        VehicleLoad.objects.create(
+                            vehicle=vehicle,
+                            product=product,
+                            quantity=quantity,
+                            date=date_obj,
+                            notes=f"Loaded from warehouse"
+                        )
                         
-                        # ===== CREATE STOCK MOVEMENT LOG =====
-                        try:
-                            log = StockMovementLog.objects.create(
-                                vehicle=vehicle,
-                                product=product,
-                                quantity=quantity,
-                                movement_type='LOAD',
-                                date=date_obj,  # ✅ Use the parsed date
-                                performed_by=request.user,
-                                notes=f"Loaded from warehouse"
-                            )
-                            print(f"🔍 DEBUG: StockMovementLog created with date={log.date}")
-                        except Exception as e:
-                            print(f"🔍 DEBUG: StockMovementLog without date (field missing): {e}")
-                            log = StockMovementLog.objects.create(
-                                vehicle=vehicle,
-                                product=product,
-                                quantity=quantity,
-                                movement_type='LOAD',
-                                performed_by=request.user,
-                                notes=f"Loaded from warehouse"
-                            )
+                        # ✅ Save StockMovementLog WITH the date
+                        StockMovementLog.objects.create(
+                            vehicle=vehicle,
+                            product=product,
+                            quantity=quantity,
+                            movement_type='LOAD',
+                            date=date_obj,
+                            performed_by=request.user,
+                            notes=f"Loaded from warehouse"
+                        )
                         
                         loaded_count += 1
                 
                 if loaded_count == 0:
                     messages.warning(request, 'No products were loaded. Please enter quantities.')
                 else:
-                    messages.success(request, f'✅ Successfully loaded {loaded_count} product(s) to {vehicle.vehicle_number} - {vehicle.driver_name}')
+                    messages.success(request, f'✅ Successfully loaded {loaded_count} product(s) to {vehicle.vehicle_number} on {date_obj}')
                 return redirect('/load/')
         else:
             messages.error(request, 'Please select a valid vehicle.')
