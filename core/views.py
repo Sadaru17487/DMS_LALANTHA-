@@ -6384,26 +6384,39 @@ def sales_credit_report(request):
         from django.http import HttpResponse
 
         today = date.today()
-        start_date = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
-        end_date = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+        
+        # ✅ FIX: Default to empty strings instead of current month
+        start_date = request.GET.get('start_date', '')
+        end_date = request.GET.get('end_date', '')
         vehicle_id = request.GET.get('vehicle', '')
 
-        try:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-        except ValueError:
-            start_date_obj = today.replace(day=1)
-            end_date_obj = today
+        start_date_obj = None
+        end_date_obj = None
+        
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        if end_date:
+            try:
+                end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                pass
 
-        # Base queryset: all credit payments
-        credit_bill_ids = Payment.objects.filter(
-            type='Credit',
-            bill__date__gte=start_date_obj,
-            bill__date__lte=end_date_obj,
-            bill__status='COMPLETED'
-        ).values_list('bill_id', flat=True).distinct()
+        # Base queryset
+        credit_payments = Payment.objects.filter(type='Credit', bill__status='COMPLETED')
+        
+        # Apply date filters ONLY if dates were provided
+        if start_date_obj:
+            credit_payments = credit_payments.filter(bill__date__gte=start_date_obj)
+        if end_date_obj:
+            credit_payments = credit_payments.filter(bill__date__lte=end_date_obj)
 
-        bills = SalesBill.objects.filter(id__in=credit_bill_ids).select_related('vehicle', 'rep')
+        credit_bill_ids = credit_payments.values_list('bill_id', flat=True).distinct()
+
+        # ✅ FIX: Order by date ascending (oldest first)
+        bills = SalesBill.objects.filter(id__in=credit_bill_ids).select_related('vehicle', 'rep').order_by('date', 'created_at')
         
         if vehicle_id and vehicle_id.isdigit():
             bills = bills.filter(vehicle_id=int(vehicle_id))
@@ -6416,7 +6429,7 @@ def sales_credit_report(request):
             except Vehicle.DoesNotExist:
                 pass
 
-        # Process bills: compute paid, outstanding, collection status
+        # Process bills
         bill_data = []
         total_credit_sales = Decimal('0')
         total_outstanding = Decimal('0')
@@ -6459,17 +6472,28 @@ def sales_credit_report(request):
                     'total_paid': Decimal('0'),
                     'total_outstanding': Decimal('0'),
                     'bills': [],
+                    'oldest_date': item['bill'].date # ✅ Track oldest date
                 }
             vehicle_summary[v_key]['total_bills'] += 1
             vehicle_summary[v_key]['total_sales'] += item['bill'].net_total
             vehicle_summary[v_key]['total_paid'] += item['paid']
             vehicle_summary[v_key]['total_outstanding'] += item['outstanding']
             vehicle_summary[v_key]['bills'].append(item)
+            
+            # ✅ Update oldest date for this vehicle
+            if item['bill'].date < vehicle_summary[v_key]['oldest_date']:
+                vehicle_summary[v_key]['oldest_date'] = item['bill'].date
 
-        # Convert to list for template, sort by sales descending
-        vehicle_summary_list = sorted(vehicle_summary.values(), key=lambda x: x['total_sales'], reverse=True)
+        # ✅ Calculate Rate & Sort summary list by oldest date
+        vehicle_summary_list = []
+        for key, data in vehicle_summary.items():
+            rate = (data['total_paid'] / data['total_sales'] * 100) if data['total_sales'] > 0 else 0
+            data['rate'] = rate # ✅ Fix: Add rate to the dictionary
+            vehicle_summary_list.append(data)
 
-        # If a specific vehicle is selected, show detailed bills instead of summary
+        vehicle_summary_list = sorted(vehicle_summary_list, key=lambda x: x['oldest_date'])
+
+        # If a specific vehicle is selected, show detailed bills
         show_detail = bool(vehicle_id and vehicle_id.isdigit())
 
         # Excel export
@@ -6499,17 +6523,16 @@ def sales_credit_report(request):
                 ws.append(headers)
                 for col in range(1, 7):
                     ws.cell(row=1, column=col).font = Font(bold=True)
-                vehicle_summary_list = []
-                for key, data in vehicle_summary.items():
-                    rate = (data['total_paid'] / data['total_sales'] * 100) if data['total_sales'] > 0 else 0
-                    vehicle_summary_list.append({
-                        'vehicle': data['vehicle'],
-                        'total_bills': data['total_bills'],
-                        'total_sales': data['total_sales'],
-                        'total_paid': data['total_paid'],
-                        'total_outstanding': data['total_outstanding'],
-                        'rate': rate,
-                    })
+                
+                for data in vehicle_summary_list:
+                    ws.append([
+                        data['vehicle'].vehicle_number if data['vehicle'] else 'Unassigned',
+                        data['total_bills'],
+                        float(data['total_sales']),
+                        float(data['total_paid']),
+                        float(data['total_outstanding']),
+                        f"{data['rate']:.1f}%",
+                    ])
 
             for col in ws.columns:
                 max_len = 0
@@ -6520,18 +6543,15 @@ def sales_credit_report(request):
                 ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
 
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = f'attachment; filename="Sales_Credit_Report_{start_date}_to_{end_date}.xlsx"'
+            response['Content-Disposition'] = f'attachment; filename="Sales_Credit_Report.xlsx"'
             wb.save(response)
             return response
 
-        # Vehicles for filter
         vehicles = Vehicle.objects.filter(is_active=True)
 
         context = {
             'start_date': start_date,
             'end_date': end_date,
-            'start_date_obj': start_date_obj,
-            'end_date_obj': end_date_obj,
             'vehicles': vehicles,
             'selected_vehicle': vehicle_id,
             'selected_vehicle_obj': selected_vehicle_obj,
@@ -6551,7 +6571,6 @@ def sales_credit_report(request):
         import traceback
         print(f"ERROR in sales_credit_report: {e}")
         print(traceback.format_exc())
-        # Return a simple error page with the error details (for debugging)
         return HttpResponse(f"<h1>Error</h1><p>{e}</p><pre>{traceback.format_exc()}</pre>", status=500)
 
 
@@ -7086,19 +7105,44 @@ def unload_vehicle(request):
 @login_required
 @permission_required('view_vehicles')
 def stock_movement_log(request):
+    from datetime import datetime
+    
     logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-created_at')
     
-    vehicle_id = request.GET.get('vehicle')
+    # Get filters
+    vehicle_id = request.GET.get('vehicle', '')
+    start_date_str = request.GET.get('start_date', '')
+    end_date_str = request.GET.get('end_date', '')
+    
+    # ✅ Apply Vehicle Filter
     if vehicle_id and vehicle_id.isdigit():
         logs = logs.filter(vehicle_id=int(vehicle_id))
+        
+    # ✅ Apply Date Filters
+    if start_date_str:
+        try:
+            start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            logs = logs.filter(created_at__date__gte=start_date_obj)
+        except ValueError:
+            pass
+            
+    if end_date_str:
+        try:
+            end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            logs = logs.filter(created_at__date__lte=end_date_obj)
+        except ValueError:
+            pass
     
     context = {
         'logs': logs,
         'vehicles': Vehicle.objects.filter(is_active=True),
         'selected_vehicle': vehicle_id,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'start_date_obj': start_date_obj if start_date_str else None,
+        'end_date_obj': end_date_obj if end_date_str else None,
     }
     return render(request, 'core/stock_movement_log.html', context)
-
 
 @login_required
 @permission_required('manage_products')

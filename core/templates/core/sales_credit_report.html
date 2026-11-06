@@ -208,7 +208,11 @@
             <div class="sub">Credit sales summary with vehicle filter</div>
         </div>
         <div class="date-badge">
-            {{ start_date_obj|date:"F j, Y" }} - {{ end_date_obj|date:"F j, Y" }}
+            {% if start_date_obj or end_date_obj %}
+                {{ start_date_obj|date:"F j, Y"|default:"Start" }} - {{ end_date_obj|date:"F j, Y"|default:"Today" }}
+            {% else %}
+                All Time
+            {% endif %}
         </div>
     </div>
 

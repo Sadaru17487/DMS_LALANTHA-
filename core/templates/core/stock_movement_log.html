@@ -6,36 +6,151 @@
 {% block content %}
 
 <style>
-    .badge-load { background: #28a745; color: white; padding: 2px 12px; border-radius: 12px; }
-    .badge-unload { background: #dc3545; color: white; padding: 2px 12px; border-radius: 12px; }
+    .report-container { max-width: 1400px; margin: 0 auto; }
+    
+    /* ✅ NEW: Professional Filter Bar Design */
+    .filter-box {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        align-items: end;
+    }
+    .filter-box .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filter-box .filter-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .filter-box .filter-group input,
+    .filter-box .filter-group select {
+        padding: 8px 12px;
+        border: 2px solid #e0e4eb;
+        border-radius: 8px;
+        font-size: 14px;
+        min-width: 150px;
+        background: #fafbfc;
+    }
+    .filter-box .filter-group input:focus,
+    .filter-box .filter-group select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+    .filter-box .btn-filter {
+        background: #007bff;
+        color: white;
+        padding: 8px 25px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        height: 42px;
+    }
+    .filter-box .btn-filter:hover { background: #0056b3; }
+    .filter-box .btn-clear {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .filter-box .btn-clear:hover { background: #5a6268; }
+
+    /* ✅ Table Design */
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    table th {
+        background: #f8f9fc;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e4eb;
+    }
+    table td {
+        padding: 12px;
+        border-bottom: 1px solid #edf1f7;
+        color: #333;
+    }
+    table td:last-child, table th:last-child { text-align: right; }
+    
+    .badge-load { 
+        background: #d4edda; 
+        color: #155724; 
+        padding: 4px 12px; 
+        border-radius: 20px; 
+        font-size: 12px; 
+        font-weight: 600;
+    }
+    .badge-unload { 
+        background: #f8d7da; 
+        color: #721c24; 
+        padding: 4px 12px; 
+        border-radius: 20px; 
+        font-size: 12px; 
+        font-weight: 600;
+    }
 </style>
 
-<div class="container">
-    <div class="page-title">
+<div class="report-container">
+    <div class="page-title" style="margin-bottom: 20px;">
         <div>
             <h2>📋 Stock Movement Log</h2>
             <span class="subtitle">History of loading & unloading</span>
         </div>
     </div>
 
-    <div class="card">
-        <form method="GET" class="filter-box" style="display:flex; gap:15px; flex-wrap:wrap; align-items:end;">
-            <div class="filter-group">
-                <label>Vehicle</label>
-                <select name="vehicle">
-                    <option value="">All Vehicles</option>
-                    {% for v in vehicles %}
-                        <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
-                            {{ v.vehicle_number }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn-filter">🔍 Filter</button>
-            <a href="/stock-movement-log/" class="btn-clear">Clear</a>
-        </form>
-    </div>
+    <!-- ✅ NEW: Filter Form -->
+    <form method="GET" class="filter-box">
+        <div class="filter-group">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="filter-group">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <div class="filter-group">
+            <label>Vehicle</label>
+            <select name="vehicle">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}" {% if selected_vehicle == v.id|stringformat:"s" %}selected{% endif %}>
+                        {{ v.vehicle_number }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filter">🔍 Filter</button>
+        <a href="/stock-movement-log/" class="btn-clear">Clear</a>
+    </form>
 
+    <!-- Results Table -->
     <div class="card">
         <div class="table-container">
             <table>
@@ -54,24 +169,28 @@
                     {% for log in logs %}
                     <tr>
                         <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
-                        <td>{{ log.vehicle.vehicle_number }}</td>
+                        <td><strong>{{ log.vehicle.vehicle_number }}</strong></td>
                         <td>{{ log.product.name }}</td>
-                        <td style="text-align:right;">{{ log.quantity|floatformat:0 }}</td>
+                        <td style="text-align:right; font-weight:600; color:#007bff;">{{ log.quantity|floatformat:0 }}</td>
                         <td>
-                            <span class="badge-load">{{ log.get_movement_type_display }}</span>
+                            {% if log.movement_type == 'LOAD' %}
+                                <span class="badge-load">⬆️ Load to Vehicle</span>
+                            {% else %}
+                                <span class="badge-unload">⬇️ Unload</span>
+                            {% endif %}
                         </td>
                         <td>{{ log.performed_by.username|default:"-" }}</td>
-                        <td>{{ log.notes|default:"-" }}</td>
+                        <td style="color:#666; font-size:13px;">{{ log.notes|default:"-" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">No stock movements found.</td></tr>
+                    <tr><td colspan="7" style="text-align:center;color:#999;padding:30px;">No stock movements found for the selected filters.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <div class="footer">
+    <div class="footer" style="text-align:center; margin-top:20px; color:#999; font-size:13px;">
         &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
     </div>
 </div>
