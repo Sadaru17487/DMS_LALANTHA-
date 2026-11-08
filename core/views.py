@@ -7100,7 +7100,7 @@ def unload_vehicle(request):
 def stock_movement_log(request):
     from datetime import datetime
     
-    logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-created_at')
+    logs = StockMovementLog.objects.all().select_related('vehicle', 'product', 'performed_by').order_by('-date', '-created_at')
     
     # Get filters
     vehicle_id = request.GET.get('vehicle', '')
@@ -7115,14 +7115,14 @@ def stock_movement_log(request):
     if start_date_str:
         try:
             start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            logs = logs.filter(created_at__date__gte=start_date_obj)
+            logs = logs.filter(date__gte=start_date_obj) # Changed from created_at__date
         except ValueError:
             pass
             
     if end_date_str:
         try:
             end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            logs = logs.filter(created_at__date__lte=end_date_obj)
+            logs = logs.filter(date__lte=end_date_obj) # Changed from created_at__date
         except ValueError:
             pass
     

@@ -168,7 +168,7 @@
                 <tbody>
                     {% for log in logs %}
                     <tr>
-                        <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ log.date|default:log.created_at|date:"Y-m-d" }}</td>
                         <td><strong>{{ log.vehicle.vehicle_number }}</strong></td>
                         <td>{{ log.product.name }}</td>
                         <td style="text-align:right; font-weight:600; color:#007bff;">{{ log.quantity|floatformat:0 }}</td>
