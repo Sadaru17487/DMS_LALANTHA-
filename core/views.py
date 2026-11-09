@@ -7017,6 +7017,7 @@ def unload_vehicle(request):
 
         vehicle = get_object_or_404(Vehicle, id=vehicle_id)
 
+        # ✅ Parse the date from the POST request
         date_str = request.POST.get('date')
         if date_str:
             try:
@@ -7046,7 +7047,8 @@ def unload_vehicle(request):
                             return render(request, 'core/unload_vehicle.html', {
                                 'vehicles': vehicles,
                                 'selected_vehicle': vehicle,
-                                'product_list': product_list
+                                'product_list': product_list,
+                                'today': date.today()
                             })
                         
                         vehicle_stock.quantity -= quantity
@@ -7062,6 +7064,7 @@ def unload_vehicle(request):
                         warehouse_stock.quantity += quantity
                         warehouse_stock.save()
                         
+                        # ✅ Save the StockMovementLog with the selected date
                         StockMovementLog.objects.create(
                             vehicle=vehicle,
                             product=product,
@@ -7077,7 +7080,7 @@ def unload_vehicle(request):
                 if unloaded_count == 0:
                     messages.warning(request, 'No products were unloaded. Please enter quantities.')
                 else:
-                    messages.success(request, f'✅ Successfully unloaded {unloaded_count} product(s) from {vehicle.vehicle_number} - {vehicle.driver_name}')
+                    messages.success(request, f'✅ Successfully unloaded {unloaded_count} product(s) from {vehicle.vehicle_number} on {date_obj}')
                 return redirect('/unload/')
         except Exception as e:
             logger.error(f"Unload Vehicle error: {e}")
@@ -7085,13 +7088,15 @@ def unload_vehicle(request):
             return render(request, 'core/unload_vehicle.html', {
                 'vehicles': vehicles,
                 'selected_vehicle': vehicle,
-                'product_list': product_list
+                'product_list': product_list,
+                'today': date.today()
             })
 
     return render(request, 'core/unload_vehicle.html', {
         'vehicles': vehicles,
         'selected_vehicle': selected_vehicle,
-        'product_list': product_list
+        'product_list': product_list,
+        'today': date.today()
     })
 
 

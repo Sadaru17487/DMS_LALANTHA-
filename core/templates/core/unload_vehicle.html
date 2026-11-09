@@ -116,19 +116,18 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Inside the unload form, after the vehicle selection -->
-            <div class="form-group">
-                <label>Date</label>
-                <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
-            </div>
-            
         </form>
 
         <!-- Unload Form: POST (for actual unloading) -->
         <form method="POST" action="/unload/">
             {% csrf_token %}
             <input type="hidden" name="vehicle" value="{{ selected_vehicle.id }}">
+
+            <!-- ✅ MOVED HERE: Date input belongs inside the POST form -->
+            <div class="form-group">
+                <label>Unload Date</label>
+                <input type="date" name="date" value="{{ today|date:'Y-m-d' }}">
+            </div>
 
             <div class="info-box">
                 💡 <strong>Note:</strong> Only products with stock on the vehicle will be shown.
