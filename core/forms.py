@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, Vehicle, SalesBill, Employee, Service
+from .models import Product, Vehicle, SalesBill, Employee, Service_list
 
 
 class VehicleLoadForm(forms.Form):
@@ -125,13 +125,3 @@ class ProductForm(forms.ModelForm):
         }
 
 
-class ServiceForm(forms.ModelForm):
-    class Meta:
-        model = Service
-        fields = ['supplier', 'description', 'cost', 'price']
-        widgets = {
-            'supplier': forms.Select(attrs={'class': 'form-input', 'id': 'supplier-input'}),
-            'description': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Service Description'}),
-            'cost': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Rs 0'}),
-            'price': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Rs'}),
-        }
