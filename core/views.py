@@ -41,7 +41,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Product, WarehouseStock, Vehicle, VehicleStock, VehicleLoad
-from .forms import VehicleLoadForm, ServiceForm
+from .forms import VehicleLoadForm
 from .decorators import permission_required
 import logging
 from .models import StockMovementLog
@@ -9164,25 +9164,49 @@ def lock_day_data(request):
     return redirect(f'/reports/daily-sales-summary/?date={target_date_str}')
 
 
-from django.contrib.auth.decorators import login_required, permission_required
 @login_required
 def service_list(request):
-    """View to add and list services"""
+    """Add and view services (income)"""
+    
     if request.method == 'POST':
-        form = ServiceForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Service added successfully!")
-            return redirect('service_list')
-    else:
-        form = ServiceForm()
+        date_str = request.POST.get('date')
+        description = request.POST.get('description', '').strip()
+        price_str = request.POST.get('price', '').strip()
 
+        if not description or not price_str:
+            messages.error(request, '❌ Please fill in both the description and price.')
+            return redirect('/services/')
+
+        try:
+            price = Decimal(price_str)
+            date_obj = date.today()
+            if date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
+            Service.objects.create(
+                date=date_obj,
+                description=description,
+                price=price,
+                created_by=request.user
+            )
+            messages.success(request, f'✅ Service "{description}" added successfully!')
+            return redirect('/services/')
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error saving service: {str(e)}')
+            return redirect('/services/')
+
+    # GET Request
     services = Service.objects.all().order_by('-date', '-created_at')
+    total_income = services.aggregate(total=Sum('price'))['total'] or Decimal('0')
 
     context = {
-        'form': form,
         'services': services,
+        'total_income': total_income,
+        'today': date.today()
     }
     return render(request, 'core/service_list.html', context)
-
 

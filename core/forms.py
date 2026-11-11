@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product, Vehicle, SalesBill, Employee, Service_list
+from .models import Product, Vehicle, SalesBill, Employee
 
 
 class VehicleLoadForm(forms.Form):
