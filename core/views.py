@@ -164,7 +164,7 @@ def dashboard(request):
 
 
 @login_required
-@permission_required('view_sales')
+@permission_required('view_sales_list')
 def sales_list(request):
     """List all sales with filters and actions"""
     
@@ -223,7 +223,7 @@ def sales_list(request):
     return render(request, 'core/sales_list.html', context)
 
 @login_required
-@permission_required('view_sales')
+@permission_required('view_credit_list')
 def credit_list(request):
     
     # ============================================================
@@ -684,7 +684,7 @@ def mark_credit_paid(request, bill_id):
 
 
 @login_required
-@permission_required('view_sales')
+@permission_required('view_sales_detail')
 def sales_detail(request, bill_id):
     """View individual sale details"""
     
@@ -2427,7 +2427,7 @@ def bounced_cheque_report(request):
 
 
 @login_required
-@permission_required('view_sales')
+@permission_required('view_customers')
 def customer_list(request):
     """List all customers with filters"""
     customers = Customer.objects.all()
