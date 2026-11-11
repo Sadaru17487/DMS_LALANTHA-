@@ -1463,7 +1463,7 @@ class StockAdjustment(models.Model):
         return f"{self.product.name} - {self.difference} on {self.date}"   
 
 
-class Service(models.Model):
+class Service_list(models.Model):
     supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, blank=True, help_text="Optional: Who provided this service?")
     description = models.CharField(max_length=255)
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="What it cost you")
