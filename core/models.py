@@ -1460,3 +1460,22 @@ class StockAdjustment(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.difference} on {self.date}"   
+
+
+class Service(models.Model):
+    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, blank=True, help_text="Optional: Who provided this service?")
+    description = models.CharField(max_length=255)
+    cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="What it cost you")
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="What you charged the customer")
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.description} - Rs.{self.price}"
+
+    @property
+    def profit(self):
+        return self.price - self.cost
+
+
+    

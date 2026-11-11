@@ -65,6 +65,33 @@
         text-align: right;
         font-weight: 600;
     }
+    
+    /* --- NEW SEARCH BAR STYLES --- */
+    .search-wrapper {
+        margin-bottom: 20px;
+        position: relative;
+        max-width: 400px;
+    }
+    .search-wrapper input {
+        width: 100%;
+        padding: 12px 20px 12px 40px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .search-wrapper input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    .search-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+    }
 </style>
 
 <div class="container">
@@ -76,48 +103,99 @@
         <a href="/load/" class="btn" style="background:#28a745;">🚚 Load Vehicle</a>
     </div>
 
-    {% if stock_data %}
-        {% for data in stock_data %}
-        <div class="vehicle-card">
-            <div class="header">
-                <h3>{{ data.vehicle.vehicle_number }}</h3>
-                <div>
-                    <span class="badge">Total Items: {{ data.total_items|floatformat:0 }}</span>
-                    <span style="margin-left: 10px; color: #666; font-size: 13px;">Driver: {{ data.vehicle.driver_name }}</span>
-                </div>
-            </div>
-            {% if data.stocks %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th style="text-align:right;">Quantity</th>
-                        <th style="text-align:right;">Unit</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for stock in data.stocks %}
-                    <tr>
-                        <td>{{ stock.product.name }}</td>
-                        <td style="text-align:right; font-weight:600;">{{ stock.quantity|floatformat:2 }}</td>
-                        <td style="text-align:right; color:#888;">{{ stock.product.unit }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p class="empty">No stock loaded on this vehicle.</p>
-            {% endif %}
-        </div>
-        {% endfor %}
-    {% else %}
-    <div class="vehicle-card">
-        <p class="empty" style="font-size:16px;">No vehicles found. Please add vehicles first.</p>
+    <!-- 🔍 SEARCH BAR ADDED HERE -->
+    <div class="search-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="vehicleSearch" placeholder="Search by Vehicle Number or Driver...">
     </div>
-    {% endif %}
+
+    <div id="vehicleList">
+        {% if stock_data %}
+            {% for data in stock_data %}
+            <!-- Added class 'searchable-vehicle' and data attributes for filtering -->
+            <div class="vehicle-card searchable-vehicle" 
+                 data-vehicle="{{ data.vehicle.vehicle_number|lower }}" 
+                 data-driver="{{ data.vehicle.driver_name|default:''|lower }}">
+                <div class="header">
+                    <h3>{{ data.vehicle.vehicle_number }}</h3>
+                    <div>
+                        <span class="badge">Total Items: {{ data.total_items|floatformat:0 }}</span>
+                        <span style="margin-left: 10px; color: #666; font-size: 13px;">Driver: {{ data.vehicle.driver_name }}</span>
+                    </div>
+                </div>
+                {% if data.stocks %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th style="text-align:right;">Quantity</th>
+                            <th style="text-align:right;">Unit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in data.stocks %}
+                        <tr>
+                            <td>{{ stock.product.name }}</td>
+                            <td style="text-align:right; font-weight:600;">{{ stock.quantity|floatformat:2 }}</td>
+                            <td style="text-align:right; color:#888;">{{ stock.product.unit }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="empty">No stock loaded on this vehicle.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="vehicle-card">
+            <p class="empty" style="font-size:16px;">No vehicles found. Please add vehicles first.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Hidden message for no search results -->
+    <div id="noResults" class="vehicle-card" style="display: none;">
+        <p class="empty" style="font-size:16px;">🔍 No vehicles found matching your search.</p>
+    </div>
 
     <div class="footer">
         &copy; {% now "Y" %} LALANTHA DISTRIBUTORS - Distribution Management System
     </div>
 </div>
+
+<!-- 🛠️ JAVASCRIPT FOR INSTANT FILTERING -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('vehicleSearch');
+    const vehicles = document.querySelectorAll('.searchable-vehicle');
+    const noResults = document.getElementById('noResults');
+
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        vehicles.forEach(vehicle => {
+            // Get the vehicle number and driver name from data attributes
+            const vehicleNumber = vehicle.getAttribute('data-vehicle');
+            const driverName = vehicle.getAttribute('data-driver');
+
+            // Check if the search term matches either the vehicle number or driver name
+            if (vehicleNumber.includes(searchTerm) || driverName.includes(searchTerm)) {
+                vehicle.style.display = ''; // Show card
+                visibleCount++;
+            } else {
+                vehicle.style.display = 'none'; // Hide card
+            }
+        });
+
+        // Show/Hide the "No results" message
+        if (visibleCount === 0 && searchTerm !== '') {
+            noResults.style.display = 'block';
+        } else {
+            noResults.style.display = 'none';
+        }
+    });
+});
+</script>
 {% endblock %}

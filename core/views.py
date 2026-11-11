@@ -41,23 +41,24 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Product, WarehouseStock, Vehicle, VehicleStock, VehicleLoad
-from .forms import VehicleLoadForm
+from .forms import VehicleLoadForm, ServiceForm
 from .decorators import permission_required
 import logging
 from .models import StockMovementLog
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import Cheque, Payment, SalesBill, CreditCollection, Expense
-from .models import Product, ProductPrice
+from .models import Product, ProductPrice, Service
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 import traceback
 import logging
 logger = logging.getLogger(__name__)
-
-
 from django.core.exceptions import PermissionDenied
 from functools import wraps
+
+
+
 
 def admin_only(view_func):
     @wraps(view_func)
@@ -9161,5 +9162,27 @@ def lock_day_data(request):
             messages.error(request, f'❌ Error locking system: {str(e)}')
             
     return redirect(f'/reports/daily-sales-summary/?date={target_date_str}')
+
+
+from django.contrib.auth.decorators import login_required, permission_required
+@login_required
+def service_list(request):
+    """View to add and list services"""
+    if request.method == 'POST':
+        form = ServiceForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Service added successfully!")
+            return redirect('service_list')
+    else:
+        form = ServiceForm()
+
+    services = Service.objects.all().order_by('-date', '-created_at')
+
+    context = {
+        'form': form,
+        'services': services,
+    }
+    return render(request, 'core/service_list.html', context)
 
 

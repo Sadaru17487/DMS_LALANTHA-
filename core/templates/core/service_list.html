@@ -1,0 +1,232 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Services - LALANTHA DISTRIBUTORS{% endblock %}
+
+{% block content %}
+<style>
+    /* Dark Theme matching your screenshot */
+    body {
+        background-color: #1a1a1a; /* Dark background */
+        color: #e0e0e0;
+    }
+    .service-container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .page-header {
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .page-header h2 {
+        color: #ffffff;
+        margin: 0;
+    }
+    .page-header p {
+        color: #888;
+        margin: 5px 0 0 0;
+        font-size: 14px;
+    }
+
+    /* Form Styles */
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        color: #aaa;
+        margin-bottom: 5px;
+        font-size: 13px;
+    }
+    .form-input {
+        width: 100%;
+        padding: 10px;
+        background-color: #2d2d2d;
+        border: 1px solid #444;
+        color: #fff;
+        border-radius: 4px;
+        outline: none;
+    }
+    .form-input:focus {
+        border-color: #007bff;
+    }
+
+    .supplier-section {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+        margin-bottom: 20px;
+    }
+    .supplier-section .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .btn-clear {
+        padding: 10px 20px;
+        background-color: #4a6fa5;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        height: 38px; /* Match input height */
+    }
+
+    /* Create Service Box */
+    .create-box {
+        background-color: #333;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    .create-box h3 {
+        margin-top: 0;
+        color: #fff;
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+    .row {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+    }
+    .row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .btn-add {
+        padding: 10px 15px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        height: 38px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-add:hover {
+        background-color: #218838;
+    }
+
+    /* Table Styles */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background-color: #2d2d2d;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .data-table th {
+        background-color: #4a6fa5;
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-weight: normal;
+    }
+    .data-table td {
+        padding: 12px;
+        border-bottom: 1px solid #444;
+        color: #ddd;
+    }
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+    .empty-row {
+        text-align: center;
+        padding: 20px;
+        color: #888;
+        background-color: #2d2d2d;
+        border-radius: 6px;
+        margin-top: 20px;
+    }
+    
+    /* Simple styling for the Select Dropdown */
+    select.form-input {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px top 50%;
+        background-size: 10px auto;
+    }
+</style>
+
+<div class="service-container">
+    
+    <div class="page-header">
+        <h2>Service</h2>
+        <p>New Service Bills</p>
+    </div>
+
+    <!-- Form Section -->
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- Supplier Section (Top Row) -->
+        <div class="supplier-section">
+            <div class="form-group">
+                <label>Supplier</label>
+                {{ form.supplier }}
+            </div>
+            <button type="button" class="btn-clear" onclick="document.getElementById('supplier-input').value='';">Clear</button>
+        </div>
+
+        <!-- Create Service Section -->
+        <div class="create-box">
+            <h3>Create Service</h3>
+            <div class="row">
+                <div class="form-group" style="flex: 2;">
+                    <label>Service Description</label>
+                    {{ form.description }}
+                </div>
+                <div class="form-group">
+                    <label>Service Cost</label>
+                    {{ form.cost }}
+                </div>
+                <div class="form-group">
+                    <label>Service Price</label>
+                    {{ form.price }}
+                </div>
+                <button type="submit" class="btn-add" title="Add Service">
+                    +
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- List Section -->
+    {% if services %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Supplier</th>
+                    <th>Service Cost</th>
+                    <th>Service Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service in services %}
+                <tr>
+                    <td>{{ service.description }}</td>
+                    <td>{% if service.supplier %}{{ service.supplier.name }}{% else %}-{% endif %}</td>
+                    <td>Rs {{ service.cost|floatformat:2 }}</td>
+                    <td>Rs {{ service.price|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-row">
+            No Service Bill
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}
