@@ -334,6 +334,9 @@
         <a href="/expenses/" class="{% if 'expense' in request.path %}active{% endif %}">
             <i class="fas fa-money-bill-wave"></i> Expenses
         </a>
+        <a href="/services/" class="{% if 'services' in request.path %}active{% endif %}">
+            <i class="fas fa-tools"></i> Services
+        </a>
         {% endif %}
         
         <!-- ===== REPORTS ===== -->
@@ -364,9 +367,7 @@
         <!-- ===== ADMIN (Admin only) ===== -->
         {% if request.user.profile.role == 'Admin' %}
         <div class="nav-section">Admin</div>
-        <a href="/services/" class="{% if 'services' in request.path %}active{% endif %}">
-            <i class="fas fa-tools"></i> Services
-        </a>
+        
         <a href="/employees/" class="{% if 'employee' in request.path %}active{% endif %}">
             <i class="fas fa-user-tie"></i> Employees
         </a>
