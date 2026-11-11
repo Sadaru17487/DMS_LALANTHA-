@@ -277,6 +277,6 @@ urlpatterns = [
 
     path('reports/lock-day/', views.lock_day_data, name='lock_day_data'),
 
-    path('services/', views.service_list, name='service_list'),
+    path('services_list/', views.service_list, name='service_list'),
     
 ]
